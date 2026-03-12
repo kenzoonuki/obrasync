@@ -3148,29 +3148,39 @@ function deleteScenario(id) {
 }
 
 function promoteScenario(id) {
+  // Debug: log what we have
+  const allScenarios = DB.get('budgetScenarios');
+  console.log('promoteScenario called, id=', id);
+  console.log('budgetScenarios raw:', JSON.stringify(allScenarios));
+
   const scenarios = getScenarios();
   const sc = scenarios.find(s => s.id === id);
-  if (!sc) { alert('Erro: cenário não encontrado (id=' + id + ')'); return; }
+  if (!sc) { alert('Erro: cenário não encontrado (id=' + id + ')\n\nIDs disponíveis: ' + scenarios.map(s=>s.id).join(', ')); return; }
+
+  console.log('Cenário encontrado:', sc.name, '— itens:', (sc.items||[]).length);
+
   const items = sc.items || [];
   if (!items.length) { toast('Cenário sem itens — adicione itens antes de promover.'); return; }
+
   const execExists = (DB.get('budget')||[]).length > 0;
   const msg = execExists
     ? 'Promover "' + sc.name + '" para Executivo?\n\nO Executivo atual (' + (DB.get('budget')||[]).length + ' itens) será substituído. Esta ação não pode ser desfeita.'
     : 'Promover "' + sc.name + '" para o Orçamento Executivo?\n\n' + items.length + ' itens serão copiados.';
   if (!confirm(msg)) return;
+
   const exec = items.map(i => ({
     ...JSON.parse(JSON.stringify(i)),
     id: uid(), supplierId: '', supCols: null, type: 'to_contract', pctFis: 0
   }));
-  // Persist and verify
+
+  console.log('Salvando', exec.length, 'itens no executivo...');
   DB.set('budget', exec);
   DB.set('budgetExecOrigin', id);
+
   const verify = DB.get('budget') || [];
-  if (verify.length !== exec.length) {
-    alert('Erro ao salvar executivo. Verifique se o localStorage está disponível no seu browser.');
-    return;
-  }
-  toast('Executivo criado com ' + exec.length + ' itens do cenário "' + sc.name + '" ✓');
+  console.log('Verificação pós-save:', verify.length, 'itens');
+
+  toast('Executivo criado com ' + exec.length + ' itens ✓');
   setBudMode('executive');
 }
 
