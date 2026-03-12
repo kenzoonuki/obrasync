@@ -1215,19 +1215,22 @@ tfoot td{padding:10px 0;border-top:2px solid var(--black);font-weight:800;font-s
 
 
 <script>
-// Inicializa Supabase client
-(function() {
+// Inicializa Supabase client — retorna promise para aguardar
+async function initSupabase() {
   const url = window.__SB_URL = 'https://ojerbwqhlizggifydqwf.supabase.co';
   const key = window.__SB_KEY = 'sb_publishable_InrprwwBZHmIWKxbHx5xOA_2945x7g6';
-  if (url && key && url !== '__VITE_SUPABASE_URL__') {
-    import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm').then(m => {
+  if (url && key && url !== '__VITE_SUPABASE_URL__' && url !== '') {
+    try {
+      const m = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm');
       window._sb = m.createClient(url, key);
-      console.log('✓ Supabase conectado');
-    });
+      console.log('✓ Supabase conectado:', url);
+    } catch(e) {
+      console.error('Erro ao conectar Supabase:', e);
+    }
   } else {
     console.warn('Supabase não configurado — usando localStorage como fallback');
   }
-})();
+}
 
 // =====================================================================
 // STORAGE
@@ -1247,7 +1250,10 @@ const DB = {
     if (window._sb) {
       window._sb.from('kv_store')
         .upsert({ key: k, value: v }, { onConflict: 'key' })
-        .then(({ error }) => { if (error) console.error('DB.set', k, error); });
+        .then(({ error }) => {
+          if (error) console.error('DB.set error', k, error);
+          else if (k === 'init6') console.log('✓ Supabase gravou:', k);
+        });
     }
   },
 
@@ -4687,11 +4693,15 @@ document.addEventListener('focusin', function(e) {
 async function init() {
   // Show loading state
   document.getElementById('loading-overlay').style.display = 'flex';
+  // 1. Connect Supabase FIRST
+  await initSupabase();
+  // 2. Load all data from Supabase (or localStorage fallback)
   try {
     await DB.loadAll();
   } catch(e) {
     console.error('Failed to load data:', e);
   }
+  // 3. Seed only if first run (init6 not set)
   initData();
   migrateBudget();
   document.getElementById('loading-overlay').style.display = 'none';
