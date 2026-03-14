@@ -1217,8 +1217,8 @@ tfoot td{padding:10px 0;border-top:2px solid var(--black);font-weight:800;font-s
 <script>
 // Inicializa Supabase client — retorna promise para aguardar
 async function initSupabase() {
-  const url = window.__SB_URL = 'https://ojerbwqhlizggifydqwf.supabase.co';
-  const key = window.__SB_KEY = 'sb_publishable_InrprwwBZHmIWKxbHx5xOA_2945x7g6';
+  const url = window.__SB_URL;
+  const key = window.__SB_KEY;
   if (url && key && url !== '__VITE_SUPABASE_URL__' && url !== '') {
     try {
       const m = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm');
@@ -1341,11 +1341,23 @@ function initData() {
     {id:'e6',comp:'2025-02',date:'2025-02-28',sup:'Gerenciadora ObraSync',desc:'Honorários Gerenciamento jan-fev/25',disc:'Gerenciamento',phase:'Outros',cc:'Gerenciamento',st:'Mão de Obra',dt:'NF',pm:'PIX',tot:1645,notes:'Honorários 3,5% s/ base física',base:false,budId:null,isFee:true,
      insts:[{id:'p8',n:1,due:'2025-03-05',val:1645,status:'paid',paidAt:'2025-03-05',paidAmt:1645,proof:''}]},
   ]);
-  DB.set('meas', [
-    {id:'m1',per:'2025-01',con:'Empreiteiro Geral',cv:120000,pctP:15,pctA:15,val:18000,status:'approved',notes:''},
-    {id:'m2',per:'2025-01',con:'Elétrica Ltda.',cv:25000,pctP:20,pctA:20,val:5000,status:'approved',notes:''},
-    {id:'m3',per:'2025-02',con:'Empreiteiro Geral',cv:120000,pctP:20,pctA:35,val:24000,status:'approved',notes:''},
-    {id:'m4',per:'2025-02',con:'Elétrica Ltda.',cv:25000,pctP:30,pctA:50,val:7500,status:'approved',notes:''},
+  DB.set('meas', []);
+  // Medições de fornecedores (meas2) — vinculadas aos itens reais do orçamento
+  DB.set('meas2', [
+    {id:'meas2-1', supplierId:'s1', per:'2025-01', date:'2025-01-31', status:'approved', seqNum:1, notes:'', total:14400,
+     items:[
+       {biId:'bi1', pctPrev:0, pctPer:60, pctAcum:60, val:7200},
+       {biId:'bi2', pctPrev:0, pctPer:20, pctAcum:20, val:21600},
+     ]},
+    {id:'meas2-2', supplierId:'s2', per:'2025-01', date:'2025-01-31', status:'approved', seqNum:1, notes:'', total:12500,
+     items:[
+       {biId:'bi3', pctPrev:0, pctPer:50, pctAcum:50, val:12500},
+     ]},
+    {id:'meas2-3', supplierId:'s1', per:'2025-02', date:'2025-02-28', status:'approved', seqNum:2, notes:'', total:9600,
+     items:[
+       {biId:'bi1', pctPrev:60, pctPer:40, pctAcum:100, val:4800},
+       {biId:'bi2', pctPrev:20, pctPer:15, pctAcum:35, val:16200},
+     ]},
   ]);
   DB.set('budget', [
     {id:'bi1',phase:'Demolição',disc:'Civil',desc:'Demolição geral',unit:'vb',qty:1,pmo:12000,pmat:0,pacab:0,price:12000,tot:12000,type:'contracted',supplierId:'s1',supCols:{mo:true,mat:false,acab:false},pctFis:100,compoeBase:true},
@@ -1374,6 +1386,17 @@ function initData() {
     ]},
   ]);
   DB.set('budgetExecOrigin', 'sc1');
+  // Medição de gerenciamento de exemplo
+  DB.set('gerenc', [
+    {id:'ger1', per:'2025-01', date:'2025-01-31', status:'approved', seqNum:1, notes:'', feeBase:55800, feeAmt:1953,
+     items:[
+       {biId:'bi1', supId:'s1', supType:'meas', tot:12000, pct:60, pctAcum:60, base:7200},
+       {biId:'bi2', supId:'s1', supType:'meas', tot:108000, pct:20, pctAcum:20, base:21600},
+       {biId:'bi3', supId:'s2', supType:'meas', tot:25000, pct:50, pctAcum:50, base:12500},
+       {biId:'bi4', supId:'s3', supType:'direct', tot:23000, pct:0, pctAcum:0, base:0},
+       {biId:'bi6', supId:'s1', supType:'meas', tot:18000, pct:0, pctAcum:0, base:0},
+     ]},
+  ]);
   DB.set('photos', [
     {id:'ph1',date:'2025-03-03',phase:'Estrutura',disc:'Civil',desc:'Concretagem da laje do 2º andar',tags:'laje,estrutura',emoji:'\u{1F3D7}',vis:true},
     {id:'ph2',date:'2025-03-02',phase:'Instalações',disc:'Elétrica',desc:'Passagem de eletrodutos – sala principal',tags:'eletroduto',emoji:'⚡',vis:true},
@@ -2339,6 +2362,13 @@ function openGerencWizard(editId, forceEdit) {
 
   const budItems = bud.filter(i => i.supplierId);
   const discNames = [...new Set(budItems.map(i => i.disc || 'Sem Disciplina'))];
+
+  // Last approved gerenc (excluding the one being edited)
+  const gerencAll = DB.get('gerenc') || [];
+  const prevGerenc = gerencAll
+    .filter(g => g.status !== 'draft' && g.id !== (editId || ''))
+    .sort((a,b) => b.date.localeCompare(a.date))[0];
+
   let rows = '';
   discNames.forEach((disc, dIdx) => {
     const items = budItems.filter(i => (i.disc || 'Sem Disciplina') === disc);
@@ -2348,33 +2378,65 @@ function openGerencWizard(editId, forceEdit) {
     items.forEach(bi => {
       const sup = sups.find(s => s.id === bi.supplierId);
       if (!sup) return;
-      let pct, isAuto;
+      let pct, pctPrev, maxPct, isAuto, infoHtml;
+
       if (sup.type === 'meas') {
-        const pctAcum = meas2.filter(m=>m.status!=='draft').flatMap(m=>m.items).filter(it=>it.biId===bi.id).reduce((s,it)=>s+it.pctPer,0);
-        pct = Math.min(pctAcum, 100); isAuto = true;
+        // AUTO: % vem das medições de fornecedor aprovadas
+        // Base = diferença entre acumulado atual e acumulado na última medição de gerenciamento aprovada
+        const pctAcumMeas = Math.min(
+          meas2.filter(m=>m.status!=='draft').flatMap(m=>m.items).filter(it=>it.biId===bi.id).reduce((s,it)=>s+it.pctPer,0),
+          100
+        );
+        // % que já estava na última gerenc aprovada
+        const pctPrevGerenc = prevGerenc
+          ? (prevGerenc.items.find(it=>it.biId===bi.id)||{}).pct || 0
+          : 0;
+        // Base desta medição = apenas o incremento novo
+        const pctDelta = Math.max(0, pctAcumMeas - pctPrevGerenc);
+        pct = pctAcumMeas; // exibe o acumulado atual
+        infoHtml = '<span style="font-size:10px;color:var(--g500);display:block">Acum: '+pctAcumMeas.toFixed(1)+'% · Ant: '+pctPrevGerenc.toFixed(1)+'% · <strong>Delta: '+pctDelta.toFixed(1)+'%</strong></span>';
+        isAuto = true;
+        // Store pctDelta in hidden input for base calc
+        itemRows += '<tr class="gwrow-'+dIdx+'" style="border-bottom:1px solid var(--g100);'+(collapsed?'display:none':'')+'">' +
+          '<td style="padding:6px 8px 6px 16px;font-size:11px">'+bi.desc+'<br><span style="font-size:10px;color:var(--g500)">'+bi.phase+'</span></td>' +
+          '<td style="padding:6px 8px;font-size:11px;white-space:nowrap">'+sup.name+'</td>' +
+          '<td style="text-align:center;padding:6px 8px"><span style="font-size:9px;background:#f0fdf4;color:var(--ok);border:1px solid #bbf7d0;padding:1px 5px;border-radius:2px;font-weight:700">AUTO</span></td>' +
+          '<td style="text-align:right;padding:6px 8px;font-size:11px">'+R(bi.tot)+'</td>' +
+          '<td style="text-align:center;padding:6px 4px">' +
+            '<span style="font-size:12px;font-weight:700;color:var(--ok)">'+pctDelta.toFixed(1)+'%</span>' +
+            infoHtml +
+            '<input type="hidden" class="gw-pct-inp" data-biid="'+bi.id+'" data-tot="'+bi.tot+'" data-supid="'+bi.supplierId+'" data-suptype="meas" data-disc="'+dIdx+'" data-pctacum="'+pctAcumMeas+'" value="'+pctDelta+'"/>' +
+          '</td>' +
+          '<td style="text-align:right;padding:6px 0 6px 8px;font-size:11px;font-weight:700" id="gw-base-'+bi.id+'">'+R(bi.tot*pctDelta/100)+'</td>' +
+          '</tr>';
+        discBase += bi.tot * pctDelta / 100;
+        discTot  += bi.tot;
+        return; // already added row above
       } else {
+        // MANUAL: puxar acumulado da última gerenc aprovada para este item
         const exItem = existingItems ? existingItems.find(it=>it.biId===bi.id) : null;
-        pct = exItem ? exItem.pct : (bi.pctFis || 0); isAuto = false;
+        pctPrev = prevGerenc ? (prevGerenc.items.find(it=>it.biId===bi.id)||{}).pct || 0 : 0;
+        maxPct  = Math.max(0, 100 - pctPrev);
+        pct     = exItem ? exItem.pct : 0; // default 0 for new meas (period increment)
+        pct     = Math.min(pct, maxPct);
+        infoHtml = '<span style="font-size:10px;color:var(--g500);display:block">Acum. ant: '+pctPrev.toFixed(1)+'% · máx: '+maxPct.toFixed(1)+'%</span>';
+        isAuto = false;
       }
+
       const base = bi.tot * pct / 100;
       discBase += base; discTot += bi.tot;
-      const typeTag = isAuto
-        ? '<span style="font-size:9px;background:#f0fdf4;color:var(--ok);border:1px solid #bbf7d0;padding:1px 5px;border-radius:2px;font-weight:700">AUTO</span>'
-        : '<span style="font-size:9px;background:var(--g100);color:var(--g500);border:1px solid var(--g200);padding:1px 5px;border-radius:2px;font-weight:700">MANUAL</span>';
       itemRows += '<tr class="gwrow-'+dIdx+'" style="border-bottom:1px solid var(--g100);'+(collapsed?'display:none':'')+'">' +
         '<td style="padding:6px 8px 6px 16px;font-size:11px">'+bi.desc+'<br><span style="font-size:10px;color:var(--g500)">'+bi.phase+'</span></td>' +
         '<td style="padding:6px 8px;font-size:11px;white-space:nowrap">'+sup.name+'</td>' +
-        '<td style="text-align:center;padding:6px 8px">'+typeTag+'</td>' +
+        '<td style="text-align:center;padding:6px 8px"><span style="font-size:9px;background:var(--g100);color:var(--g500);border:1px solid var(--g200);padding:1px 5px;border-radius:2px;font-weight:700">MANUAL</span></td>' +
         '<td style="text-align:right;padding:6px 8px;font-size:11px">'+R(bi.tot)+'</td>' +
         '<td style="text-align:center;padding:6px 4px">' +
-          (isAuto
-            ? '<span style="font-size:12px;font-weight:700;color:var(--ok)">'+pct.toFixed(1)+'%</span>' +
-              '<input type="hidden" class="gw-pct-inp" data-biid="'+bi.id+'" data-tot="'+bi.tot+'" data-supid="'+bi.supplierId+'" data-suptype="meas" data-disc="'+dIdx+'" value="'+pct+'"/>'
-            : '<input type="number" class="pfi gw-pct-inp" data-biid="'+bi.id+'" data-tot="'+bi.tot+'" data-supid="'+bi.supplierId+'" data-suptype="direct" data-disc="'+dIdx+'" min="0" max="100" step="1" value="'+pct+'" style="width:56px" oninput="calcGerencTotal()"/>') +
+          '<input type="number" class="pfi gw-pct-inp" data-biid="'+bi.id+'" data-tot="'+bi.tot+'" data-supid="'+bi.supplierId+'" data-suptype="direct" data-disc="'+dIdx+'" min="0" max="'+maxPct+'" step="1" value="'+pct+'" style="width:56px" oninput="calcGerencTotal()"/>' +
+          infoHtml +
         '</td>' +
         '<td style="text-align:right;padding:6px 0 6px 8px;font-size:11px;font-weight:700" id="gw-base-'+bi.id+'">'+R(base)+'</td>' +
         '</tr>';
-    });
+    }); // end items.forEach
     const discPct = discTot > 0 ? discBase/discTot*100 : 0;
     // header row
     rows += '<tr class="gw-disc-hdr-row" data-idx="'+dIdx+'" id="gw-hdr-'+dIdx+'" onclick="toggleGwDisc('+dIdx+')" style="cursor:pointer;background:var(--g50);border-bottom:2px solid var(--g200)">' +
@@ -2475,9 +2537,10 @@ function saveGerencWizard() {
   if (!per || !date) { alert('Per\u00edodo e data s\u00e3o obrigat\u00f3rios.'); return; }
   const items = [];
   document.querySelectorAll('.gw-pct-inp').forEach(inp => {
-    const pct  = parseFloat(inp.value) || 0;
-    const tot  = parseFloat(inp.dataset.tot) || 0;
-    items.push({ biId: inp.dataset.biid, supId: inp.dataset.supid, supType: inp.dataset.suptype, tot, pct, base: +(tot*pct/100).toFixed(2) });
+    const pct      = parseFloat(inp.value) || 0;
+    const tot      = parseFloat(inp.dataset.tot) || 0;
+    const pctAcum  = parseFloat(inp.dataset.pctacum || inp.value) || pct;
+    items.push({ biId: inp.dataset.biid, supId: inp.dataset.supid, supType: inp.dataset.suptype, tot, pct, pctAcum, base: +(tot*pct/100).toFixed(2) });
   });
   const feeBase = items.reduce((s,it) => s+it.base, 0);
   const feeAmt  = +(feeBase * FR() / 100).toFixed(2);
@@ -3384,7 +3447,7 @@ function renderBudget() {
 
   // Discipline filter pills
   const discs = [...new Set(bud.map(i => i.disc))];
-  document.getElementById('bud-pills').innerHTML = discs.map(d =>
+  const budPillsEl = document.getElementById('bud-pills'); if (budPillsEl) budPillsEl.innerHTML = discs.map(d =>
     '<button class="pill'+(budgetFilter===d?' active':'')+'" onclick="setBF(this,\''+d+'\')">'+d+'</button>'
   ).join('');
 
@@ -3485,18 +3548,48 @@ function renderBudget() {
       }
     });
   }
-  document.getElementById('bud-tbody').innerHTML = rows || '<tr><td colspan="13" style="text-align:center;padding:28px;color:var(--g400)">Nenhum item. Clique em + Novo Item para come\u00e7ar.</td></tr>';
+  const _bud_tbody = document.getElementById('bud-tbody'); if (_bud_tbody) _bud_tbody.innerHTML = rows || '<tr><td colspan="13" style="text-align:center;padding:28px;color:var(--g400)">Nenhum item. Clique em + Novo Item para come\u00e7ar.</td></tr>';
   document.getElementById('bud-tot').textContent = R(totOrc);
   const c = bud.filter(i=>i.type==='contracted').reduce((s,i)=>s+i.tot,0);
   const tc = bud.filter(i=>i.type==='to_contract').reduce((s,i)=>s+i.tot,0);
   const ex = bud.filter(i=>i.type==='extra').reduce((s,i)=>s+i.tot,0);
   const feeBase = bud.reduce((s,i)=>s+i.tot*(i.pctFis||0)/100,0);
-  document.getElementById('bud-cards').innerHTML =
-    '<div class="card"><div class="clbl">Contratado</div><div class="cval">'+R(c)+'</div></div>' +
-    '<div class="card"><div class="clbl">A Contratar</div><div class="cval">'+R(tc)+'</div></div>' +
-    '<div class="card"><div class="clbl">Extras</div><div class="cval">'+R(ex)+'</div></div>' +
-    '<div class="card dk"><div class="clbl">Total Or\u00e7ado</div><div class="cval">'+R(c+tc+ex)+'</div></div>' +
-    '<div class="card fe"><div class="clbl">Base Honor\u00e1rios (f\u00edsico)</div><div class="cval">'+R(feeBase)+'</div><div class="csub">Honor\u00e1rios: '+R(feeBase*FR()/100)+'</div></div>';
+  // ── Discipline summary cards ───────────────────────────────────────
+  const discMap = {};
+  bud.forEach(i => {
+    if (!discMap[i.disc]) discMap[i.disc] = {mo:0, mat:0, acab:0, tot:0};
+    discMap[i.disc].mo   += (i.pmo  ||0) * (i.qty||0);
+    discMap[i.disc].mat  += (i.pmat ||0) * (i.qty||0);
+    discMap[i.disc].acab += (i.pacab||0) * (i.qty||0);
+    discMap[i.disc].tot  += i.tot||0;
+  });
+  const discCards = Object.entries(discMap).sort((a,b)=>b[1].tot-a[1].tot).map(([disc, v]) =>
+    '<div class="card" style="min-width:180px;flex:1">' +
+      '<div class="clbl" style="font-size:10px;font-weight:900;margin-bottom:6px">'+esc(disc)+'</div>' +
+      '<div class="cval" style="font-size:14px">'+R(v.tot)+'</div>' +
+      '<div style="margin-top:6px;font-size:10px;color:var(--g500);display:flex;flex-direction:column;gap:2px">' +
+        (v.mo   ? '<span>MO: '+R(v.mo)+'</span>'   : '') +
+        (v.mat  ? '<span>Mat: '+R(v.mat)+'</span>'  : '') +
+        (v.acab ? '<span>Acab: '+R(v.acab)+'</span>' : '') +
+      '</div>' +
+    '</div>'
+  ).join('');
+
+  const _bud_cards = document.getElementById('bud-cards'); if (_bud_cards) _bud_cards.innerHTML =
+    '<div style="width:100%;margin-bottom:12px">' +
+      '<div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px;color:var(--g500)">Por Disciplina</div>' +
+      '<div class="cards" style="gap:8px;flex-wrap:wrap">' + discCards + '</div>' +
+    '</div>' +
+    '<div style="width:100%;border-top:1px solid var(--g200);padding-top:12px;margin-top:4px">' +
+      '<div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px;color:var(--g500)">Resumo Geral</div>' +
+      '<div class="cards" style="gap:8px">' +
+        '<div class="card"><div class="clbl">Contratado</div><div class="cval">'+R(c)+'</div></div>' +
+        '<div class="card"><div class="clbl">A Contratar</div><div class="cval">'+R(tc)+'</div></div>' +
+        '<div class="card"><div class="clbl">Extras</div><div class="cval">'+R(ex)+'</div></div>' +
+        '<div class="card dk"><div class="clbl">Total Orçado</div><div class="cval">'+R(c+tc+ex)+'</div></div>' +
+        '<div class="card fe"><div class="clbl">Base Honorários (físico)</div><div class="cval">'+R(feeBase)+'</div><div class="csub">Honorários: '+R(feeBase*FR()/100)+'</div></div>' +
+      '</div>' +
+    '</div>';
   updateBISelBar();
 }
 // =====================================================================
