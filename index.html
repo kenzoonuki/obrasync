@@ -5,8 +5,10 @@
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
 <title>ObraSync</title>
 <script>
+// Credenciais carregadas do config.js (local) ou variáveis de ambiente (Vercel)
+// NÃO edite aqui — edite o arquivo config.js na sua pasta
 window.__SB_URL = 'https://ojerbwqhlizggifydqwf.supabase.co';
-window.__SB_KEY = 'PLACEHOLDER_KEY';
+window.__SB_KEY = 'sb_publishable_InrprwwBZHmIWKxbHx5xOA_2945x7g6';
 </script>
 <style>
 
@@ -1221,8 +1223,8 @@ tfoot td{padding:10px 0;border-top:2px solid var(--black);font-weight:800;font-s
 <script>
 // Inicializa Supabase client — retorna promise para aguardar
 async function initSupabase() {
-  const url = window.__SB_URL = 'https://ojerbwqhlizggifydqwf.supabase.co';
-  const key = window.__SB_KEY = 'sb_publishable_InrprwwBZHmIWKxbHx5xOA_2945x7g6';
+  const url = window.__SB_URL;
+  const key = window.__SB_KEY;
   if (url && key && url !== '__VITE_SUPABASE_URL__' && url !== '') {
     try {
       const m = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm');
