@@ -2247,7 +2247,7 @@ function openNewMeasWizard(preSupId, editMeasId, forceEdit) {
 function loadMeasItems(existingItems) {
   const supId = document.getElementById('mw-sup').value;
   if (!supId) return;
-  const bud = (DB.get('budget')||[]).filter(i => i.supplierId === supId && i.type !== 'to_contract');
+  const bud = (DB.get('budget')||[]).filter(i => i.supplierId === supId);
   const meas = DB.get('meas2') || [];
   const editId = document.getElementById('mw-id').value;
   if (!bud.length) {
@@ -2276,13 +2276,18 @@ function loadMeasItems(existingItems) {
     const remaining = Math.max(0, 100 - pctPrev);
     const exItem = existingItems ? existingItems.find(it => it.biId === bi.id) : null;
     const initVal = exItem ? exItem.pctPer : 0;
-    rows += '<div class="mcard-item" style="align-items:start;padding:8px 0">' +
-      '<span style="padding-top:6px">'+bi.desc+'<br><span style="font-size:10px;color:var(--g500)">'+bi.disc+' \u00b7 '+bi.phase+' \u00b7 '+R(bi.tot)+'</span></span>' +
+    const isFull = remaining === 0;
+    rows += '<div class="mcard-item" style="align-items:start;padding:8px 0;'+(isFull?'opacity:.5':'')+'">' +
+      '<span style="padding-top:6px">'+bi.desc+'<br><span style="font-size:10px;color:var(--g500)">'+bi.disc+' · '+bi.phase+' · '+R(bi.tot)+'</span></span>' +
       '<span style="text-align:center;padding-top:6px;color:var(--g500)">'+pctPrev+'%</span>' +
-      '<span><input type="number" class="pfi mw-pct-inp" data-biid="'+bi.id+'" data-prev="'+pctPrev+'" data-tot="'+bi.tot+'" min="0" max="'+remaining+'" step="0.5" value="'+initVal+'" style="width:56px" oninput="calcMeasTotal()"/>' +
-      '<span style="font-size:9px;color:var(--g500);display:block">m\u00e1x: '+remaining+'%</span></span>' +
-      '<span style="text-align:center;padding-top:6px" id="mw-acum-'+bi.id+'">'+(pctPrev+initVal)+'%</span>' +
-      '<span style="text-align:right;padding-top:6px;font-weight:700" id="mw-val-'+bi.id+'">'+R(bi.tot*(initVal)/100)+'</span>' +
+      (isFull
+        ? '<span style="text-align:center;padding-top:6px"><span style="font-size:11px;font-weight:700;color:var(--ok)">100% ✓</span>' +
+          '<input type="hidden" class="mw-pct-inp" data-biid="'+bi.id+'" data-prev="'+pctPrev+'" data-tot="'+bi.tot+'" value="0"/>' +
+          '<span style="font-size:9px;color:var(--ok);display:block">Concluído</span></span>'
+        : '<span><input type="number" class="pfi mw-pct-inp" data-biid="'+bi.id+'" data-prev="'+pctPrev+'" data-tot="'+bi.tot+'" min="0" max="'+remaining+'" step="0.5" value="'+initVal+'" style="width:56px" oninput="calcMeasTotal()"/>' +
+          '<span style="font-size:9px;color:var(--g500);display:block">máx: '+remaining+'%</span></span>') +
+      '<span style="text-align:center;padding-top:6px" id="mw-acum-'+bi.id+'">'+(isFull?'100':pctPrev+initVal)+'%</span>' +
+      '<span style="text-align:right;padding-top:6px;font-weight:700" id="mw-val-'+bi.id+'">'+R(isFull?0:bi.tot*initVal/100)+'</span>' +
       '</div>';
   });
   document.getElementById('mw-items-rows').innerHTML = rows;
