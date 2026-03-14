@@ -2393,8 +2393,9 @@ function openGerencWizard(editId, forceEdit) {
           100
         );
         // % que já estava na última gerenc aprovada
+        // Read pctAcum from last approved gerenc (= total accumulated at that point)
         const pctPrevGerenc = prevGerenc
-          ? (prevGerenc.items.find(it=>it.biId===bi.id)||{}).pct || 0
+          ? (prevGerenc.items.find(it=>it.biId===bi.id)||{}).pctAcum || 0
           : 0;
         // Base desta medição = apenas o incremento novo
         const pctDelta = Math.max(0, pctAcumMeas - pctPrevGerenc);
@@ -2436,7 +2437,7 @@ function openGerencWizard(editId, forceEdit) {
         '<td style="text-align:center;padding:6px 8px"><span style="font-size:9px;background:var(--g100);color:var(--g500);border:1px solid var(--g200);padding:1px 5px;border-radius:2px;font-weight:700">MANUAL</span></td>' +
         '<td style="text-align:right;padding:6px 8px;font-size:11px">'+R(bi.tot)+'</td>' +
         '<td style="text-align:center;padding:6px 4px">' +
-          '<input type="number" class="pfi gw-pct-inp" data-biid="'+bi.id+'" data-tot="'+bi.tot+'" data-supid="'+bi.supplierId+'" data-suptype="direct" data-disc="'+dIdx+'" min="0" max="'+maxPct+'" step="1" value="'+pct+'" style="width:56px" oninput="calcGerencTotal()"/>' +
+          '<input type="number" class="pfi gw-pct-inp" data-biid="'+bi.id+'" data-tot="'+bi.tot+'" data-supid="'+bi.supplierId+'" data-suptype="direct" data-disc="'+dIdx+'" data-pctprev="'+pctPrev+'" data-pctacum="" min="0" max="'+maxPct+'" step="1" value="'+pct+'" style="width:56px" oninput="calcGerencTotal()"/>' +
           infoHtml +
         '</td>' +
         '<td style="text-align:right;padding:6px 0 6px 8px;font-size:11px;font-weight:700" id="gw-base-'+bi.id+'">'+R(base)+'</td>' +
@@ -2544,7 +2545,11 @@ function saveGerencWizard() {
   document.querySelectorAll('.gw-pct-inp').forEach(inp => {
     const pct      = parseFloat(inp.value) || 0;
     const tot      = parseFloat(inp.dataset.tot) || 0;
-    const pctAcum  = parseFloat(inp.dataset.pctacum || inp.value) || pct;
+    // For AUTO: pctAcum stored in data-pctacum; for MANUAL: pctPrev + pct
+    const pctPrevSaved = parseFloat(inp.dataset.pctprev || 0) || 0;
+    const pctAcum  = inp.dataset.suptype === 'meas'
+      ? parseFloat(inp.dataset.pctacum || 0) || pct
+      : +(pctPrevSaved + pct).toFixed(1);
     items.push({ biId: inp.dataset.biid, supId: inp.dataset.supid, supType: inp.dataset.suptype, tot, pct, pctAcum, base: +(tot*pct/100).toFixed(2) });
   });
   const feeBase = items.reduce((s,it) => s+it.base, 0);
