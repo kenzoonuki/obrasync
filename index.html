@@ -1005,7 +1005,7 @@ tfoot td{padding:10px 0;border-top:2px solid var(--black);font-weight:800;font-s
             <th style="text-align:left;padding:5px 8px 5px 0;font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.08em">Item</th>
             <th style="text-align:left;padding:5px 8px;font-size:9px;font-weight:800;text-transform:uppercase">Fornecedor</th>
             <th style="text-align:center;padding:5px 8px;font-size:9px;font-weight:800;text-transform:uppercase">Tipo</th>
-            <th style="text-align:right;padding:5px 8px;font-size:9px;font-weight:800;text-transform:uppercase">Orçado</th>
+            <th style="text-align:right;padding:5px 8px;font-size:9px;font-weight:800;text-transform:uppercase;min-width:110px;white-space:nowrap">Orçado</th>
             <th style="text-align:center;padding:5px 8px;font-size:9px;font-weight:800;text-transform:uppercase">% Físico</th>
             <th style="text-align:right;padding:5px 8px;font-size:9px;font-weight:800;text-transform:uppercase">Base Calc.</th>
           </tr></thead>
@@ -1252,7 +1252,7 @@ const DB = {
         .upsert({ key: k, value: v }, { onConflict: 'key' })
         .then(({ error }) => {
           if (error) console.error('DB.set error', k, error);
-          else if (k === 'init6') console.log('✓ Supabase gravou:', k);
+          else if (k === 'init7') console.log('✓ Supabase gravou:', k);
         });
     }
   },
@@ -1296,7 +1296,7 @@ function migrateBudget() {
 }
 
 function initData() {
-  if (DB.get('init6')) return;
+  if (DB.get('init7')) return;
   // Clear old seed data to force re-seed with new structure
   DB.set('budget', null);
   DB.set('budgetScenarios', null);
@@ -1403,7 +1403,8 @@ function initData() {
     {id:'ph3',date:'2025-03-01',phase:'Instalações',disc:'Hidráulica',desc:'Tubulação de esgoto – banheiro suíte',tags:'hidráulica',emoji:'\u{1F527}',vis:false},
     {id:'ph4',date:'2025-02-28',phase:'Demolição',disc:'Civil',desc:'Remoção da parede divisória',tags:'demolição',emoji:'⛏',vis:true},
   ]);
-  DB.set('init6', true);
+  DB.set('init6', null);
+  DB.set('init7', true);
 }
 
 // =====================================================================
@@ -2437,7 +2438,7 @@ function openGerencWizard(editId, forceEdit) {
         '<td style="text-align:center;padding:6px 8px"><span style="font-size:9px;background:var(--g100);color:var(--g500);border:1px solid var(--g200);padding:1px 5px;border-radius:2px;font-weight:700">MANUAL</span></td>' +
         '<td style="text-align:right;padding:6px 8px;font-size:11px">'+R(bi.tot)+'</td>' +
         '<td style="text-align:center;padding:6px 4px">' +
-          '<input type="number" class="pfi gw-pct-inp" data-biid="'+bi.id+'" data-tot="'+bi.tot+'" data-supid="'+bi.supplierId+'" data-suptype="direct" data-disc="'+dIdx+'" data-pctprev="'+pctPrev+'" data-pctacum="" min="0" max="'+maxPct+'" step="1" value="'+pct+'" style="width:56px" oninput="calcGerencTotal()"/>' +
+          '<input type="number" class="pfi gw-pct-inp" data-biid="'+bi.id+'" data-tot="'+bi.tot+'" data-supid="'+bi.supplierId+'" data-suptype="direct" data-disc="'+dIdx+'" data-pctprev="'+pctPrev+'" data-pctacum="" min="0" max="'+maxPct+'" step="1" value="'+pct+'" style="width:56px" oninput="enforceGerencMax(this)" />' +
           infoHtml +
         '</td>' +
         '<td style="text-align:right;padding:6px 0 6px 8px;font-size:11px;font-weight:700" id="gw-base-'+bi.id+'">'+R(base)+'</td>' +
@@ -2512,6 +2513,12 @@ function toggleAllGcard(gid, collapse) {
     window._gcardCollapsed[gid][dIdx] = collapse;
   });
   renderMeas();
+}
+function enforceGerencMax(inp) {
+  if (inp.max !== '' && parseFloat(inp.value) > parseFloat(inp.max)) {
+    inp.value = inp.max;
+  }
+  calcGerencTotal();
 }
 function calcGerencTotal() {
   let total = 0;
