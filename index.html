@@ -2018,7 +2018,7 @@ function renderMeas() {
   let fil = meas;
   if (measFilter !== 'all')       fil = fil.filter(m => m.supplierId === measFilter);
   if (measStatusFilter !== 'all') fil = fil.filter(m => m.status === measStatusFilter);
-  fil = fil.sort((a,b) => b.date.localeCompare(a.date));
+  fil = fil.sort((a,b) => { const d = b.date.localeCompare(a.date); return d !== 0 ? d : (b.seqNum||0)-(a.seqNum||0); });
 
   let html = '';
   if (!fil.length) html = '<div class="inote" style="margin-bottom:16px">Nenhuma medição encontrada.</div>';
@@ -2062,7 +2062,7 @@ function renderMeas() {
 
   // ── Gerenciamento cards ────────────────────────────────────────────
   if (!window._gcardCollapsed) window._gcardCollapsed = {};
-  const sortedG = [...gerenc].sort((a,b) => b.date.localeCompare(a.date));
+  const sortedG = [...gerenc].sort((a,b) => { const d = b.date.localeCompare(a.date); return d !== 0 ? d : (b.seqNum||0)-(a.seqNum||0); });
   let ghtml = '';
   if (!sortedG.length) ghtml = '<div class="inote" style="margin-bottom:16px">Nenhuma medi\u00e7\u00e3o de gerenciamento criada ainda.</div>';
   sortedG.forEach(g => {
