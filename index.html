@@ -6,7 +6,7 @@
 <title>ObraSync</title>
 <script>
 window.__SB_URL = 'https://ojerbwqhlizggifydqwf.supabase.co';
-window.__SB_KEY = 'sb_publishable_InrprwwBZHmIWKxbHx5xOA_2945x7g6';
+window.__SB_KEY = 'PLACEHOLDER_KEY';
 </script>
 <style>
 
@@ -2426,7 +2426,7 @@ function openGerencWizard(editId, forceEdit) {
       } else {
         // MANUAL: puxar acumulado da última gerenc aprovada para este item
         const exItem = existingItems ? existingItems.find(it=>it.biId===bi.id) : null;
-        pctPrev = prevGerenc ? (prevGerenc.items.find(it=>it.biId===bi.id)||{}).pct || 0 : 0;
+        pctPrev = prevGerenc ? (prevGerenc.items.find(it=>it.biId===bi.id)||{}).pctAcum || 0 : 0;
         maxPct  = Math.max(0, 100 - pctPrev);
         pct     = exItem ? exItem.pct : 0; // default 0 for new meas (period increment)
         pct     = Math.min(pct, maxPct);
