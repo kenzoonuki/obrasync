@@ -2379,9 +2379,11 @@ function openGerencWizard(editId, forceEdit) {
   const gerencAll = DB.get('gerenc') || [];
   const prevGerenc = gerencAll
     .filter(g => g.status !== 'draft' && g.id !== (editId || ''))
-    .sort((a,b) => b.date.localeCompare(a.date))[0];
-  console.log('prevGerenc:', prevGerenc ? prevGerenc.id + ' status:' + prevGerenc.status : 'nenhum');
-  if (prevGerenc) console.log('prevGerenc items:', JSON.stringify(prevGerenc.items));
+    .sort((a,b) => {
+      const dateDiff = b.date.localeCompare(a.date);
+      if (dateDiff !== 0) return dateDiff;
+      return (b.seqNum || 0) - (a.seqNum || 0); // desempate por número de sequência
+    })[0];
 
   let rows = '';
   discNames.forEach((disc, dIdx) => {
