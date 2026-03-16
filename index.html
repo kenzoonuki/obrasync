@@ -1319,21 +1319,34 @@ tfoot td{padding:10px 0;border-top:2px solid var(--black);font-weight:800;font-s
 
 
 <script>
-// Inicializa Supabase client — retorna promise para aguardar
+// Supabase via fetch direto (sem SDK — evita problemas de Service Worker)
 async function initSupabase() {
   const url = window.__SB_URL;
   const key = window.__SB_KEY;
-  if (url && key && url !== '__VITE_SUPABASE_URL__' && url !== '') {
-    try {
-      const m = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm');
-      window._sb = m.createClient(url, key);
-      console.log('✓ Supabase conectado:', url);
-    } catch(e) {
-      console.error('Erro ao conectar Supabase:', e);
-    }
+  if (url && key && url !== '' && !url.includes('PLACEHOLDER')) {
+    window._sbUrl = url;
+    window._sbKey = key;
+    console.log('✓ Supabase configurado:', url);
   } else {
     console.warn('Supabase não configurado — usando localStorage como fallback');
   }
+}
+
+async function _sbFetch(method, path, body) {
+  const url = window._sbUrl + '/rest/v1/' + path;
+  const headers = {
+    'apikey': window._sbKey,
+    'Authorization': 'Bearer ' + window._sbKey,
+    'Content-Type': 'application/json',
+    'Prefer': method === 'POST' ? 'resolution=merge-duplicates' : ''
+  };
+  const res = await fetch(url, { method, headers, body: body ? JSON.stringify(body) : undefined });
+  if (!res.ok) {
+    const txt = await res.text();
+    throw new Error(res.status + ' ' + txt);
+  }
+  if (res.status === 204) return null;
+  return res.json();
 }
 
 // =====================================================================
@@ -1341,40 +1354,43 @@ async function initSupabase() {
 // =====================================================================
 // DB usa Supabase (kv_store) com cache em memória para performance
 const DB = {
-  _c: {}, // cache
+  _c: {}, // cache em memória
 
   get(k) {
-    // Retorna do cache — populado pelo init()
     return (this._c[k] !== undefined) ? this._c[k] : null;
   },
 
   set(k, v) {
     this._c[k] = v;
-    // Persiste no Supabase em background
-    if (window._sb) {
-      window._sb.from('kv_store')
-        .upsert({ key: k, value: v }, { onConflict: 'key' })
-        .then(({ error }) => {
-          if (error) console.error('DB.set error', k, error.message || JSON.stringify(error));
-          else if (k === 'init7') console.log('✓ Supabase gravou:', k);
-        });
+    if (window._sbUrl) {
+      (async () => {
+        try {
+          await _sbFetch('POST', 'kv_store', { key: k, value: v });
+        } catch(e) {
+          console.error('DB.set error', k, e.message);
+        }
+      })();
     }
   },
 
   async loadAll() {
-    if (!window._sb) {
-      // Fallback: carrega do localStorage
+    if (!window._sbUrl) {
       const keys = ['cats','suppliers','budget','entries','meas','meas2','photos',
         'gerenc','reports','feeRate','lastEntry','lastBudget','entryCollapsed',
-        'budgetScenarios','budgetExecOrigin','init6'];
+        'budgetScenarios','budgetExecOrigin','reembolsos','reembolsosRelatorios','init7'];
       keys.forEach(k => {
         try { this._c[k] = JSON.parse(localStorage.getItem('os3_' + k) || 'null'); } catch(e) {}
       });
+      console.warn('Supabase não configurado — usando localStorage como fallback');
       return;
     }
-    const { data, error } = await window._sb.from('kv_store').select('key, value');
-    if (error) { console.error('DB.loadAll', error.message || error); return; }
-    (data || []).forEach(row => { this._c[row.key] = row.value; });
+    try {
+      const data = await _sbFetch('GET', 'kv_store?select=key,value');
+      (data || []).forEach(row => { this._c[row.key] = row.value; });
+      console.log('✓ Dados carregados do Supabase:', (data||[]).length, 'chaves');
+    } catch(e) {
+      console.error('DB.loadAll error:', e.message);
+    }
   }
 };
 
