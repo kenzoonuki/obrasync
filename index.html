@@ -8,7 +8,7 @@
 // Credenciais carregadas do config.js (local) ou variáveis de ambiente (Vercel)
 // NÃO edite aqui — edite o arquivo config.js na sua pasta
 window.__SB_URL = 'https://ojerbwqhlizggifydqwf.supabase.co';
-window.__SB_KEY = 'sb_publishable_InrprwwBZHmIWKxbHx5xOA_2945x7g6';
+window.__SB_KEY = '%%ANON_KEY%%';
 </script>
 <style>
 
@@ -408,6 +408,7 @@ tfoot td{padding:10px 0;border-top:2px solid var(--black);font-weight:800;font-s
     <div class="sb-label">Obra</div>
     <button class="nav-btn" onclick="nav('suppliers')">Fornecedores</button>
     <button class="nav-btn" onclick="nav('measurements')">Medições</button>
+    <button class="nav-btn" onclick="nav('reembolsos')">Reembolsos</button>
     <button class="nav-btn" onclick="nav('budget')">Orçamento</button>
     <button class="nav-btn" onclick="nav('photos')">Fotos</button>
     <div class="sb-label">Sistema</div>
@@ -568,8 +569,6 @@ tfoot td{padding:10px 0;border-top:2px solid var(--black);font-weight:800;font-s
         <button class="pill" onclick="setSF(this,'meas')">Medição</button>
         <button class="pill" onclick="setSF(this,'direct')">Direto</button>
       </div>
-      <!-- Seção de compras do gerenciador -->
-      <div id="gerenc-reemb-section" style="margin-bottom:16px"></div>
       <div id="sup-list"></div>
     </div>
 
@@ -680,6 +679,30 @@ tfoot td{padding:10px 0;border-top:2px solid var(--black);font-weight:800;font-s
           <div class="inote fe mt16" id="fee-detail-note"></div>
         </div>
       </div>
+    </div>
+
+    <!-- REEMBOLSOS -->
+    <div class="view" id="view-reembolsos">
+      <div class="sec-hd">
+        <h2>Reembolsos</h2>
+        <div class="acts">
+          <button class="btn btn-p" onclick="openReembolsoModal('_gerenc')">&#128181; + Compra do Gerenciador</button>
+        </div>
+      </div>
+      <!-- Filtros -->
+      <div class="fg mb8">
+        <span class="flbl">Fornecedor:</span>
+        <button class="pill active" id="rb-fil-all" onclick="setRbFilter('all',this)">Todos</button>
+        <div id="rb-sup-pills"></div>
+      </div>
+      <div class="fg mb16">
+        <span class="flbl">Status:</span>
+        <button class="pill active" id="rb-sta-all" onclick="setRbStaFilter('all',this)">Todos</button>
+        <button class="pill" id="rb-sta-pending" onclick="setRbStaFilter('pending',this)">Pendentes</button>
+        <button class="pill" id="rb-sta-reimbursed" onclick="setRbStaFilter('reimbursed',this)">Reembolsados</button>
+      </div>
+      <div id="rb-summary" class="cards mb16"></div>
+      <div id="rb-list"></div>
     </div>
 
     <!-- ORÇAMENTO -->
@@ -1551,7 +1574,7 @@ function setRole(r) {
 
 function renderView(v) {
   const map = {dash:renderDash, dashboard:renderDashboard, financial:renderFinancial,
-    installments:renderInstallments, measurements:renderMeas,
+    installments:renderInstallments, measurements:renderMeas, reembolsos:renderReembolsos,
     suppliers:renderSuppliers,
     budget:function(){setBudMode(budMode||'estimative'); renderDash();}, photos:renderPhotos, categories:renderCats, client:renderClient};
   (map[v] || function(){})();
@@ -1907,15 +1930,13 @@ function renderSuppliers() {
       '</div>' +
       '<div style="display:flex;gap:6px;flex-shrink:0">' +
       (s.type==='meas' ? '<button class="btn btn-p btn-sm" onclick="openNewMeasWizard(\''+s.id+'\')">+ Medição</button>' : '') +
-      '<button class="btn btn-g btn-sm" onclick="openReembolsoModal(\''+s.id+'\')">&#128181; + Compra</button>' +
+      '<button class="btn btn-g btn-sm" onclick="openReembolsoModal(\''+s.id+'\')">&#128181; + Reembolso</button>' +
       '<button class="btn btn-e btn-sm" onclick="openSupplierModal(\''+s.id+'\')">Editar</button>' +
       '<button class="btn btn-d" onclick="delSupplier(\''+s.id+'\')">✕</button>' +
       '</div>' +
-      buildSupReembolsoSection(s.id) +
       '</div>';
   });
   document.getElementById('sup-list').innerHTML = html;
-  renderGerencReembolsoSection();
 }
 // =====================================================================
 // REEMBOLSOS
@@ -1970,7 +1991,7 @@ function renderGerencReembolsoSection() {
   html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">';
   html += '<div><span class="sup-name">Gerenciador de Obra</span> <span class="sup-badge sup-direct">Compras Diretas</span></div>';
   html += '<div style="display:flex;gap:6px">';
-  html += '<button class="btn btn-g btn-sm" onclick="openReembolsoModal(\'_gerenc\')">&#128181; + Compra</button>';
+  html += '<button class="btn btn-g btn-sm" onclick="openReembolsoModal(\'_gerenc\')">&#128181; + Reembolso</button>';
   if (pending.length) {
     html += '<button class="btn btn-p btn-sm" onclick="gerarRelatorioReembolso(\'_gerenc\')">&#128196; Relatório</button>';
     html += '<button class="btn btn-g btn-sm" onclick="marcarTodosReembolsado(\'_gerenc\')">✓ Marcar Reembolsado</button>';
@@ -2088,6 +2109,7 @@ function saveReembolso() {
   DB.set('reembolsos', reembs);
   closeModal('mod-reemb');
   renderSuppliers();
+  if (document.getElementById('view-reembolsos').classList.contains('active')) renderReembolsos();
   toast(editId ? 'Compra atualizada' : 'Compra registrada ✓');
 }
 
@@ -2100,6 +2122,7 @@ function delReembolso(id) {
   if (!confirm('Excluir esta compra?')) return;
   DB.set('reembolsos', (DB.get('reembolsos')||[]).filter(r=>r.id!==id));
   renderSuppliers();
+  if (document.getElementById('view-reembolsos').classList.contains('active')) renderReembolsos();
   toast('Compra excluída');
 }
 
@@ -2110,6 +2133,7 @@ function marcarReembolsado(id) {
   if (r) { r.status = 'reimbursed'; r.reimbursedAt = todayStr(); }
   DB.set('reembolsos', reembs);
   renderSuppliers();
+  if (document.getElementById('view-reembolsos').classList.contains('active')) renderReembolsos();
   toast('Marcado como reembolsado ✓');
 }
 
@@ -2119,6 +2143,7 @@ function marcarTodosReembolsado(supId) {
   reembs.filter(r=>r.supId===supId&&r.status==='pending').forEach(r=>{ r.status='reimbursed'; r.reimbursedAt=todayStr(); });
   DB.set('reembolsos', reembs);
   renderSuppliers();
+  if (document.getElementById('view-reembolsos').classList.contains('active')) renderReembolsos();
   toast('Todos os reembolsos marcados ✓');
 }
 
@@ -2147,6 +2172,127 @@ function gerarRelatorioReembolso(supId) {
   w.document.write('<div class="total">Total a Reembolsar: '+R(total)+'</div>');
   w.document.write('</body></html>');
   w.document.close();
+}
+
+// ── Reembolsos view ──────────────────────────────────────────────────
+let rbFilter = 'all', rbStaFilter = 'all';
+
+function setRbFilter(val, btn) {
+  rbFilter = val;
+  document.querySelectorAll('#view-reembolsos .fg .pill').forEach(p => p.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  renderReembolsos();
+}
+function setRbStaFilter(val, btn) {
+  rbStaFilter = val;
+  document.querySelectorAll('#view-reembolsos .fg:nth-child(2) .pill').forEach(p => p.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  renderReembolsos();
+}
+
+function renderReembolsos() {
+  const reembs  = DB.get('reembolsos') || [];
+  const sups    = DB.get('suppliers') || [];
+
+  // Supplier filter pills
+  const supIds = [...new Set(reembs.filter(r=>r.supId!=='_gerenc').map(r=>r.supId))];
+  const pillsEl = document.getElementById('rb-sup-pills');
+  if (pillsEl) {
+    pillsEl.innerHTML = supIds.map(sid => {
+      const s = sups.find(x=>x.id===sid);
+      if (!s) return '';
+      return '<button class="pill'+(rbFilter===sid?' active':'')+'" onclick="setRbFilter(\''+sid+'\',this)">'+esc(s.name)+'</button>';
+    }).join('');
+    if (reembs.some(r=>r.supId==='_gerenc')) {
+      pillsEl.innerHTML += '<button class="pill'+(rbFilter==='_gerenc'?' active':'')+'" onclick="setRbFilter(\'_gerenc\',this)">Gerenciador</button>';
+    }
+  }
+
+  // Filter
+  let fil = reembs;
+  if (rbFilter !== 'all') fil = fil.filter(r => r.supId === rbFilter);
+  if (rbStaFilter !== 'all') fil = fil.filter(r => r.status === rbStaFilter);
+  fil = fil.sort((a,b) => b.date.localeCompare(a.date));
+
+  // Summary cards
+  const pending    = reembs.filter(r => r.status === 'pending');
+  const reimbursed = reembs.filter(r => r.status === 'reimbursed');
+  const totPend    = pending.reduce((s,r)=>s+r.val,0);
+  const totReimb   = reimbursed.reduce((s,r)=>s+r.val,0);
+  const summaryEl  = document.getElementById('rb-summary');
+  if (summaryEl) summaryEl.innerHTML =
+    '<div class="card"><div class="clbl">Pendentes</div><div class="cval" style="color:var(--warn)">'+R(totPend)+'</div><div class="csub">'+pending.length+' compra'+(pending.length!==1?'s':'')+'</div></div>' +
+    '<div class="card"><div class="clbl">Reembolsados</div><div class="cval" style="color:var(--ok)">'+R(totReimb)+'</div><div class="csub">'+reimbursed.length+' compra'+(reimbursed.length!==1?'s':'')+'</div></div>' +
+    '<div class="card dk"><div class="clbl">Total Geral</div><div class="cval">'+R(totPend+totReimb)+'</div></div>';
+
+  // List
+  const listEl = document.getElementById('rb-list');
+  if (!listEl) return;
+  if (!fil.length) { listEl.innerHTML = '<div class="inote">Nenhuma compra encontrada.</div>'; return; }
+
+  // Group by supplier
+  const grouped = {};
+  fil.forEach(r => {
+    const key = r.supId;
+    if (!grouped[key]) grouped[key] = [];
+    grouped[key].push(r);
+  });
+
+  let html = '';
+  Object.entries(grouped).forEach(([supId, items]) => {
+    const sup = supId === '_gerenc' ? {name:'Gerenciador de Obra'} : sups.find(s=>s.id===supId);
+    const supName = sup ? sup.name : 'Fornecedor desconhecido';
+    const pendItems = items.filter(r=>r.status==='pending');
+    const totPendSup = pendItems.reduce((s,r)=>s+r.val,0);
+
+    html += '<div class="mcard" style="margin-bottom:16px">';
+    // Header
+    html += '<div class="mcard-hdr">';
+    html += '<div><span class="mcard-sup">'+esc(supName)+'</span>';
+    if (pendItems.length) html += ' <span style="font-size:11px;color:var(--warn);font-weight:700;margin-left:8px">'+pendItems.length+' pendente'+(pendItems.length>1?'s':'')+' · '+R(totPendSup)+'</span>';
+    html += '</div>';
+    html += '<div style="display:flex;gap:6px">';
+    html += '<button class="btn btn-p btn-sm" onclick="openReembolsoModal(\''+supId+'\')">+ Reembolso</button>';
+    if (pendItems.length) {
+      html += '<button class="btn btn-g btn-sm" onclick="gerarRelatorioReembolso(\''+supId+'\')">&#128196; Relatório</button>';
+      html += '<button class="btn btn-g btn-sm" onclick="marcarTodosReembolsado(\''+supId+'\')">✓ Tudo Reembolsado</button>';
+    }
+    html += '</div></div>';
+
+    // Items table
+    html += '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:11px">';
+    html += '<thead><tr style="border-bottom:2px solid var(--black)">';
+    html += '<th style="padding:6px 8px 6px 0;text-align:left">Data</th>';
+    html += '<th style="padding:6px 8px;text-align:left">Descrição / NF</th>';
+    html += '<th style="padding:6px 8px;text-align:right">Valor</th>';
+    html += '<th style="padding:6px 8px;text-align:left">Reembolsar para</th>';
+    html += '<th style="padding:6px 8px;text-align:left">Dados Bancários</th>';
+    html += '<th style="padding:6px 8px;text-align:center">Status</th>';
+    html += '<th style="padding:6px 8px"></th>';
+    html += '</tr></thead><tbody>';
+
+    items.forEach(r => {
+      const isPend = r.status === 'pending';
+      html += '<tr style="border-bottom:1px solid var(--g100)'+(isPend?'':';opacity:.6')+'">';
+      html += '<td style="padding:6px 0;white-space:nowrap">'+fmtD(r.date)+'</td>';
+      html += '<td style="padding:6px 8px"><strong>'+esc(r.desc)+'</strong>'+(r.nf?' <span class="muted">NF '+esc(r.nf)+'</span>':'')+(r.notes?'<br><span class="muted">'+esc(r.notes)+'</span>':'')+'</td>';
+      html += '<td style="padding:6px 8px;text-align:right;font-weight:700;white-space:nowrap">'+R(r.val)+'</td>';
+      html += '<td style="padding:6px 8px">'+esc(r.to||'—')+'</td>';
+      html += '<td style="padding:6px 8px;font-size:10px;color:var(--g500)">'+(r.pix?'PIX: '+esc(r.pix)+'<br>':'')+(r.bank?esc(r.bank)+' Ag:'+esc(r.agency||'')+' Cc:'+esc(r.account||''):'—')+'</td>';
+      html += '<td style="padding:6px 8px;text-align:center">';
+      if (isPend) html += '<span style="background:#fef3c7;color:#92400e;font-size:9px;font-weight:700;padding:2px 6px;border-radius:2px">PENDENTE</span>';
+      else html += '<span style="background:#f0fdf4;color:var(--ok);font-size:9px;font-weight:700;padding:2px 6px;border-radius:2px">REEMBOLSADO</span>';
+      html += '</td>';
+      html += '<td style="padding:6px 8px;white-space:nowrap">';
+      html += '<button class="btn btn-e btn-sm" onclick="editReembolso(\''+r.id+'\')">✏</button> ';
+      if (isPend) html += '<button class="btn btn-p btn-sm" onclick="marcarReembolsado(\''+r.id+'\')">✓</button> ';
+      html += '<button class="btn btn-d btn-sm" onclick="delReembolso(\''+r.id+'\')">✕</button>';
+      html += '</td></tr>';
+    });
+
+    html += '</tbody></table></div></div>';
+  });
+  listEl.innerHTML = html;
 }
 
 function updateSupDocLabel() {
