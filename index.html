@@ -8,7 +8,7 @@
 // Credenciais carregadas do config.js (local) ou variáveis de ambiente (Vercel)
 // NÃO edite aqui — edite o arquivo config.js na sua pasta
 window.__SB_URL = 'https://ojerbwqhlizggifydqwf.supabase.co';
-window.__SB_KEY = '%%ANON_KEY%%';
+window.__SB_KEY = 'sb_publishable_InrprwwBZHmIWKxbHx5xOA_2945x7g6';
 </script>
 <style>
 
@@ -559,7 +559,7 @@ tfoot td{padding:10px 0;border-top:2px solid var(--black);font-weight:800;font-s
       <div class="sec-hd">
         <h2>Fornecedores</h2>
         <div class="acts">
-        <button class="btn btn-g" onclick="openReembolsoModal(\'_gerenc\')">&#128181; Compra do Gerenciador</button>
+    html += '<button class="btn btn-p btn-sm" onclick="openReembolsoModal(\''+supId+'\')">' + '+ Reembolso</button>';
         <button class="btn btn-p" onclick="openSupplierModal()">+ Novo Fornecedor</button>
       </div>
       </div>
@@ -574,7 +574,7 @@ tfoot td{padding:10px 0;border-top:2px solid var(--black);font-weight:800;font-s
 
     <!-- MODAL: NOVA COMPRA REEMBOLSÁVEL -->
 <div class="modal-ov" id="mod-reemb">
-  <div class="modal" style="max-width:640px">
+  <div class="modal" style="max-width:580px">
     <button class="modal-x" onclick="closeModal('mod-reemb')">&#10005;</button>
     <h3 id="mod-reemb-title">Nova Compra para Reembolso</h3>
     <input type="hidden" id="rb-id"/>
@@ -609,16 +609,6 @@ tfoot td{padding:10px 0;border-top:2px solid var(--black);font-weight:800;font-s
         </div>
       </div>
     </div>
-    <div style="border-top:1px solid var(--g200);padding-top:12px;margin-bottom:12px">
-      <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px">Dados para Reembolso</div>
-      <div class="fgrid w">
-        <div class="ff s2"><label>Reembolsar para *</label><input type="text" id="rb-to" placeholder="Nome completo"/></div>
-        <div class="ff"><label>Banco</label><input type="text" id="rb-bank" placeholder="Ex: Itaú"/></div>
-        <div class="ff"><label>Agência</label><input type="text" id="rb-agency" placeholder="0000"/></div>
-        <div class="ff"><label>Conta</label><input type="text" id="rb-account" placeholder="00000-0"/></div>
-        <div class="ff"><label>PIX</label><input type="text" id="rb-pix" placeholder="CPF, e-mail ou telefone"/></div>
-      </div>
-    </div>
     <div class="chk" style="margin-bottom:12px">
       <input type="checkbox" id="rb-base" checked/>
       <div><label for="rb-base">Compõe base de cálculo dos honorários</label></div>
@@ -627,6 +617,26 @@ tfoot td{padding:10px 0;border-top:2px solid var(--black);font-weight:800;font-s
     <div class="factions">
       <button class="btn btn-p" onclick="saveReembolso()">Salvar Compra</button>
       <button class="btn btn-g" onclick="closeModal('mod-reemb')">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- MODAL: FECHAR RELATÓRIO DE REEMBOLSOS -->
+<div class="modal-ov" id="mod-reimb-close">
+  <div class="modal" style="max-width:640px">
+    <button class="modal-x" onclick="closeModal('mod-reimb-close')">&#10005;</button>
+    <h3>Fechar Relatório de Reembolsos</h3>
+    <p class="muted sm" style="margin:-6px 0 14px">Todas as compras pendentes serão agrupadas neste relatório.</p>
+    <div class="fgrid w" style="margin-bottom:14px">
+      <div class="ff"><label>Período *</label><input type="month" id="rc-per"/></div>
+      <div class="ff"><label>Data de Emissão *</label><input type="date" id="rc-date"/></div>
+      <div class="ff s2"><label>Observações</label><input type="text" id="rc-notes" placeholder="Opcional"/></div>
+    </div>
+    <div id="rc-preview" style="margin-bottom:14px"></div>
+    <div class="factions">
+      <button class="btn btn-p" onclick="fecharRelatorioReembolso()">Fechar Relatório</button>
+      <button class="btn btn-g" onclick="closeModal('mod-reimb-close')">Cancelar</button>
     </div>
   </div>
 </div>
@@ -686,23 +696,24 @@ tfoot td{padding:10px 0;border-top:2px solid var(--black);font-weight:800;font-s
       <div class="sec-hd">
         <h2>Reembolsos</h2>
         <div class="acts">
-          <button class="btn btn-p" onclick="openReembolsoModal('_gerenc')">&#128181; + Compra do Gerenciador</button>
+          <button class="btn btn-g" onclick="openReembolsoModal('_gerenc')">&#128181; + Compra do Gerenciador</button>
+          <button class="btn btn-p" onclick="abrirFecharRelatorio()">&#128196; Fechar Relatório</button>
         </div>
       </div>
-      <!-- Filtros -->
-      <div class="fg mb8">
-        <span class="flbl">Fornecedor:</span>
-        <button class="pill active" id="rb-fil-all" onclick="setRbFilter('all',this)">Todos</button>
-        <div id="rb-sup-pills"></div>
+      <!-- Tabs -->
+      <div class="fg mb16" style="border-bottom:2px solid var(--g200);padding-bottom:0;gap:0">
+        <button class="meas-tab active" id="rtab-pendentes" onclick="setRbTab('pendentes')">Compras Pendentes</button>
+        <button class="meas-tab" id="rtab-relatorios" onclick="setRbTab('relatorios')">Relatórios</button>
       </div>
-      <div class="fg mb16">
-        <span class="flbl">Status:</span>
-        <button class="pill active" id="rb-sta-all" onclick="setRbStaFilter('all',this)">Todos</button>
-        <button class="pill" id="rb-sta-pending" onclick="setRbStaFilter('pending',this)">Pendentes</button>
-        <button class="pill" id="rb-sta-reimbursed" onclick="setRbStaFilter('reimbursed',this)">Reembolsados</button>
+      <!-- Panel: Pendentes -->
+      <div id="rb-panel-pendentes">
+        <div id="rb-summary" class="cards mb16 mt12"></div>
+        <div id="rb-list"></div>
       </div>
-      <div id="rb-summary" class="cards mb16"></div>
-      <div id="rb-list"></div>
+      <!-- Panel: Relatórios -->
+      <div id="rb-panel-relatorios" style="display:none">
+        <div id="rb-relatorios-list" class="mt12"></div>
+      </div>
     </div>
 
     <!-- ORÇAMENTO -->
@@ -1498,6 +1509,7 @@ function initData() {
   ]);
   DB.set('init6', null);
   DB.set('reembolsos', []);
+  DB.set('reembolsosRelatorios', []);
   DB.set('init7', true);
 }
 
@@ -1941,83 +1953,226 @@ function renderSuppliers() {
 // =====================================================================
 // REEMBOLSOS
 // =====================================================================
-function buildSupReembolsoSection(supId) {
-  const all = DB.get('reembolsos') || [];
-  const items = all.filter(r => r.supId === supId);
-  if (!items.length) return '';
-  const pending  = items.filter(r => r.status === 'pending');
-  const reimbursed = items.filter(r => r.status === 'reimbursed');
-  const totalPend = pending.reduce((s,r) => s+r.val, 0);
-  let html = '<div style="border-top:1px solid var(--g200);margin-top:12px;padding-top:12px">';
-  html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">';
-  html += '<span style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em">Compras p/ Reembolso</span>';
-  if (pending.length) {
-    html += '<div style="display:flex;gap:6px">';
-    html += '<span style="font-size:11px;color:var(--warn);font-weight:700">'+pending.length+' pendente'+(pending.length>1?'s':'')+' · '+R(totalPend)+'</span>';
-    html += '<button class="btn btn-p btn-sm" onclick="gerarRelatorioReembolso(\'' + supId + '\')">&#128196; Relatório</button>';
-    html += '<button class="btn btn-g btn-sm" onclick="marcarTodosReembolsado(\'' + supId + '\')">✓ Marcar Reembolsado</button>';
-    html += '</div>';
-  }
-  html += '</div>';
-  // Pending items
-  pending.forEach(r => {
-    html += '<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--g100);font-size:11px">';
-    html += '<span style="flex:1"><strong>'+esc(r.desc)+'</strong>'+(r.nf?' · NF '+esc(r.nf):'')+' <span class="muted">'+fmtD(r.date)+'</span></span>';
-    html += '<span style="font-weight:700;white-space:nowrap">'+R(r.val)+'</span>';
-    html += '<span style="background:#fef3c7;color:#92400e;font-size:9px;font-weight:700;padding:1px 5px;border-radius:2px">PENDENTE</span>';
-    html += '<button class="btn btn-g btn-sm" onclick="editReembolso(\''+r.id+'\'">✏</button>';
-    html += '<button class="btn btn-p btn-sm" onclick="marcarReembolsado(\''+r.id+'\'">✓</button>';
-    html += '<button class="btn btn-d btn-sm" onclick="delReembolso(\''+r.id+'\'">✕</button>';
-    html += '</div>';
-  });
-  // Reimbursed (collapsed summary)
-  if (reimbursed.length) {
-    const totR = reimbursed.reduce((s,r)=>s+r.val,0);
-    html += '<div style="font-size:10px;color:var(--g500);padding-top:6px">'+reimbursed.length+' reembolso'+(reimbursed.length>1?'s':'')+' recebido'+(reimbursed.length>1?'s':'')+' · '+R(totR)+'</div>';
-  }
-  html += '</div>';
-  return html;
+let rbTab = 'pendentes';
+
+function setRbTab(tab) {
+  rbTab = tab;
+  document.getElementById('rtab-pendentes').classList.toggle('active', tab==='pendentes');
+  document.getElementById('rtab-relatorios').classList.toggle('active', tab==='relatorios');
+  document.getElementById('rb-panel-pendentes').style.display = tab==='pendentes' ? '' : 'none';
+  document.getElementById('rb-panel-relatorios').style.display = tab==='relatorios' ? '' : 'none';
+  if (tab==='relatorios') renderRelatoriosReembolso();
+  else renderReembolsos();
 }
 
-function renderGerencReembolsoSection() {
-  const all = DB.get('reembolsos') || [];
-  const items = all.filter(r => r.supId === '_gerenc');
-  const el = document.getElementById('gerenc-reemb-section');
-  if (!el) return;
-  if (!items.length) { el.innerHTML = ''; return; }
-  const pending = items.filter(r => r.status === 'pending');
-  const totalPend = pending.reduce((s,r) => s+r.val, 0);
-  let html = '<div class="sup-card" style="flex-direction:column;align-items:stretch">';
-  html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">';
-  html += '<div><span class="sup-name">Gerenciador de Obra</span> <span class="sup-badge sup-direct">Compras Diretas</span></div>';
-  html += '<div style="display:flex;gap:6px">';
-  html += '<button class="btn btn-g btn-sm" onclick="openReembolsoModal(\'_gerenc\')">&#128181; + Reembolso</button>';
-  if (pending.length) {
-    html += '<button class="btn btn-p btn-sm" onclick="gerarRelatorioReembolso(\'_gerenc\')">&#128196; Relatório</button>';
-    html += '<button class="btn btn-g btn-sm" onclick="marcarTodosReembolsado(\'_gerenc\')">✓ Marcar Reembolsado</button>';
+function renderReembolsos() {
+  const reembs = (DB.get('reembolsos')||[]).filter(r => !r.relatorioId);
+  const sups   = DB.get('suppliers') || [];
+  const total  = reembs.reduce((s,r)=>s+r.val,0);
+
+  // Summary cards
+  const summaryEl = document.getElementById('rb-summary');
+  if (summaryEl) summaryEl.innerHTML =
+    '<div class="card"><div class="clbl">Compras Pendentes</div><div class="cval" style="color:var(--warn)">'+R(total)+'</div><div class="csub">'+reembs.length+' item'+(reembs.length!==1?'ns':'')+'</div></div>';
+
+  const listEl = document.getElementById('rb-list');
+  if (!listEl) return;
+  if (!reembs.length) {
+    listEl.innerHTML = '<div class="inote">Nenhuma compra pendente. Use os botões <strong>+ Reembolso</strong> nos fornecedores ou <strong>+ Compra do Gerenciador</strong> para registrar.</div>';
+    return;
   }
-  html += '</div></div>';
-  if (pending.length) {
-    html += '<div style="font-size:11px;color:var(--warn);font-weight:700;margin-bottom:8px">'+pending.length+' pendente'+(pending.length>1?'s':'')+' · '+R(totalPend)+'</div>';
-    pending.forEach(r => {
-      html += '<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--g100);font-size:11px">';
-      html += '<span style="flex:1"><strong>'+esc(r.desc)+'</strong>'+(r.nf?' · NF '+esc(r.nf):'')+' <span class="muted">'+fmtD(r.date)+'</span></span>';
-      html += '<span style="font-weight:700;white-space:nowrap">'+R(r.val)+'</span>';
-      html += '<button class="btn btn-g btn-sm" onclick="editReembolso(\''+r.id+'\'">✏</button>';
-      html += '<button class="btn btn-p btn-sm" onclick="marcarReembolsado(\''+r.id+'\'">✓</button>';
-      html += '<button class="btn btn-d btn-sm" onclick="delReembolso(\''+r.id+'\'">✕</button>';
-      html += '</div>';
+
+  // Group by supplier
+  const grouped = {};
+  reembs.forEach(r => { (grouped[r.supId]=grouped[r.supId]||[]).push(r); });
+
+  let html = '';
+  Object.entries(grouped).forEach(([supId, items]) => {
+    const sup = supId==='_gerenc' ? {name:'Gerenciador de Obra',bank:'',agency:'',account:'',pix:''} : sups.find(s=>s.id===supId);
+    const supName = sup ? sup.name : 'Desconhecido';
+    const tot = items.reduce((s,r)=>s+r.val,0);
+    html += '<div class="mcard" style="margin-bottom:12px">';
+    html += '<div class="mcard-hdr"><div>';
+    html += '<span class="mcard-sup">'+esc(supName)+'</span>';
+    html += ' <span style="font-size:11px;color:var(--warn);font-weight:700;margin-left:8px">'+items.length+' item'+(items.length!==1?'ns':'')+' · '+R(tot)+'</span>';
+    html += '</div>';
+    html += '<button class="btn btn-p btn-sm" onclick="openReembolsoModal(\''+supId+'\')">' + '+ Reembolso</button>';
+    html += '</div>';
+    html += '<table style="width:100%;border-collapse:collapse;font-size:11px">';
+    html += '<thead><tr style="border-bottom:2px solid var(--black)"><th style="padding:5px 0;text-align:left">Data</th><th style="padding:5px 8px;text-align:left">Descrição</th><th style="padding:5px 8px;text-align:left">NF</th><th style="padding:5px 8px;text-align:right">Valor</th><th style="padding:5px 8px"></th></tr></thead><tbody>';
+    items.sort((a,b)=>a.date.localeCompare(b.date)).forEach(r => {
+      html += '<tr style="border-bottom:1px solid var(--g100)">';
+      html += '<td style="padding:6px 0;white-space:nowrap">'+fmtD(r.date)+'</td>';
+      html += '<td style="padding:6px 8px">'+esc(r.desc)+(r.notes?'<br><span class="muted sm">'+esc(r.notes)+'</span>':'')+'</td>';
+      html += '<td style="padding:6px 8px;color:var(--g500)">'+esc(r.nf||'—')+'</td>';
+      html += '<td style="padding:6px 8px;text-align:right;font-weight:700">'+R(r.val)+'</td>';
+      html += '<td style="padding:6px 8px;white-space:nowrap">';
+    html += '<button class="btn btn-e btn-sm" onclick="editReembolso(\'' + r.id + '\')">&#9998;</button> ';
+    html += '<button class="btn btn-d btn-sm" onclick="delReembolso(\'' + r.id + '\')">&#10005;</button>';
+      html += '</td></tr>';
     });
-  }
-  html += '</div>';
+    html += '</tbody></table></div>';
+  });
+  listEl.innerHTML = html;
+}
+
+function renderRelatoriosReembolso() {
+  const relatorios = (DB.get('reembolsosRelatorios')||[]).sort((a,b)=>(b.seqNum||0)-(a.seqNum||0));
+  const sups = DB.get('suppliers') || [];
+  const el = document.getElementById('rb-relatorios-list');
+  if (!el) return;
+  if (!relatorios.length) { el.innerHTML = '<div class="inote">Nenhum relatório fechado ainda.</div>'; return; }
+
+  let html = '';
+  relatorios.forEach(rel => {
+    const stLabel = {draft:'Rascunho', emitted:'Emitido', paid:'Pago'}[rel.status]||rel.status;
+    const stCls   = {draft:'b-draft', emitted:'b-approved', paid:'badge-ok'}[rel.status]||'b-draft';
+    const total = (rel.items||[]).reduce((s,r)=>s+r.val,0);
+    html += '<div class="mcard" style="margin-bottom:16px">';
+    html += '<div class="mcard-hdr">';
+    html += '<div><div style="display:flex;align-items:center;gap:8px">';
+    html += '<span class="mcard-sup">Reimb. '+String(rel.seqNum).padStart(3,'0')+'</span>';
+    html += '<span class="badge '+stCls+'">'+stLabel+'</span>';
+    html += '</div><div class="mcard-meta">'+fmtD(rel.date)+' · Período: '+fmtP(rel.per)+(rel.notes?' · '+esc(rel.notes):'')+'</div></div>';
+    html += '<div style="display:flex;gap:6px">';
+    html += '<button class="btn btn-g btn-sm" onclick="imprimirRelatorioReembolso(\'' + rel.id + '\')">&#128196; PDF</button>';
+    if (rel.status==='emitted') html += '<button class="btn btn-p btn-sm" onclick="marcarRelPago(\'' + rel.id + '\')">&#10003; Marcar Pago</button>';
+    html += '<button class="btn btn-d btn-sm" onclick="delRelatorioReembolso(\'' + rel.id + '\')">&#10005;</button>';
+    html += '</div></div>';
+
+    // Group by supplier
+    const grouped = {};
+    (rel.items||[]).forEach(r => { (grouped[r.supId]=grouped[r.supId]||[]).push(r); });
+    Object.entries(grouped).forEach(([supId, items]) => {
+      const sup = supId==='_gerenc' ? {name:'Gerenciador de Obra'} : sups.find(s=>s.id===supId);
+      const supTot = items.reduce((s,r)=>s+r.val,0);
+      html += '<div style="margin:8px 0 4px;font-size:10px;font-weight:800;color:var(--g500);text-transform:uppercase">'+esc(sup?sup.name:'?')+' — '+R(supTot)+'</div>';
+      html += '<table style="width:100%;border-collapse:collapse;font-size:11px;margin-bottom:8px">';
+      html += '<tbody>';
+      items.forEach(r => {
+        html += '<tr style="border-bottom:1px solid var(--g100)"><td style="padding:4px 0">'+fmtD(r.date)+'</td><td style="padding:4px 8px">'+esc(r.desc)+'</td><td style="padding:4px 8px;color:var(--g500)">'+esc(r.nf||'')+'</td><td style="padding:4px 8px;text-align:right;font-weight:700">'+R(r.val)+'</td></tr>';
+      });
+      html += '</tbody></table>';
+    });
+    html += '<div style="text-align:right;font-size:14px;font-weight:800;padding:8px 0;border-top:2px solid var(--black)">Total: '+R(total)+'</div>';
+    html += '</div>';
+  });
   el.innerHTML = html;
 }
 
-function openReembolsoModal(supId, editId) {
+function abrirFecharRelatorio() {
+  const pending = (DB.get('reembolsos')||[]).filter(r=>!r.relatorioId);
+  if (!pending.length) { toast('Nenhuma compra pendente para fechar em relatório'); return; }
+  document.getElementById('rc-per').value = new Date().toISOString().slice(0,7);
+  document.getElementById('rc-date').value = todayStr();
+  document.getElementById('rc-notes').value = '';
+  // Preview
   const sups = DB.get('suppliers') || [];
-  const sup = supId === '_gerenc' ? {name:'Gerenciador de Obra', bank:'', agency:'', account:'', pix:''} : sups.find(s=>s.id===supId);
+  const total = pending.reduce((s,r)=>s+r.val,0);
+  const grouped = {};
+  pending.forEach(r => { (grouped[r.supId]=grouped[r.supId]||[]).push(r); });
+  let prev = '<div style="background:var(--g50);border:1px solid var(--g200);padding:12px;border-radius:4px;margin-bottom:4px">';
+  prev += '<div style="font-size:10px;font-weight:800;text-transform:uppercase;margin-bottom:8px">Compras que serão incluídas ('+pending.length+' itens · '+R(total)+')</div>';
+  Object.entries(grouped).forEach(([supId, items]) => {
+    const sup = supId==='_gerenc' ? {name:'Gerenciador de Obra'} : sups.find(s=>s.id===supId);
+    const tot = items.reduce((s,r)=>s+r.val,0);
+    prev += '<div style="font-size:11px;margin-bottom:4px"><strong>'+esc(sup?sup.name:'?')+'</strong> — '+items.length+' item'+(items.length!==1?'ns':'')+' · '+R(tot)+'</div>';
+    items.forEach(r => { prev += '<div style="font-size:10px;color:var(--g600);padding-left:12px">'+fmtD(r.date)+' · '+esc(r.desc)+' · '+R(r.val)+'</div>'; });
+  });
+  prev += '</div>';
+  document.getElementById('rc-preview').innerHTML = prev;
+  openModal('mod-reimb-close');
+}
+
+function fecharRelatorioReembolso() {
+  const per   = document.getElementById('rc-per').value;
+  const date  = document.getElementById('rc-date').value;
+  const notes = document.getElementById('rc-notes').value;
+  if (!per || !date) { alert('Período e data são obrigatórios.'); return; }
+  const pending = (DB.get('reembolsos')||[]).filter(r=>!r.relatorioId);
+  if (!pending.length) { toast('Nenhuma compra pendente'); return; }
+  const sups = DB.get('suppliers') || [];
+  // Snapshot items with supplier bank data
+  const items = pending.map(r => {
+    const sup = r.supId==='_gerenc' ? null : sups.find(s=>s.id===r.supId);
+    return { ...r, bank:sup?sup.bank:'', agency:sup?sup.agency:'', account:sup?sup.account:'', pix:sup?sup.pix:'' };
+  });
+  const relatorios = DB.get('reembolsosRelatorios') || [];
+  const seqNum = relatorios.length + 1;
+  const rel = { id:uid(), seqNum, per, date, notes, status:'emitted', items, total:items.reduce((s,r)=>s+r.val,0) };
+  relatorios.push(rel);
+  DB.set('reembolsosRelatorios', relatorios);
+  // Mark reembolsos as filed
+  const allReembs = DB.get('reembolsos') || [];
+  const pendIds = new Set(pending.map(r=>r.id));
+  allReembs.forEach(r => { if (pendIds.has(r.id)) r.relatorioId = rel.id; });
+  DB.set('reembolsos', allReembs);
+  closeModal('mod-reimb-close');
+  setRbTab('relatorios');
+  toast('Reimb. '+String(seqNum).padStart(3,'0')+' fechado — '+items.length+' compras ✓');
+}
+
+function marcarRelPago(id) {
+  if (!confirm('Confirmar recebimento do reembolso pelo cliente?')) return;
+  const rels = DB.get('reembolsosRelatorios') || [];
+  const rel = rels.find(r=>r.id===id);
+  if (rel) { rel.status = 'paid'; rel.paidAt = todayStr(); }
+  DB.set('reembolsosRelatorios', rels);
+  renderRelatoriosReembolso();
+  toast('Reimb. '+String(rel.seqNum).padStart(3,'0')+' marcado como pago ✓');
+}
+
+function delRelatorioReembolso(id) {
+  if (!confirm('Excluir este relatório? As compras voltarão para pendentes.')) return;
+  const rels = DB.get('reembolsosRelatorios') || [];
+  const rel = rels.find(r=>r.id===id);
+  DB.set('reembolsosRelatorios', rels.filter(r=>r.id!==id));
+  // Unfile the reembolsos
+  const reembs = DB.get('reembolsos') || [];
+  reembs.forEach(r => { if (r.relatorioId===id) delete r.relatorioId; });
+  DB.set('reembolsos', reembs);
+  renderRelatoriosReembolso();
+  toast('Relatório excluído — compras voltaram para pendentes');
+}
+
+function imprimirRelatorioReembolso(id) {
+  const rel = (DB.get('reembolsosRelatorios')||[]).find(r=>r.id===id);
+  if (!rel) return;
+  const sups = DB.get('suppliers') || [];
+  const w = window.open('', '_blank');
+  const grouped = {};
+  (rel.items||[]).forEach(r => { (grouped[r.supId]=grouped[r.supId]||[]).push(r); });
+  let body = '';
+  Object.entries(grouped).forEach(([supId, items]) => {
+    const sup = supId==='_gerenc' ? {name:'Gerenciador de Obra',bank:'',agency:'',account:'',pix:''} : sups.find(s=>s.id===supId)||{name:'?'};
+    const tot = items.reduce((s,r)=>s+r.val,0);
+    // Bank info from snapshot
+    const firstItem = items[0];
+    const bankInfo = firstItem.pix ? 'PIX: '+firstItem.pix : (firstItem.bank ? firstItem.bank+' · Ag: '+(firstItem.agency||'—')+' · Cc: '+(firstItem.account||'—') : '—');
+    body += '<div style="margin-bottom:24px;page-break-inside:avoid">';
+    body += '<div style="display:flex;justify-content:space-between;align-items:baseline;border-bottom:2px solid #000;padding-bottom:6px;margin-bottom:8px">';
+    body += '<strong style="font-size:14px">'+sup.name+'</strong>';
+    body += '<span style="font-size:11px;color:#666">'+bankInfo+'</span></div>';
+    body += '<table style="width:100%;border-collapse:collapse;font-size:12px">';
+    body += '<thead><tr><th style="text-align:left;padding:4px 0;border-bottom:1px solid #ccc">Data</th><th style="text-align:left;padding:4px 8px;border-bottom:1px solid #ccc">Descrição</th><th style="text-align:left;padding:4px 8px;border-bottom:1px solid #ccc">NF</th><th style="text-align:right;padding:4px 0;border-bottom:1px solid #ccc">Valor</th></tr></thead><tbody>';
+    items.forEach(r => {
+      body += '<tr><td style="padding:4px 0">'+fmtD(r.date)+'</td><td style="padding:4px 8px">'+esc(r.desc)+'</td><td style="padding:4px 8px;color:#666">'+esc(r.nf||'—')+'</td><td style="padding:4px 0;text-align:right;font-weight:700">'+R(r.val)+'</td></tr>';
+    });
+    body += '</tbody><tfoot><tr><td colspan="3" style="padding:6px 0;font-weight:700;border-top:1px solid #000">Subtotal '+sup.name+'</td><td style="padding:6px 0;text-align:right;font-weight:800;border-top:1px solid #000">'+R(tot)+'</td></tr></tfoot></table></div>';
+  });
+  w.document.write('<html><head><title>Relatório de Reembolsos — Reimb.'+String(rel.seqNum).padStart(3,'0')+'</title><style>body{font-family:Arial,sans-serif;padding:32px;font-size:13px;max-width:800px;margin:0 auto}.total{font-size:18px;font-weight:800;text-align:right;padding:12px 0;border-top:3px solid #000;margin-top:8px}@media print{button{display:none}}</style></head><body>');
+  w.document.write('<button onclick="window.print()" style="margin-bottom:20px;padding:8px 20px;cursor:pointer;font-size:13px">&#128196; Imprimir / Salvar PDF</button>');
+  w.document.write('<h1 style="font-size:22px;margin-bottom:4px">Relatório de Reembolsos</h1>');
+  w.document.write('<p style="color:#666;margin-bottom:24px">Reimb. '+String(rel.seqNum).padStart(3,'0')+' · Período: '+fmtP(rel.per)+' · Emitido em '+fmtD(rel.date)+(rel.notes?' · '+esc(rel.notes):'')+'</p>');
+  w.document.write(body);
+  w.document.write('<div class="total">Total Geral: '+R(rel.total)+'</div>');
+  w.document.write('</body></html>');
+  w.document.close();
+}
+
+function openReembolsoModal(supId, editId) {
   const bud = DB.get('budget') || [];
-  const c = cats();
+  const cats_data = cats();
   document.getElementById('rb-id').value = editId || '';
   document.getElementById('rb-sup-id').value = supId;
   document.getElementById('rb-date').value = todayStr();
@@ -2028,89 +2183,72 @@ function openReembolsoModal(supId, editId) {
   document.getElementById('rb-notes').value = '';
   document.getElementById('rb-base').checked = true;
   document.getElementById('rb-link-type').value = 'existing';
-  // Pre-fill bank details from supplier
-  document.getElementById('rb-to').value = sup ? sup.name : '';
-  document.getElementById('rb-bank').value = sup ? (sup.bank||'') : '';
-  document.getElementById('rb-agency').value = sup ? (sup.agency||'') : '';
-  document.getElementById('rb-account').value = sup ? (sup.account||'') : '';
-  document.getElementById('rb-pix').value = sup ? (sup.pix||'') : '';
-  // Budget items dropdown
   const budSel = document.getElementById('rb-bud-item');
   budSel.innerHTML = '<option value="">— Sem vínculo —</option>' +
     bud.map(i => '<option value="'+i.id+'">'+esc(i.disc+' · '+i.desc)+'</option>').join('');
-  // Disc/phase for new item
-  pop('rb-disc', c.disciplines||[]);
-  pop('rb-phase', c.phases||[]);
+  pop('rb-disc', cats_data.disciplines||[]);
+  pop('rb-phase', cats_data.phases||[]);
   if (editId) {
     const r = (DB.get('reembolsos')||[]).find(x=>x.id===editId);
     if (r) {
-      document.getElementById('rb-date').value = r.date;
+      document.getElementById('rb-date').value = r.date||'';
       document.getElementById('rb-comp').value = r.comp||'';
-      document.getElementById('rb-desc').value = r.desc;
-      document.getElementById('rb-val').value = r.val;
+      document.getElementById('rb-desc').value = r.desc||'';
+      document.getElementById('rb-val').value = r.val||'';
       document.getElementById('rb-nf').value = r.nf||'';
       document.getElementById('rb-notes').value = r.notes||'';
       document.getElementById('rb-base').checked = r.base !== false;
-      document.getElementById('rb-to').value = r.to||'';
-      document.getElementById('rb-bank').value = r.bank||'';
-      document.getElementById('rb-agency').value = r.agency||'';
-      document.getElementById('rb-account').value = r.account||'';
-      document.getElementById('rb-pix').value = r.pix||'';
       document.getElementById('rb-link-type').value = r.budItemId ? 'existing' : 'none';
       if (r.budItemId) budSel.value = r.budItemId;
     }
   }
   toggleRbLink();
-  document.getElementById('mod-reemb-title').textContent = (editId ? 'Editar' : 'Nova') + ' Compra — ' + (sup ? sup.name : '');
+  const sups = DB.get('suppliers') || [];
+  const sup = supId==='_gerenc' ? {name:'Gerenciador de Obra'} : sups.find(s=>s.id===supId);
+  document.getElementById('mod-reemb-title').textContent = (editId?'Editar':'Nova')+' Compra — '+(sup?sup.name:'');
   openModal('mod-reemb');
 }
 
 function toggleRbLink() {
   const type = document.getElementById('rb-link-type').value;
-  document.getElementById('rb-link-existing').style.display = type === 'existing' ? '' : 'none';
-  document.getElementById('rb-link-new-disc').style.display = type === 'new' ? '' : 'none';
-  document.getElementById('rb-link-new-phase').style.display = type === 'new' ? '' : 'none';
+  document.getElementById('rb-link-existing').style.display = type==='existing' ? '' : 'none';
+  document.getElementById('rb-link-new-disc').style.display = type==='new' ? '' : 'none';
+  document.getElementById('rb-link-new-phase').style.display = type==='new' ? '' : 'none';
 }
 
 function saveReembolso() {
-  const supId = document.getElementById('rb-sup-id').value;
+  const supId  = document.getElementById('rb-sup-id').value;
   const editId = document.getElementById('rb-id').value;
-  const date  = document.getElementById('rb-date').value;
-  const comp  = document.getElementById('rb-comp').value;
-  const desc  = document.getElementById('rb-desc').value.trim();
-  const val   = parseFloat(document.getElementById('rb-val').value) || 0;
-  const nf    = document.getElementById('rb-nf').value.trim();
-  const notes = document.getElementById('rb-notes').value.trim();
-  const base  = document.getElementById('rb-base').checked;
-  const to    = document.getElementById('rb-to').value.trim();
-  const bank  = document.getElementById('rb-bank').value.trim();
-  const agency= document.getElementById('rb-agency').value.trim();
-  const account=document.getElementById('rb-account').value.trim();
-  const pix   = document.getElementById('rb-pix').value.trim();
+  const date   = document.getElementById('rb-date').value;
+  const comp   = document.getElementById('rb-comp').value;
+  const desc   = document.getElementById('rb-desc').value.trim();
+  const val    = parseFloat(document.getElementById('rb-val').value)||0;
+  const nf     = document.getElementById('rb-nf').value.trim();
+  const notes  = document.getElementById('rb-notes').value.trim();
+  const base   = document.getElementById('rb-base').checked;
   const linkType = document.getElementById('rb-link-type').value;
-  if (!date || !desc || !val) { alert('Data, descrição e valor são obrigatórios.'); return; }
+  if (!date||!desc||!val) { alert('Data, descrição e valor são obrigatórios.'); return; }
   let budItemId = '';
-  if (linkType === 'existing') {
+  if (linkType==='existing') {
     budItemId = document.getElementById('rb-bud-item').value;
-  } else if (linkType === 'new') {
-    // Create new budget item
+  } else if (linkType==='new') {
     const disc  = document.getElementById('rb-disc').value;
     const phase = document.getElementById('rb-phase').value;
-    const newBI = { id:uid(), phase, disc, desc, unit:'vb', qty:1, pmo:0, pmat:val, pacab:0, price:val, tot:val, type:'contracted', supplierId:supId==='_gerenc'?'':supId, supCols:null, pctFis:0, compoeBase:base };
-    const bud = DB.get('budget') || [];
+    const newBI = {id:uid(),phase,disc,desc,unit:'vb',qty:1,pmo:0,pmat:val,pacab:0,price:val,tot:val,type:'contracted',supplierId:supId==='_gerenc'?'':supId,supCols:null,pctFis:0,compoeBase:base};
+    const bud = DB.get('budget')||[];
     bud.push(newBI);
     DB.set('budget', bud);
     budItemId = newBI.id;
   }
-  const reembs = DB.get('reembolsos') || [];
+  const reembs = DB.get('reembolsos')||[];
   const editIdx = editId ? reembs.findIndex(x=>x.id===editId) : -1;
-  const record = { id: editId||uid(), supId, date, comp, desc, val, nf, notes, base, to, bank, agency, account, pix, budItemId, status:'pending' };
-  if (editIdx > -1) reembs[editIdx] = record; else reembs.push(record);
+  const record = {id:editId||uid(),supId,date,comp,desc,val,nf,notes,base,budItemId};
+  if (editIdx>-1) reembs[editIdx]=record; else reembs.push(record);
   DB.set('reembolsos', reembs);
   closeModal('mod-reemb');
   renderSuppliers();
   if (document.getElementById('view-reembolsos').classList.contains('active')) renderReembolsos();
-  toast(editId ? 'Compra atualizada' : 'Compra registrada ✓');
+  toast(editId?'Compra atualizada':'Compra registrada ✓');
 }
 
 function editReembolso(id) {
@@ -2126,174 +2264,11 @@ function delReembolso(id) {
   toast('Compra excluída');
 }
 
-function marcarReembolsado(id) {
-  if (!confirm('Confirmar que este item foi reembolsado pelo cliente?')) return;
-  const reembs = DB.get('reembolsos') || [];
-  const r = reembs.find(x=>x.id===id);
-  if (r) { r.status = 'reimbursed'; r.reimbursedAt = todayStr(); }
-  DB.set('reembolsos', reembs);
-  renderSuppliers();
-  if (document.getElementById('view-reembolsos').classList.contains('active')) renderReembolsos();
-  toast('Marcado como reembolsado ✓');
+// ── Reembolso section in supplier card (compact) ─────────────────────
+function buildSupReembolsoSection(supId) {
+  return ''; // Kept for compatibility — main view is in Reembolsos tab
 }
-
-function marcarTodosReembolsado(supId) {
-  if (!confirm('Marcar TODAS as compras pendentes deste fornecedor como reembolsadas?')) return;
-  const reembs = DB.get('reembolsos') || [];
-  reembs.filter(r=>r.supId===supId&&r.status==='pending').forEach(r=>{ r.status='reimbursed'; r.reimbursedAt=todayStr(); });
-  DB.set('reembolsos', reembs);
-  renderSuppliers();
-  if (document.getElementById('view-reembolsos').classList.contains('active')) renderReembolsos();
-  toast('Todos os reembolsos marcados ✓');
-}
-
-function gerarRelatorioReembolso(supId) {
-  const sups = DB.get('suppliers') || [];
-  const sup = supId === '_gerenc' ? {name:'Gerenciador de Obra'} : sups.find(s=>s.id===supId);
-  const reembs = (DB.get('reembolsos')||[]).filter(r=>r.supId===supId&&r.status==='pending');
-  if (!reembs.length) { toast('Nenhuma compra pendente para este fornecedor'); return; }
-  const total = reembs.reduce((s,r)=>s+r.val, 0);
-  const w = window.open('', '_blank');
-  const rows = reembs.map((r,i) =>
-    '<tr style="border-bottom:1px solid #eee">' +
-    '<td style="padding:8px 4px">'+(i+1)+'</td>' +
-    '<td style="padding:8px 4px">'+fmtD(r.date)+'</td>' +
-    '<td style="padding:8px 4px">'+esc(r.desc)+(r.nf?' <span style="color:#888;font-size:11px">NF '+esc(r.nf)+'</span>':'')+'</td>' +
-    '<td style="padding:8px 4px;text-align:right;font-weight:700">'+R(r.val)+'</td>' +
-    '<td style="padding:8px 4px">'+esc(r.to||'—')+'</td>' +
-    '<td style="padding:8px 4px;font-size:11px">'+(r.pix?'PIX: '+esc(r.pix):'')+(r.bank?' '+esc(r.bank)+' Ag:'+esc(r.agency)+' Cc:'+esc(r.account):'')+'</td>' +
-    '</tr>'
-  ).join('');
-  w.document.write('<html><head><title>Relatório de Reembolso</title><style>body{font-family:Arial,sans-serif;padding:32px;font-size:13px}table{width:100%;border-collapse:collapse}th{text-align:left;padding:8px 4px;border-bottom:2px solid #000;font-size:11px;text-transform:uppercase}h1{font-size:20px;margin-bottom:4px}h2{font-size:14px;font-weight:400;color:#666;margin-bottom:24px}.total{font-size:18px;font-weight:700;text-align:right;margin-top:16px;padding-top:12px;border-top:2px solid #000}@media print{button{display:none}}</style></head><body>');
-  w.document.write('<button onclick="window.print()" style="margin-bottom:16px;padding:8px 16px;cursor:pointer">Imprimir / Salvar PDF</button>');
-  w.document.write('<h1>Relatório de Reembolso</h1>');
-  w.document.write('<h2>'+(sup?sup.name:'')+'  ·  Emitido em '+fmtD(todayStr())+'</h2>');
-  w.document.write('<table><thead><tr><th>#</th><th>Data</th><th>Descrição</th><th style="text-align:right">Valor</th><th>Reembolsar para</th><th>Dados Bancários</th></tr></thead><tbody>'+rows+'</tbody></table>');
-  w.document.write('<div class="total">Total a Reembolsar: '+R(total)+'</div>');
-  w.document.write('</body></html>');
-  w.document.close();
-}
-
-// ── Reembolsos view ──────────────────────────────────────────────────
-let rbFilter = 'all', rbStaFilter = 'all';
-
-function setRbFilter(val, btn) {
-  rbFilter = val;
-  document.querySelectorAll('#view-reembolsos .fg .pill').forEach(p => p.classList.remove('active'));
-  if (btn) btn.classList.add('active');
-  renderReembolsos();
-}
-function setRbStaFilter(val, btn) {
-  rbStaFilter = val;
-  document.querySelectorAll('#view-reembolsos .fg:nth-child(2) .pill').forEach(p => p.classList.remove('active'));
-  if (btn) btn.classList.add('active');
-  renderReembolsos();
-}
-
-function renderReembolsos() {
-  const reembs  = DB.get('reembolsos') || [];
-  const sups    = DB.get('suppliers') || [];
-
-  // Supplier filter pills
-  const supIds = [...new Set(reembs.filter(r=>r.supId!=='_gerenc').map(r=>r.supId))];
-  const pillsEl = document.getElementById('rb-sup-pills');
-  if (pillsEl) {
-    pillsEl.innerHTML = supIds.map(sid => {
-      const s = sups.find(x=>x.id===sid);
-      if (!s) return '';
-      return '<button class="pill'+(rbFilter===sid?' active':'')+'" onclick="setRbFilter(\''+sid+'\',this)">'+esc(s.name)+'</button>';
-    }).join('');
-    if (reembs.some(r=>r.supId==='_gerenc')) {
-      pillsEl.innerHTML += '<button class="pill'+(rbFilter==='_gerenc'?' active':'')+'" onclick="setRbFilter(\'_gerenc\',this)">Gerenciador</button>';
-    }
-  }
-
-  // Filter
-  let fil = reembs;
-  if (rbFilter !== 'all') fil = fil.filter(r => r.supId === rbFilter);
-  if (rbStaFilter !== 'all') fil = fil.filter(r => r.status === rbStaFilter);
-  fil = fil.sort((a,b) => b.date.localeCompare(a.date));
-
-  // Summary cards
-  const pending    = reembs.filter(r => r.status === 'pending');
-  const reimbursed = reembs.filter(r => r.status === 'reimbursed');
-  const totPend    = pending.reduce((s,r)=>s+r.val,0);
-  const totReimb   = reimbursed.reduce((s,r)=>s+r.val,0);
-  const summaryEl  = document.getElementById('rb-summary');
-  if (summaryEl) summaryEl.innerHTML =
-    '<div class="card"><div class="clbl">Pendentes</div><div class="cval" style="color:var(--warn)">'+R(totPend)+'</div><div class="csub">'+pending.length+' compra'+(pending.length!==1?'s':'')+'</div></div>' +
-    '<div class="card"><div class="clbl">Reembolsados</div><div class="cval" style="color:var(--ok)">'+R(totReimb)+'</div><div class="csub">'+reimbursed.length+' compra'+(reimbursed.length!==1?'s':'')+'</div></div>' +
-    '<div class="card dk"><div class="clbl">Total Geral</div><div class="cval">'+R(totPend+totReimb)+'</div></div>';
-
-  // List
-  const listEl = document.getElementById('rb-list');
-  if (!listEl) return;
-  if (!fil.length) { listEl.innerHTML = '<div class="inote">Nenhuma compra encontrada.</div>'; return; }
-
-  // Group by supplier
-  const grouped = {};
-  fil.forEach(r => {
-    const key = r.supId;
-    if (!grouped[key]) grouped[key] = [];
-    grouped[key].push(r);
-  });
-
-  let html = '';
-  Object.entries(grouped).forEach(([supId, items]) => {
-    const sup = supId === '_gerenc' ? {name:'Gerenciador de Obra'} : sups.find(s=>s.id===supId);
-    const supName = sup ? sup.name : 'Fornecedor desconhecido';
-    const pendItems = items.filter(r=>r.status==='pending');
-    const totPendSup = pendItems.reduce((s,r)=>s+r.val,0);
-
-    html += '<div class="mcard" style="margin-bottom:16px">';
-    // Header
-    html += '<div class="mcard-hdr">';
-    html += '<div><span class="mcard-sup">'+esc(supName)+'</span>';
-    if (pendItems.length) html += ' <span style="font-size:11px;color:var(--warn);font-weight:700;margin-left:8px">'+pendItems.length+' pendente'+(pendItems.length>1?'s':'')+' · '+R(totPendSup)+'</span>';
-    html += '</div>';
-    html += '<div style="display:flex;gap:6px">';
-    html += '<button class="btn btn-p btn-sm" onclick="openReembolsoModal(\''+supId+'\')">+ Reembolso</button>';
-    if (pendItems.length) {
-      html += '<button class="btn btn-g btn-sm" onclick="gerarRelatorioReembolso(\''+supId+'\')">&#128196; Relatório</button>';
-      html += '<button class="btn btn-g btn-sm" onclick="marcarTodosReembolsado(\''+supId+'\')">✓ Tudo Reembolsado</button>';
-    }
-    html += '</div></div>';
-
-    // Items table
-    html += '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:11px">';
-    html += '<thead><tr style="border-bottom:2px solid var(--black)">';
-    html += '<th style="padding:6px 8px 6px 0;text-align:left">Data</th>';
-    html += '<th style="padding:6px 8px;text-align:left">Descrição / NF</th>';
-    html += '<th style="padding:6px 8px;text-align:right">Valor</th>';
-    html += '<th style="padding:6px 8px;text-align:left">Reembolsar para</th>';
-    html += '<th style="padding:6px 8px;text-align:left">Dados Bancários</th>';
-    html += '<th style="padding:6px 8px;text-align:center">Status</th>';
-    html += '<th style="padding:6px 8px"></th>';
-    html += '</tr></thead><tbody>';
-
-    items.forEach(r => {
-      const isPend = r.status === 'pending';
-      html += '<tr style="border-bottom:1px solid var(--g100)'+(isPend?'':';opacity:.6')+'">';
-      html += '<td style="padding:6px 0;white-space:nowrap">'+fmtD(r.date)+'</td>';
-      html += '<td style="padding:6px 8px"><strong>'+esc(r.desc)+'</strong>'+(r.nf?' <span class="muted">NF '+esc(r.nf)+'</span>':'')+(r.notes?'<br><span class="muted">'+esc(r.notes)+'</span>':'')+'</td>';
-      html += '<td style="padding:6px 8px;text-align:right;font-weight:700;white-space:nowrap">'+R(r.val)+'</td>';
-      html += '<td style="padding:6px 8px">'+esc(r.to||'—')+'</td>';
-      html += '<td style="padding:6px 8px;font-size:10px;color:var(--g500)">'+(r.pix?'PIX: '+esc(r.pix)+'<br>':'')+(r.bank?esc(r.bank)+' Ag:'+esc(r.agency||'')+' Cc:'+esc(r.account||''):'—')+'</td>';
-      html += '<td style="padding:6px 8px;text-align:center">';
-      if (isPend) html += '<span style="background:#fef3c7;color:#92400e;font-size:9px;font-weight:700;padding:2px 6px;border-radius:2px">PENDENTE</span>';
-      else html += '<span style="background:#f0fdf4;color:var(--ok);font-size:9px;font-weight:700;padding:2px 6px;border-radius:2px">REEMBOLSADO</span>';
-      html += '</td>';
-      html += '<td style="padding:6px 8px;white-space:nowrap">';
-      html += '<button class="btn btn-e btn-sm" onclick="editReembolso(\''+r.id+'\')">✏</button> ';
-      if (isPend) html += '<button class="btn btn-p btn-sm" onclick="marcarReembolsado(\''+r.id+'\')">✓</button> ';
-      html += '<button class="btn btn-d btn-sm" onclick="delReembolso(\''+r.id+'\')">✕</button>';
-      html += '</td></tr>';
-    });
-
-    html += '</tbody></table></div></div>';
-  });
-  listEl.innerHTML = html;
-}
+function renderGerencReembolsoSection() {} // no-op
 
 function updateSupDocLabel() {
   const isPF = document.getElementById('sup-person').value === 'pf';
