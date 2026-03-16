@@ -583,7 +583,7 @@ tfoot td{padding:10px 0;border-top:2px solid var(--black);font-weight:800;font-s
       <div class="ff"><label>Data da Compra *</label><input type="date" id="rb-date"/></div>
       <div class="ff"><label>Competência</label><input type="month" id="rb-comp"/></div>
       <div class="ff s2"><label>Descrição / NF *</label><input type="text" id="rb-desc" placeholder="Ex: NF 1234 — Tinta acrílica"/></div>
-      <div class="ff"><label>Valor (R$) *</label><input type="number" id="rb-val" min="0" step="0.01" placeholder="0,00"/></div>
+      <div class="ff"><label>Valor (R$) *</label><input type="text" id="rb-val" placeholder="0,00" oninput="fmtCurrencyInput(this)"/></div>
       <div class="ff"><label>Nº da Nota Fiscal</label><input type="text" id="rb-nf" placeholder="Ex: 001234"/></div>
     </div>
     <div style="border-top:1px solid var(--g200);padding-top:12px;margin-bottom:12px">
@@ -1355,7 +1355,7 @@ const DB = {
       window._sb.from('kv_store')
         .upsert({ key: k, value: v }, { onConflict: 'key' })
         .then(({ error }) => {
-          if (error) console.error('DB.set error', k, error);
+          if (error) console.error('DB.set error', k, error.message || JSON.stringify(error));
           else if (k === 'init7') console.log('✓ Supabase gravou:', k);
         });
     }
@@ -1373,7 +1373,7 @@ const DB = {
       return;
     }
     const { data, error } = await window._sb.from('kv_store').select('key, value');
-    if (error) { console.error('DB.loadAll', error); return; }
+    if (error) { console.error('DB.loadAll', error.message || error); return; }
     (data || []).forEach(row => { this._c[row.key] = row.value; });
   }
 };
@@ -1526,6 +1526,20 @@ const isOvd = d => d && d < todayStr();
 const cats = () => DB.get('cats') || {};
 const FR = () => parseFloat(DB.get('feeRate')) || 3.5;
 const pop = (id, items, sel='') => { const s = document.getElementById(id); if(!s) return; s.innerHTML = items.map(i => '<option value="'+i+'"'+(i===sel?' selected':'')+'>'+i+'</option>').join(''); };
+
+function fmtCurrencyInput(inp) {
+  // Format as Brazilian currency while typing
+  let v = inp.value.replace(/\D/g,'');
+  if (!v) { inp.value = ''; return; }
+  v = (parseInt(v,10)/100).toFixed(2);
+  inp.value = v.replace('.',',').replace(/\B(?=(\d{3})+(?!\d))/g,'.');
+}
+function parseCurrency(str) {
+  if (!str) return 0;
+  // Handle both "1.234,56" and "1234.56" and "1234,56"
+  const s = String(str).trim().replace(/\./g,'').replace(',','.');
+  return parseFloat(s)||0;
+}
 
 function toast(msg) {
   const t = document.getElementById('toast');
@@ -1994,7 +2008,7 @@ function renderReembolsos() {
     html += '<div class="mcard" style="margin-bottom:12px">';
     html += '<div class="mcard-hdr"><div>';
     html += '<span class="mcard-sup">'+esc(supName)+'</span>';
-    html += ' <span style="font-size:11px;color:var(--warn);font-weight:700;margin-left:8px">'+items.length+' item'+(items.length!==1?'ns':'')+' · '+R(tot)+'</span>';
+    html += ' <span style="font-size:11px;color:var(--warn);font-weight:700;margin-left:8px">'+items.length+' item'+(items.length!==1?'s':'')+' · '+R(tot)+'</span>';
     html += '</div>';
     html += '<button class="btn btn-p btn-sm" onclick="openReembolsoModal(\''+supId+'\')">' + '+ Reembolso</button>';
     html += '</div>';
@@ -2076,7 +2090,7 @@ function abrirFecharRelatorio() {
   Object.entries(grouped).forEach(([supId, items]) => {
     const sup = supId==='_gerenc' ? {name:'Gerenciador de Obra'} : sups.find(s=>s.id===supId);
     const tot = items.reduce((s,r)=>s+r.val,0);
-    prev += '<div style="font-size:11px;margin-bottom:4px"><strong>'+esc(sup?sup.name:'?')+'</strong> — '+items.length+' item'+(items.length!==1?'ns':'')+' · '+R(tot)+'</div>';
+    prev += '<div style="font-size:11px;margin-bottom:4px"><strong>'+esc(sup?sup.name:'?')+'</strong> — '+items.length+' item'+(items.length!==1?'s':'')+' · '+R(tot)+'</div>';
     items.forEach(r => { prev += '<div style="font-size:10px;color:var(--g600);padding-left:12px">'+fmtD(r.date)+' · '+esc(r.desc)+' · '+R(r.val)+'</div>'; });
   });
   prev += '</div>';
@@ -2194,7 +2208,7 @@ function openReembolsoModal(supId, editId) {
       document.getElementById('rb-date').value = r.date||'';
       document.getElementById('rb-comp').value = r.comp||'';
       document.getElementById('rb-desc').value = r.desc||'';
-      document.getElementById('rb-val').value = r.val||'';
+      document.getElementById('rb-val').value = r.val ? String(r.val.toFixed(2)).replace('.',',') : '';
       document.getElementById('rb-nf').value = r.nf||'';
       document.getElementById('rb-notes').value = r.notes||'';
       document.getElementById('rb-base').checked = r.base !== false;
@@ -2222,7 +2236,7 @@ function saveReembolso() {
   const date   = document.getElementById('rb-date').value;
   const comp   = document.getElementById('rb-comp').value;
   const desc   = document.getElementById('rb-desc').value.trim();
-  const val    = parseFloat(document.getElementById('rb-val').value)||0;
+  const val    = parseCurrency(document.getElementById('rb-val').value);
   const nf     = document.getElementById('rb-nf').value.trim();
   const notes  = document.getElementById('rb-notes').value.trim();
   const base   = document.getElementById('rb-base').checked;
@@ -2880,7 +2894,7 @@ function openGerencWizard(editId, forceEdit) {
     rows += '<tr class="gw-disc-hdr-row" data-idx="'+dIdx+'" id="gw-hdr-'+dIdx+'" onclick="toggleGwDisc('+dIdx+')" style="cursor:pointer;background:var(--g50);border-bottom:2px solid var(--g200)">' +
       '<td colspan="4" style="padding:8px 8px 8px 0;font-size:11px;font-weight:800">' +
         '<span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border:2px solid var(--black);border-radius:3px;font-size:11px;font-weight:900;margin-right:8px" id="gw-tog-'+dIdx+'">'+(collapsed?'+':'\u2212')+'</span>' +
-        disc+' <span style="font-size:10px;font-weight:400;color:var(--g500);margin-left:4px">'+items.length+' item'+(items.length!==1?'ns':'')+'</span>' +
+        disc+' <span style="font-size:10px;font-weight:400;color:var(--g500);margin-left:4px">'+items.length+' item'+(items.length!==1?'s':'')+'</span>' +
         '<span class="gw-collapsed-sm" id="gw-hdr-sm-'+dIdx+'" style="display:'+(collapsed?'':'none')+';font-size:10px;font-weight:400;color:var(--g500);margin-left:12px">'+ R(discTot)+' \u00b7 '+discPct.toFixed(1)+'% med.</span>' +
       '</td>' +
       '<td style="text-align:center;padding:8px 4px"><span id="gw-hdr-pct-'+dIdx+'"></span></td>' +
