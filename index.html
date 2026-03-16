@@ -557,7 +557,10 @@ tfoot td{padding:10px 0;border-top:2px solid var(--black);font-weight:800;font-s
     <div class="view" id="view-suppliers">
       <div class="sec-hd">
         <h2>Fornecedores</h2>
-        <div class="acts"><button class="btn btn-p" onclick="openSupplierModal()">+ Novo Fornecedor</button></div>
+        <div class="acts">
+        <button class="btn btn-g" onclick="openReembolsoModal(\'_gerenc\')">&#128181; Compra do Gerenciador</button>
+        <button class="btn btn-p" onclick="openSupplierModal()">+ Novo Fornecedor</button>
+      </div>
       </div>
       <div class="fg mb16">
         <span class="flbl">Tipo:</span>
@@ -565,10 +568,71 @@ tfoot td{padding:10px 0;border-top:2px solid var(--black);font-weight:800;font-s
         <button class="pill" onclick="setSF(this,'meas')">Medição</button>
         <button class="pill" onclick="setSF(this,'direct')">Direto</button>
       </div>
+      <!-- Seção de compras do gerenciador -->
+      <div id="gerenc-reemb-section" style="margin-bottom:16px"></div>
       <div id="sup-list"></div>
     </div>
 
-    <!-- MEDIÇÕES -->
+    <!-- MODAL: NOVA COMPRA REEMBOLSÁVEL -->
+<div class="modal-ov" id="mod-reemb">
+  <div class="modal" style="max-width:640px">
+    <button class="modal-x" onclick="closeModal('mod-reemb')">&#10005;</button>
+    <h3 id="mod-reemb-title">Nova Compra para Reembolso</h3>
+    <input type="hidden" id="rb-id"/>
+    <input type="hidden" id="rb-sup-id"/>
+    <div class="fgrid w" style="margin-bottom:12px">
+      <div class="ff"><label>Data da Compra *</label><input type="date" id="rb-date"/></div>
+      <div class="ff"><label>Competência</label><input type="month" id="rb-comp"/></div>
+      <div class="ff s2"><label>Descrição / NF *</label><input type="text" id="rb-desc" placeholder="Ex: NF 1234 — Tinta acrílica"/></div>
+      <div class="ff"><label>Valor (R$) *</label><input type="number" id="rb-val" min="0" step="0.01" placeholder="0,00"/></div>
+      <div class="ff"><label>Nº da Nota Fiscal</label><input type="text" id="rb-nf" placeholder="Ex: 001234"/></div>
+    </div>
+    <div style="border-top:1px solid var(--g200);padding-top:12px;margin-bottom:12px">
+      <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px">Vínculo com Orçamento</div>
+      <div class="fgrid w">
+        <div class="ff s2">
+          <label>Tipo de vínculo</label>
+          <select id="rb-link-type" onchange="toggleRbLink()">
+            <option value="existing">Vincular a item existente do orçamento</option>
+            <option value="new">Criar novo item no orçamento</option>
+            <option value="none">Sem vínculo (só reembolso)</option>
+          </select>
+        </div>
+        <div class="ff s2" id="rb-link-existing">
+          <label>Item do Orçamento</label>
+          <select id="rb-bud-item"><option value="">— Selecionar —</option></select>
+        </div>
+        <div class="ff" id="rb-link-new-disc" style="display:none">
+          <label>Disciplina</label><select id="rb-disc"></select>
+        </div>
+        <div class="ff" id="rb-link-new-phase" style="display:none">
+          <label>Fase</label><select id="rb-phase"></select>
+        </div>
+      </div>
+    </div>
+    <div style="border-top:1px solid var(--g200);padding-top:12px;margin-bottom:12px">
+      <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px">Dados para Reembolso</div>
+      <div class="fgrid w">
+        <div class="ff s2"><label>Reembolsar para *</label><input type="text" id="rb-to" placeholder="Nome completo"/></div>
+        <div class="ff"><label>Banco</label><input type="text" id="rb-bank" placeholder="Ex: Itaú"/></div>
+        <div class="ff"><label>Agência</label><input type="text" id="rb-agency" placeholder="0000"/></div>
+        <div class="ff"><label>Conta</label><input type="text" id="rb-account" placeholder="00000-0"/></div>
+        <div class="ff"><label>PIX</label><input type="text" id="rb-pix" placeholder="CPF, e-mail ou telefone"/></div>
+      </div>
+    </div>
+    <div class="chk" style="margin-bottom:12px">
+      <input type="checkbox" id="rb-base" checked/>
+      <div><label for="rb-base">Compõe base de cálculo dos honorários</label></div>
+    </div>
+    <div class="ff mb16"><label>Observações</label><input type="text" id="rb-notes" placeholder="Opcional"/></div>
+    <div class="factions">
+      <button class="btn btn-p" onclick="saveReembolso()">Salvar Compra</button>
+      <button class="btn btn-g" onclick="closeModal('mod-reemb')">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MEDIÇÕES -->
     <div class="view" id="view-measurements">
       <div class="sec-hd">
         <h2>Medições de Obra</h2>
@@ -1410,6 +1474,7 @@ function initData() {
     {id:'ph4',date:'2025-02-28',phase:'Demolição',disc:'Civil',desc:'Remoção da parede divisória',tags:'demolição',emoji:'⛏',vis:true},
   ]);
   DB.set('init6', null);
+  DB.set('reembolsos', []);
   DB.set('init7', true);
 }
 
@@ -1842,13 +1907,248 @@ function renderSuppliers() {
       '</div>' +
       '<div style="display:flex;gap:6px;flex-shrink:0">' +
       (s.type==='meas' ? '<button class="btn btn-p btn-sm" onclick="openNewMeasWizard(\''+s.id+'\')">+ Medição</button>' : '') +
+      '<button class="btn btn-g btn-sm" onclick="openReembolsoModal(\''+s.id+'\')">&#128181; + Compra</button>' +
       '<button class="btn btn-e btn-sm" onclick="openSupplierModal(\''+s.id+'\')">Editar</button>' +
       '<button class="btn btn-d" onclick="delSupplier(\''+s.id+'\')">✕</button>' +
       '</div>' +
+      buildSupReembolsoSection(s.id) +
       '</div>';
   });
   document.getElementById('sup-list').innerHTML = html;
+  renderGerencReembolsoSection();
 }
+// =====================================================================
+// REEMBOLSOS
+// =====================================================================
+function buildSupReembolsoSection(supId) {
+  const all = DB.get('reembolsos') || [];
+  const items = all.filter(r => r.supId === supId);
+  if (!items.length) return '';
+  const pending  = items.filter(r => r.status === 'pending');
+  const reimbursed = items.filter(r => r.status === 'reimbursed');
+  const totalPend = pending.reduce((s,r) => s+r.val, 0);
+  let html = '<div style="border-top:1px solid var(--g200);margin-top:12px;padding-top:12px">';
+  html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">';
+  html += '<span style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em">Compras p/ Reembolso</span>';
+  if (pending.length) {
+    html += '<div style="display:flex;gap:6px">';
+    html += '<span style="font-size:11px;color:var(--warn);font-weight:700">'+pending.length+' pendente'+(pending.length>1?'s':'')+' · '+R(totalPend)+'</span>';
+    html += '<button class="btn btn-p btn-sm" onclick="gerarRelatorioReembolso(\'' + supId + '\')">&#128196; Relatório</button>';
+    html += '<button class="btn btn-g btn-sm" onclick="marcarTodosReembolsado(\'' + supId + '\')">✓ Marcar Reembolsado</button>';
+    html += '</div>';
+  }
+  html += '</div>';
+  // Pending items
+  pending.forEach(r => {
+    html += '<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--g100);font-size:11px">';
+    html += '<span style="flex:1"><strong>'+esc(r.desc)+'</strong>'+(r.nf?' · NF '+esc(r.nf):'')+' <span class="muted">'+fmtD(r.date)+'</span></span>';
+    html += '<span style="font-weight:700;white-space:nowrap">'+R(r.val)+'</span>';
+    html += '<span style="background:#fef3c7;color:#92400e;font-size:9px;font-weight:700;padding:1px 5px;border-radius:2px">PENDENTE</span>';
+    html += '<button class="btn btn-g btn-sm" onclick="editReembolso(\''+r.id+'\'">✏</button>';
+    html += '<button class="btn btn-p btn-sm" onclick="marcarReembolsado(\''+r.id+'\'">✓</button>';
+    html += '<button class="btn btn-d btn-sm" onclick="delReembolso(\''+r.id+'\'">✕</button>';
+    html += '</div>';
+  });
+  // Reimbursed (collapsed summary)
+  if (reimbursed.length) {
+    const totR = reimbursed.reduce((s,r)=>s+r.val,0);
+    html += '<div style="font-size:10px;color:var(--g500);padding-top:6px">'+reimbursed.length+' reembolso'+(reimbursed.length>1?'s':'')+' recebido'+(reimbursed.length>1?'s':'')+' · '+R(totR)+'</div>';
+  }
+  html += '</div>';
+  return html;
+}
+
+function renderGerencReembolsoSection() {
+  const all = DB.get('reembolsos') || [];
+  const items = all.filter(r => r.supId === '_gerenc');
+  const el = document.getElementById('gerenc-reemb-section');
+  if (!el) return;
+  if (!items.length) { el.innerHTML = ''; return; }
+  const pending = items.filter(r => r.status === 'pending');
+  const totalPend = pending.reduce((s,r) => s+r.val, 0);
+  let html = '<div class="sup-card" style="flex-direction:column;align-items:stretch">';
+  html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">';
+  html += '<div><span class="sup-name">Gerenciador de Obra</span> <span class="sup-badge sup-direct">Compras Diretas</span></div>';
+  html += '<div style="display:flex;gap:6px">';
+  html += '<button class="btn btn-g btn-sm" onclick="openReembolsoModal(\'_gerenc\')">&#128181; + Compra</button>';
+  if (pending.length) {
+    html += '<button class="btn btn-p btn-sm" onclick="gerarRelatorioReembolso(\'_gerenc\')">&#128196; Relatório</button>';
+    html += '<button class="btn btn-g btn-sm" onclick="marcarTodosReembolsado(\'_gerenc\')">✓ Marcar Reembolsado</button>';
+  }
+  html += '</div></div>';
+  if (pending.length) {
+    html += '<div style="font-size:11px;color:var(--warn);font-weight:700;margin-bottom:8px">'+pending.length+' pendente'+(pending.length>1?'s':'')+' · '+R(totalPend)+'</div>';
+    pending.forEach(r => {
+      html += '<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--g100);font-size:11px">';
+      html += '<span style="flex:1"><strong>'+esc(r.desc)+'</strong>'+(r.nf?' · NF '+esc(r.nf):'')+' <span class="muted">'+fmtD(r.date)+'</span></span>';
+      html += '<span style="font-weight:700;white-space:nowrap">'+R(r.val)+'</span>';
+      html += '<button class="btn btn-g btn-sm" onclick="editReembolso(\''+r.id+'\'">✏</button>';
+      html += '<button class="btn btn-p btn-sm" onclick="marcarReembolsado(\''+r.id+'\'">✓</button>';
+      html += '<button class="btn btn-d btn-sm" onclick="delReembolso(\''+r.id+'\'">✕</button>';
+      html += '</div>';
+    });
+  }
+  html += '</div>';
+  el.innerHTML = html;
+}
+
+function openReembolsoModal(supId, editId) {
+  const sups = DB.get('suppliers') || [];
+  const sup = supId === '_gerenc' ? {name:'Gerenciador de Obra', bank:'', agency:'', account:'', pix:''} : sups.find(s=>s.id===supId);
+  const bud = DB.get('budget') || [];
+  const c = cats();
+  document.getElementById('rb-id').value = editId || '';
+  document.getElementById('rb-sup-id').value = supId;
+  document.getElementById('rb-date').value = todayStr();
+  document.getElementById('rb-comp').value = new Date().toISOString().slice(0,7);
+  document.getElementById('rb-desc').value = '';
+  document.getElementById('rb-val').value = '';
+  document.getElementById('rb-nf').value = '';
+  document.getElementById('rb-notes').value = '';
+  document.getElementById('rb-base').checked = true;
+  document.getElementById('rb-link-type').value = 'existing';
+  // Pre-fill bank details from supplier
+  document.getElementById('rb-to').value = sup ? sup.name : '';
+  document.getElementById('rb-bank').value = sup ? (sup.bank||'') : '';
+  document.getElementById('rb-agency').value = sup ? (sup.agency||'') : '';
+  document.getElementById('rb-account').value = sup ? (sup.account||'') : '';
+  document.getElementById('rb-pix').value = sup ? (sup.pix||'') : '';
+  // Budget items dropdown
+  const budSel = document.getElementById('rb-bud-item');
+  budSel.innerHTML = '<option value="">— Sem vínculo —</option>' +
+    bud.map(i => '<option value="'+i.id+'">'+esc(i.disc+' · '+i.desc)+'</option>').join('');
+  // Disc/phase for new item
+  pop('rb-disc', c.disciplines||[]);
+  pop('rb-phase', c.phases||[]);
+  if (editId) {
+    const r = (DB.get('reembolsos')||[]).find(x=>x.id===editId);
+    if (r) {
+      document.getElementById('rb-date').value = r.date;
+      document.getElementById('rb-comp').value = r.comp||'';
+      document.getElementById('rb-desc').value = r.desc;
+      document.getElementById('rb-val').value = r.val;
+      document.getElementById('rb-nf').value = r.nf||'';
+      document.getElementById('rb-notes').value = r.notes||'';
+      document.getElementById('rb-base').checked = r.base !== false;
+      document.getElementById('rb-to').value = r.to||'';
+      document.getElementById('rb-bank').value = r.bank||'';
+      document.getElementById('rb-agency').value = r.agency||'';
+      document.getElementById('rb-account').value = r.account||'';
+      document.getElementById('rb-pix').value = r.pix||'';
+      document.getElementById('rb-link-type').value = r.budItemId ? 'existing' : 'none';
+      if (r.budItemId) budSel.value = r.budItemId;
+    }
+  }
+  toggleRbLink();
+  document.getElementById('mod-reemb-title').textContent = (editId ? 'Editar' : 'Nova') + ' Compra — ' + (sup ? sup.name : '');
+  openModal('mod-reemb');
+}
+
+function toggleRbLink() {
+  const type = document.getElementById('rb-link-type').value;
+  document.getElementById('rb-link-existing').style.display = type === 'existing' ? '' : 'none';
+  document.getElementById('rb-link-new-disc').style.display = type === 'new' ? '' : 'none';
+  document.getElementById('rb-link-new-phase').style.display = type === 'new' ? '' : 'none';
+}
+
+function saveReembolso() {
+  const supId = document.getElementById('rb-sup-id').value;
+  const editId = document.getElementById('rb-id').value;
+  const date  = document.getElementById('rb-date').value;
+  const comp  = document.getElementById('rb-comp').value;
+  const desc  = document.getElementById('rb-desc').value.trim();
+  const val   = parseFloat(document.getElementById('rb-val').value) || 0;
+  const nf    = document.getElementById('rb-nf').value.trim();
+  const notes = document.getElementById('rb-notes').value.trim();
+  const base  = document.getElementById('rb-base').checked;
+  const to    = document.getElementById('rb-to').value.trim();
+  const bank  = document.getElementById('rb-bank').value.trim();
+  const agency= document.getElementById('rb-agency').value.trim();
+  const account=document.getElementById('rb-account').value.trim();
+  const pix   = document.getElementById('rb-pix').value.trim();
+  const linkType = document.getElementById('rb-link-type').value;
+  if (!date || !desc || !val) { alert('Data, descrição e valor são obrigatórios.'); return; }
+  let budItemId = '';
+  if (linkType === 'existing') {
+    budItemId = document.getElementById('rb-bud-item').value;
+  } else if (linkType === 'new') {
+    // Create new budget item
+    const disc  = document.getElementById('rb-disc').value;
+    const phase = document.getElementById('rb-phase').value;
+    const newBI = { id:uid(), phase, disc, desc, unit:'vb', qty:1, pmo:0, pmat:val, pacab:0, price:val, tot:val, type:'contracted', supplierId:supId==='_gerenc'?'':supId, supCols:null, pctFis:0, compoeBase:base };
+    const bud = DB.get('budget') || [];
+    bud.push(newBI);
+    DB.set('budget', bud);
+    budItemId = newBI.id;
+  }
+  const reembs = DB.get('reembolsos') || [];
+  const editIdx = editId ? reembs.findIndex(x=>x.id===editId) : -1;
+  const record = { id: editId||uid(), supId, date, comp, desc, val, nf, notes, base, to, bank, agency, account, pix, budItemId, status:'pending' };
+  if (editIdx > -1) reembs[editIdx] = record; else reembs.push(record);
+  DB.set('reembolsos', reembs);
+  closeModal('mod-reemb');
+  renderSuppliers();
+  toast(editId ? 'Compra atualizada' : 'Compra registrada ✓');
+}
+
+function editReembolso(id) {
+  const r = (DB.get('reembolsos')||[]).find(x=>x.id===id);
+  if (r) openReembolsoModal(r.supId, id);
+}
+
+function delReembolso(id) {
+  if (!confirm('Excluir esta compra?')) return;
+  DB.set('reembolsos', (DB.get('reembolsos')||[]).filter(r=>r.id!==id));
+  renderSuppliers();
+  toast('Compra excluída');
+}
+
+function marcarReembolsado(id) {
+  if (!confirm('Confirmar que este item foi reembolsado pelo cliente?')) return;
+  const reembs = DB.get('reembolsos') || [];
+  const r = reembs.find(x=>x.id===id);
+  if (r) { r.status = 'reimbursed'; r.reimbursedAt = todayStr(); }
+  DB.set('reembolsos', reembs);
+  renderSuppliers();
+  toast('Marcado como reembolsado ✓');
+}
+
+function marcarTodosReembolsado(supId) {
+  if (!confirm('Marcar TODAS as compras pendentes deste fornecedor como reembolsadas?')) return;
+  const reembs = DB.get('reembolsos') || [];
+  reembs.filter(r=>r.supId===supId&&r.status==='pending').forEach(r=>{ r.status='reimbursed'; r.reimbursedAt=todayStr(); });
+  DB.set('reembolsos', reembs);
+  renderSuppliers();
+  toast('Todos os reembolsos marcados ✓');
+}
+
+function gerarRelatorioReembolso(supId) {
+  const sups = DB.get('suppliers') || [];
+  const sup = supId === '_gerenc' ? {name:'Gerenciador de Obra'} : sups.find(s=>s.id===supId);
+  const reembs = (DB.get('reembolsos')||[]).filter(r=>r.supId===supId&&r.status==='pending');
+  if (!reembs.length) { toast('Nenhuma compra pendente para este fornecedor'); return; }
+  const total = reembs.reduce((s,r)=>s+r.val, 0);
+  const w = window.open('', '_blank');
+  const rows = reembs.map((r,i) =>
+    '<tr style="border-bottom:1px solid #eee">' +
+    '<td style="padding:8px 4px">'+(i+1)+'</td>' +
+    '<td style="padding:8px 4px">'+fmtD(r.date)+'</td>' +
+    '<td style="padding:8px 4px">'+esc(r.desc)+(r.nf?' <span style="color:#888;font-size:11px">NF '+esc(r.nf)+'</span>':'')+'</td>' +
+    '<td style="padding:8px 4px;text-align:right;font-weight:700">'+R(r.val)+'</td>' +
+    '<td style="padding:8px 4px">'+esc(r.to||'—')+'</td>' +
+    '<td style="padding:8px 4px;font-size:11px">'+(r.pix?'PIX: '+esc(r.pix):'')+(r.bank?' '+esc(r.bank)+' Ag:'+esc(r.agency)+' Cc:'+esc(r.account):'')+'</td>' +
+    '</tr>'
+  ).join('');
+  w.document.write('<html><head><title>Relatório de Reembolso</title><style>body{font-family:Arial,sans-serif;padding:32px;font-size:13px}table{width:100%;border-collapse:collapse}th{text-align:left;padding:8px 4px;border-bottom:2px solid #000;font-size:11px;text-transform:uppercase}h1{font-size:20px;margin-bottom:4px}h2{font-size:14px;font-weight:400;color:#666;margin-bottom:24px}.total{font-size:18px;font-weight:700;text-align:right;margin-top:16px;padding-top:12px;border-top:2px solid #000}@media print{button{display:none}}</style></head><body>');
+  w.document.write('<button onclick="window.print()" style="margin-bottom:16px;padding:8px 16px;cursor:pointer">Imprimir / Salvar PDF</button>');
+  w.document.write('<h1>Relatório de Reembolso</h1>');
+  w.document.write('<h2>'+(sup?sup.name:'')+'  ·  Emitido em '+fmtD(todayStr())+'</h2>');
+  w.document.write('<table><thead><tr><th>#</th><th>Data</th><th>Descrição</th><th style="text-align:right">Valor</th><th>Reembolsar para</th><th>Dados Bancários</th></tr></thead><tbody>'+rows+'</tbody></table>');
+  w.document.write('<div class="total">Total a Reembolsar: '+R(total)+'</div>');
+  w.document.write('</body></html>');
+  w.document.close();
+}
+
 function updateSupDocLabel() {
   const isPF = document.getElementById('sup-person').value === 'pf';
   document.getElementById('sup-doc-label').textContent = isPF ? 'CPF' : 'CNPJ';
