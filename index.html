@@ -1442,7 +1442,7 @@ async function _sbFetch(method, path, body) {
 // Project-scoped key helpers
 function _pk(k) { return window._currentProjectId + ':' + k; }
 // Global keys not scoped to project
-const _GLOBAL_KEYS = new Set(['clients','projects']);
+const _GLOBAL_KEYS = new Set(['clients','projects','cats','suppliers']);
 
 // =====================================================================
 // STORAGE
@@ -1777,114 +1777,36 @@ function migrateBudget() {
 }
 
 function initData() {
+  // ── Seed global data (cats + suppliers) — shared across all projects ──
+  if (!DB.get('cats')) {
+    DB.set('cats', {
+      disciplines: ['Civil','Elétrica','Hidráulica','Marcenaria','Outros'],
+      phases: ['Demolição','Estrutura','Instalações','Acabamento','Outros'],
+      costcenters: ['Administração','Gerenciamento'],
+      servicetypes: ['Mão de Obra','Material','Empreitada Global'],
+      paymethods: ['PIX','Transferência','Boleto','Cheque','Dinheiro'],
+      supclasses: ['Empreiteiro','Construtora','Pintura','Hidráulica','Elétrica','Marcenaria','Serralheria','Paisagismo','Outros'],
+      doctypes: ['NF','Recibo','Contrato','Medição','Outro'],
+      reform_types: ['Reforma Completa','Reforma Parcial','Construção Nova','Ampliação','Interiores'],
+    });
+  }
+  if (!DB.get('suppliers')) {
+    DB.set('suppliers', []);
+  }
+
+  // ── Seed project data — only if this project has never been initialized ──
   if (DB.get('init7')) return;
-  // Clear old seed data to force re-seed with new structure
-  DB.set('budget', null);
-  DB.set('budgetScenarios', null);
+
+  // New project starts completely empty
+  DB.set('budget', []);
+  DB.set('budgetScenarios', []);
   DB.set('budgetExecOrigin', null);
-  DB.set('cats', null);
-  DB.set('suppliers', null);
-  DB.set('entries', null);
-  DB.set('init3', null);
-  DB.set('init6', null);
-  DB.set('init6', null);
-  DB.set('init6', null);
-  DB.set('init6', null);
-  DB.set('cats', {
-    disciplines: ['Civil','Elétrica','Hidráulica','Marcenaria','Outros'],
-    phases: ['Demolição','Estrutura','Instalações','Acabamento','Outros'],
-    costcenters: ['Obra SP-001','Administração','Gerenciamento'],
-    servicetypes: ['Mão de Obra','Material','Empreitada Global'],
-    paymethods: ['PIX','Transferência','Boleto','Cheque','Dinheiro'],
-    supclasses: ['Empreiteiro','Construtora','Pintura','Hidráulica','Elétrica','Marcenaria','Serralheria','Paisagismo','Outros'],
-    doctypes: ['NF','Recibo','Contrato','Medição','Outro'],
-  });
-  DB.set('suppliers', [
-    {id:'s1', name:'Construtora ABC Ltda.', type:'meas', contact:'(11) 98888-0001', resp:'Carlos Silva', notes:'Empreiteiro geral'},
-    {id:'s2', name:'Elétrica SP Serviços', type:'meas', contact:'(11) 98888-0002', resp:'João Eletro', notes:''},
-    {id:'s3', name:'Hidráulica Norte', type:'meas', contact:'(11) 98888-0003', resp:'Pedro Hidro', notes:''},
-    {id:'s4', name:'Marcenaria Bella', type:'direct', contact:'(11) 98888-0004', resp:'Ana Bella', notes:'Pagamento direto conforme contrato'},
-  ]);
-  DB.set('feeRate', 3.5);
-  DB.set('entries', [
-    {id:'e1',comp:'2025-01',date:'2025-01-20',sup:'Construtora ABC Ltda.',desc:'Medição #1 – Estrutura',disc:'Civil',phase:'Estrutura',cc:'Obra SP-001',st:'Empreitada Global',dt:'Medição',pm:'Transferência',tot:18000,notes:'',base:true,budId:'bi2',isFee:false,
-     insts:[{id:'p1',n:1,due:'2025-02-15',val:9000,status:'paid',paidAt:'2025-02-15',paidAmt:9000,proof:''},
-            {id:'p2',n:2,due:'2025-03-15',val:9000,status:'paid',paidAt:'2025-03-14',paidAmt:9000,proof:''}]},
-    {id:'e2',comp:'2025-01',date:'2025-01-25',sup:'Elétrica SP Serviços',desc:'NF 0045 – Elétrica 1ª cond.',disc:'Elétrica',phase:'Instalações',cc:'Obra SP-001',st:'Mão de Obra',dt:'NF',pm:'PIX',tot:5000,notes:'',base:true,budId:'bi3',isFee:false,
-     insts:[{id:'p3',n:1,due:'2025-02-10',val:5000,status:'paid',paidAt:'2025-02-10',paidAmt:5000,proof:''}]},
-    {id:'e3',comp:'2025-02',date:'2025-02-22',sup:'Construtora ABC Ltda.',desc:'Medição #2 – Estrutura avançada',disc:'Civil',phase:'Estrutura',cc:'Obra SP-001',st:'Empreitada Global',dt:'Medição',pm:'Transferência',tot:24000,notes:'',base:true,budId:'bi2',isFee:false,
-     insts:[{id:'p4',n:1,due:'2025-03-15',val:12000,status:'paid',paidAt:'2025-03-15',paidAmt:12000,proof:''},
-            {id:'p5',n:2,due:'2025-04-15',val:12000,status:'open',paidAt:null,paidAmt:0,proof:''}]},
-    {id:'e4',comp:'2025-02',date:'2025-02-28',sup:'Elétrica SP Serviços',desc:'NF 0061 – Cabeamento 2ª fase',disc:'Elétrica',phase:'Instalações',cc:'Obra SP-001',st:'Mão de Obra',dt:'NF',pm:'Boleto',tot:7500,notes:'',base:true,budId:'bi3',isFee:false,
-     insts:[{id:'p6',n:1,due:'2025-03-28',val:7500,status:'open',paidAt:null,paidAmt:0,proof:''}]},
-    {id:'e5',comp:'2025-02',date:'2025-02-14',sup:'Escritório Arq. Silva',desc:'Honorários arquitetura fev/25',disc:'Outros',phase:'Outros',cc:'Gerenciamento',st:'Mão de Obra',dt:'NF',pm:'PIX',tot:3500,notes:'',base:false,budId:null,isFee:false,
-     insts:[{id:'p7',n:1,due:'2025-02-20',val:3500,status:'paid',paidAt:'2025-02-20',paidAmt:3500,proof:''}]},
-    {id:'e6',comp:'2025-02',date:'2025-02-28',sup:'Gerenciadora ObraSync',desc:'Honorários Gerenciamento jan-fev/25',disc:'Gerenciamento',phase:'Outros',cc:'Gerenciamento',st:'Mão de Obra',dt:'NF',pm:'PIX',tot:1645,notes:'Honorários 3,5% s/ base física',base:false,budId:null,isFee:true,
-     insts:[{id:'p8',n:1,due:'2025-03-05',val:1645,status:'paid',paidAt:'2025-03-05',paidAmt:1645,proof:''}]},
-  ]);
+  DB.set('entries', []);
   DB.set('meas', []);
-  // Medições de fornecedores (meas2) — vinculadas aos itens reais do orçamento
-  DB.set('meas2', [
-    {id:'meas2-1', supplierId:'s1', per:'2025-01', date:'2025-01-31', status:'approved', seqNum:1, notes:'', total:14400,
-     items:[
-       {biId:'bi1', pctPrev:0, pctPer:60, pctAcum:60, val:7200},
-       {biId:'bi2', pctPrev:0, pctPer:20, pctAcum:20, val:21600},
-     ]},
-    {id:'meas2-2', supplierId:'s2', per:'2025-01', date:'2025-01-31', status:'approved', seqNum:1, notes:'', total:12500,
-     items:[
-       {biId:'bi3', pctPrev:0, pctPer:50, pctAcum:50, val:12500},
-     ]},
-    {id:'meas2-3', supplierId:'s1', per:'2025-02', date:'2025-02-28', status:'approved', seqNum:2, notes:'', total:9600,
-     items:[
-       {biId:'bi1', pctPrev:60, pctPer:40, pctAcum:100, val:4800},
-       {biId:'bi2', pctPrev:20, pctPer:15, pctAcum:35, val:16200},
-     ]},
-  ]);
-  DB.set('budget', [
-    {id:'bi1',phase:'Demolição',disc:'Civil',desc:'Demolição geral',unit:'vb',qty:1,pmo:12000,pmat:0,pacab:0,price:12000,tot:12000,type:'contracted',supplierId:'s1',supCols:{mo:true,mat:false,acab:false},pctFis:100,compoeBase:true},
-    {id:'bi2',phase:'Estrutura',disc:'Civil',desc:'Contrapiso + laje',unit:'m²',qty:180,pmo:350,pmat:250,pacab:0,price:600,tot:108000,type:'contracted',supplierId:'s1',supCols:{mo:true,mat:true,acab:false},pctFis:35,compoeBase:true},
-    {id:'bi3',phase:'Instalações',disc:'Elétrica',desc:'Quadro + cabeamento',unit:'vb',qty:1,pmo:15000,pmat:10000,pacab:0,price:25000,tot:25000,type:'contracted',supplierId:'s2',supCols:{mo:true,mat:false,acab:false},pctFis:50,compoeBase:true},
-    {id:'bi4',phase:'Instalações',disc:'Hidráulica',desc:'Tubulação completa',unit:'vb',qty:1,pmo:18000,pmat:5000,pacab:0,price:23000,tot:23000,type:'contracted',supplierId:'s3',supCols:{mo:true,mat:false,acab:false},pctFis:0,compoeBase:true},
-    {id:'bi5',phase:'Acabamento',disc:'Marcenaria',desc:'Móveis planejados',unit:'vb',qty:1,pmo:0,pmat:0,pacab:50000,price:50000,tot:50000,type:'to_contract',supplierId:'',supCols:null,pctFis:0,compoeBase:true},
-    {id:'bi6',phase:'Acabamento',disc:'Civil',desc:'Piso porcelanato especial',unit:'m²',qty:120,pmo:0,pmat:0,pacab:150,price:150,tot:18000,type:'extra',supplierId:'s1',supCols:{mo:false,mat:false,acab:true},pctFis:0,compoeBase:true},
-  ]);
-  // Seed scenario-based estimatives
-  const _now = new Date().toISOString();
-  DB.set('budgetScenarios', [
-    { id:'sc1', name:'Opção Standard', status:'closed', closedAt:_now, createdAt:_now, items:[
-      {id:'est1',phase:'Demolição', disc:'Civil',       desc:'Demolição geral',          unit:'vb', qty:1,   pmo:12000,pmat:0,    pacab:0,    price:12000,tot:12000, compoeBase:true,type:'to_contract'},
-      {id:'est2',phase:'Estrutura', disc:'Civil',       desc:'Contrapiso + laje',         unit:'m²', qty:180, pmo:350,  pmat:220,  pacab:0,    price:570,  tot:102600,compoeBase:true,type:'to_contract'},
-      {id:'est3',phase:'Instalações',disc:'Elétrica',   desc:'Quadro + cabeamento',       unit:'vb', qty:1,   pmo:14000,pmat:9000, pacab:0,    price:23000,tot:23000, compoeBase:true,type:'to_contract'},
-      {id:'est4',phase:'Instalações',disc:'Hidráulica', desc:'Tubulação completa',        unit:'vb', qty:1,   pmo:17000,pmat:4500, pacab:0,    price:21500,tot:21500, compoeBase:true,type:'to_contract'},
-      {id:'est5',phase:'Acabamento', disc:'Marcenaria', desc:'Móveis planejados',         unit:'vb', qty:1,   pmo:0,    pmat:0,    pacab:45000,price:45000,tot:45000, compoeBase:true,type:'to_contract'},
-      {id:'est6',phase:'Acabamento', disc:'Civil',      desc:'Piso porcelanato especial', unit:'m²', qty:120, pmo:0,    pmat:0,    pacab:130,  price:130,  tot:15600, compoeBase:true,type:'to_contract'},
-    ]},
-    { id:'sc2', name:'Opção Premium', status:'open', createdAt:_now, items:[
-      {id:'est7',phase:'Demolição', disc:'Civil',       desc:'Demolição geral',          unit:'vb', qty:1,   pmo:12000,pmat:0,    pacab:0,    price:12000,tot:12000, compoeBase:true,type:'to_contract'},
-      {id:'est8',phase:'Estrutura', disc:'Civil',       desc:'Contrapiso + laje',         unit:'m²', qty:180, pmo:400,  pmat:280,  pacab:0,    price:680,  tot:122400,compoeBase:true,type:'to_contract'},
-      {id:'est9',phase:'Instalações',disc:'Elétrica',   desc:'Quadro + cabeamento',       unit:'vb', qty:1,   pmo:18000,pmat:12000,pacab:0,    price:30000,tot:30000, compoeBase:true,type:'to_contract'},
-      {id:'estA',phase:'Acabamento', disc:'Marcenaria', desc:'Móveis planejados premium', unit:'vb', qty:1,   pmo:0,    pmat:0,    pacab:75000,price:75000,tot:75000, compoeBase:true,type:'to_contract'},
-    ]},
-  ]);
-  DB.set('budgetExecOrigin', 'sc1');
-  // Medição de gerenciamento de exemplo
-  DB.set('gerenc', [
-    {id:'ger1', per:'2025-01', date:'2025-01-31', status:'approved', seqNum:1, notes:'', feeBase:55800, feeAmt:1953,
-     items:[
-       {biId:'bi1', supId:'s1', supType:'meas', tot:12000, pct:60, pctAcum:60, base:7200},
-       {biId:'bi2', supId:'s1', supType:'meas', tot:108000, pct:20, pctAcum:20, base:21600},
-       {biId:'bi3', supId:'s2', supType:'meas', tot:25000, pct:50, pctAcum:50, base:12500},
-       {biId:'bi4', supId:'s3', supType:'direct', tot:23000, pct:0, pctAcum:0, base:0},
-       {biId:'bi6', supId:'s1', supType:'meas', tot:18000, pct:0, pctAcum:0, base:0},
-     ]},
-  ]);
-  DB.set('photos', [
-    {id:'ph1',date:'2025-03-03',phase:'Estrutura',disc:'Civil',desc:'Concretagem da laje do 2º andar',tags:'laje,estrutura',emoji:'\u{1F3D7}',vis:true},
-    {id:'ph2',date:'2025-03-02',phase:'Instalações',disc:'Elétrica',desc:'Passagem de eletrodutos – sala principal',tags:'eletroduto',emoji:'⚡',vis:true},
-    {id:'ph3',date:'2025-03-01',phase:'Instalações',disc:'Hidráulica',desc:'Tubulação de esgoto – banheiro suíte',tags:'hidráulica',emoji:'\u{1F527}',vis:false},
-    {id:'ph4',date:'2025-02-28',phase:'Demolição',disc:'Civil',desc:'Remoção da parede divisória',tags:'demolição',emoji:'⛏',vis:true},
-  ]);
-  DB.set('init6', null);
+  DB.set('meas2', []);
+  DB.set('gerenc', []);
+  DB.set('photos', []);
+  DB.set('feeRate', 3.5);
   DB.set('reembolsos', []);
   DB.set('reembolsosRelatorios', []);
   DB.set('init7', true);
