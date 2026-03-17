@@ -372,6 +372,77 @@ tfoot td{padding:10px 0;border-top:2px solid var(--black);font-weight:800;font-s
 </head>
 <body>
 
+<!-- PROJECT SELECTOR SCREEN -->
+<div id="project-selector" style="display:none;position:fixed;inset:0;background:#fafafa;z-index:10000;overflow-y:auto">
+  <div style="max-width:900px;margin:0 auto;padding:40px 24px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:40px">
+      <div>
+        <div style="font-size:28px;font-weight:900;letter-spacing:-.03em">ObraSync</div>
+        <div style="font-size:13px;color:#888;margin-top:2px">Selecione um projeto para continuar</div>
+      </div>
+      <button class="btn btn-p" onclick="openProjectModal()">+ Novo Projeto</button>
+    </div>
+    <div id="projects-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px"></div>
+  </div>
+</div>
+
+<!-- CLIENT MODAL -->
+<div class="modal-ov" id="mod-client">
+  <div class="modal" style="max-width:600px">
+    <button class="modal-x" onclick="closeModal('mod-client')">&#10005;</button>
+    <h3 id="mod-client-title">Novo Cliente</h3>
+    <input type="hidden" id="cl-id"/>
+    <div class="fgrid w">
+      <div class="ff s2"><label>Nome completo *</label><input type="text" id="cl-name" placeholder="Ex: Joao Silva"/></div>
+      <div class="ff"><label>E-mail</label><input type="email" id="cl-email" placeholder="joao@email.com"/></div>
+      <div class="ff"><label>WhatsApp</label><input type="text" id="cl-wa" placeholder="(11) 99999-9999"/></div>
+      <div class="ff"><label>Data de Nascimento</label><input type="date" id="cl-birth"/></div>
+      <div class="ff"><label>Profissão</label><input type="text" id="cl-job" placeholder="Ex: Arquiteto"/></div>
+      <div class="ff s2"><label>Endereço</label><input type="text" id="cl-addr" placeholder="Rua, numero, bairro, cidade"/></div>
+    </div>
+    <div class="factions mt16">
+      <button class="btn btn-p" onclick="saveClient()">Salvar Cliente</button>
+      <button class="btn btn-g" onclick="closeModal('mod-client')">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<!-- PROJECT MODAL -->
+<div class="modal-ov" id="mod-project">
+  <div class="modal" style="max-width:640px">
+    <button class="modal-x" onclick="closeModal('mod-project')">&#10005;</button>
+    <h3 id="mod-project-title">Novo Projeto</h3>
+    <input type="hidden" id="proj-id"/>
+    <div class="fgrid w">
+      <div class="ff s2"><label>Nome do Projeto *</label><input type="text" id="proj-name" placeholder="Ex: Reforma Higienopolis"/></div>
+      <div class="ff s2"><label>Endereco completo *</label><input type="text" id="proj-addr" placeholder="Rua, numero, bairro, cidade - CEP"/></div>
+      <div class="ff"><label>Area (m2)</label><input type="number" id="proj-area" min="0" step="0.01" placeholder="0.00"/></div>
+      <div class="ff"><label>Tipo de Reforma</label><select id="proj-type"><option value="">-- Selecionar --</option></select></div>
+      <div class="ff s2"><label>Escopo</label><textarea id="proj-scope" rows="2" style="width:100%;padding:8px;border:1px solid var(--g200);resize:vertical" placeholder="Descricao do escopo da obra..."></textarea></div>
+      <div class="ff"><label>Cliente</label>
+        <div style="display:flex;gap:6px">
+          <select id="proj-client" style="flex:1"><option value="">-- Sem cliente --</option></select>
+          <button class="btn btn-g btn-sm" onclick="openClientModal()" style="white-space:nowrap">+ Cliente</button>
+        </div>
+      </div>
+      <div class="ff"><label>Status</label>
+        <select id="proj-status">
+          <option value="active">Em andamento</option>
+          <option value="planning">Planejamento</option>
+          <option value="paused">Pausado</option>
+          <option value="done">Concluido</option>
+        </select>
+      </div>
+      <div class="ff"><label>Data de Inicio</label><input type="date" id="proj-start"/></div>
+      <div class="ff"><label>Previsao de Termino</label><input type="date" id="proj-end"/></div>
+    </div>
+    <div class="factions mt16">
+      <button class="btn btn-p" onclick="saveProject()">Salvar Projeto</button>
+      <button class="btn btn-g" onclick="closeModal('mod-project')">Cancelar</button>
+    </div>
+  </div>
+</div>
+
 <div id="loading-overlay" style="display:none;position:fixed;inset:0;background:rgba(255,255,255,.92);z-index:9999;flex-direction:column;align-items:center;justify-content:center;gap:16px">
   <div style="font-size:28px;font-weight:900;letter-spacing:-.02em">ObraSync</div>
   <div style="display:flex;gap:6px">
@@ -386,8 +457,9 @@ tfoot td{padding:10px 0;border-top:2px solid var(--black);font-weight:800;font-s
 
 <div id="topbar">
   <div class="topbar-left">
+    <button onclick="showProjectSelector()" style="background:none;border:none;cursor:pointer;padding:4px 8px;border-radius:4px;color:var(--g500);font-size:11px;display:flex;align-items:center;gap:4px" title="Trocar projeto">&#9664;</button>
     <span class="logo">ObraSync</span>
-    <span class="topbar-proj">Reforma Higienópolis</span>
+    <span class="topbar-proj" id="topbar-proj-name">Projeto</span>
   </div>
   <div class="topbar-right">
     <div class="role-toggle">
@@ -1332,6 +1404,9 @@ async function initSupabase() {
   }
 }
 
+// Current project ID — set when user selects a project
+window._currentProjectId = window._currentProjectId || 'default';
+
 async function _sbFetch(method, path, body) {
   const url = window._sbUrl + '/rest/v1/' + path;
   const headers = {
@@ -1349,12 +1424,17 @@ async function _sbFetch(method, path, body) {
   return res.json();
 }
 
+// Project-scoped key helpers
+function _pk(k) { return window._currentProjectId + ':' + k; }
+// Global keys not scoped to project
+const _GLOBAL_KEYS = new Set(['clients','projects']);
+
 // =====================================================================
 // STORAGE
 // =====================================================================
 // DB usa Supabase (kv_store) com cache em memória para performance
 const DB = {
-  _c: {}, // cache em memória
+  _c: {}, // cache em memória (scoped ao projeto atual)
 
   get(k) {
     return (this._c[k] !== undefined) ? this._c[k] : null;
@@ -1363,9 +1443,10 @@ const DB = {
   set(k, v) {
     this._c[k] = v;
     if (window._sbUrl) {
+      const key = _GLOBAL_KEYS.has(k) ? k : _pk(k);
       (async () => {
         try {
-          await _sbFetch('POST', 'kv_store', { key: k, value: v });
+          await _sbFetch('POST', 'kv_store', { key, value: v });
         } catch(e) {
           console.error('DB.set error', k, e.message);
         }
@@ -1374,6 +1455,7 @@ const DB = {
   },
 
   async loadAll() {
+    this._c = {}; // limpa cache ao trocar projeto
     if (!window._sbUrl) {
       const keys = ['cats','suppliers','budget','entries','meas','meas2','photos',
         'gerenc','reports','feeRate','lastEntry','lastBudget','entryCollapsed',
@@ -1381,18 +1463,234 @@ const DB = {
       keys.forEach(k => {
         try { this._c[k] = JSON.parse(localStorage.getItem('os3_' + k) || 'null'); } catch(e) {}
       });
-      console.warn('Supabase não configurado — usando localStorage como fallback');
+      console.warn('Supabase não configurado — usando localStorage');
       return;
     }
     try {
-      const data = await _sbFetch('GET', 'kv_store?select=key,value');
-      (data || []).forEach(row => { this._c[row.key] = row.value; });
-      console.log('✓ Dados carregados do Supabase:', (data||[]).length, 'chaves');
+      const pid = window._currentProjectId;
+      const prefix = _GLOBAL_KEYS.size > 0 ? '' : pid + ':';
+      // Load project-scoped keys
+      const enc = encodeURIComponent(pid + ':');
+      const data = await _sbFetch('GET', 'kv_store?select=key,value&key=like.' + enc + '*');
+      (data || []).forEach(row => {
+        // Strip project prefix from key
+        const k = row.key.startsWith(pid + ':') ? row.key.slice(pid.length + 1) : row.key;
+        this._c[k] = row.value;
+      });
+      // Load global keys (clients, projects)
+      const gdata = await _sbFetch('GET', 'kv_store?select=key,value&key=in.(clients,projects)');
+      (gdata || []).forEach(row => { this._c[row.key] = row.value; });
+      console.log('✓ Projeto carregado:', pid, '—', (data||[]).length, 'chaves');
     } catch(e) {
       console.error('DB.loadAll error:', e.message);
     }
   }
 };
+
+
+// =====================================================================
+// PROJECTS & CLIENTS
+// =====================================================================
+
+function getProjects()  { return DB.get('projects')  || []; }
+function getClients()   { return DB.get('clients')   || []; }
+
+function showProjectSelector() {
+  document.getElementById('project-selector').style.display = '';
+  document.getElementById('layout').style.display = 'none';
+  document.getElementById('topbar').style.display = 'none';
+  renderProjectsGrid();
+}
+
+function hideProjectSelector() {
+  document.getElementById('project-selector').style.display = 'none';
+  document.getElementById('layout').style.display = '';
+  document.getElementById('topbar').style.display = '';
+}
+
+function renderProjectsGrid() {
+  const projects = getProjects();
+  const clients  = getClients();
+  const el = document.getElementById('projects-grid');
+  if (!el) return;
+
+  const statusLabel = { active:'Em andamento', planning:'Planejamento', paused:'Pausado', done:'Concluido' };
+  const statusColor = { active:'#16a34a', planning:'#4f46e5', paused:'#d97706', done:'#888' };
+
+  if (!projects.length) {
+    el.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:60px 0"><p style="color:#888;margin-bottom:16px">Nenhum projeto cadastrado ainda.</p><button class="btn btn-p" onclick="openProjectModal()">+ Criar primeiro projeto</button></div>';
+    return;
+  }
+
+  el.innerHTML = projects.map(p => {
+    const client = clients.find(c => c.id === p.clientId);
+    const col = statusColor[p.status] || '#888';
+    const lbl = statusLabel[p.status] || p.status;
+    const isCurrent = window._currentProjectId === p.id;
+    const borderCol = isCurrent ? '#000' : '#e8e8e8';
+    return '<div onclick="selectProject(\'' + p.id + '\')" style="background:#fff;border:2px solid ' + borderCol + ';border-radius:8px;padding:20px;cursor:pointer;transition:border-color .15s">' +
+      '<div style="display:flex;align-items:start;justify-content:space-between;margin-bottom:12px">' +
+        '<div style="font-size:16px;font-weight:800;line-height:1.2">' + esc(p.name) + '</div>' +
+        '<div style="display:flex;gap:4px">' +
+          '<button onclick="event.stopPropagation();openProjectModal(\'' + p.id + '\')" style="background:none;border:none;cursor:pointer;color:#888;padding:2px 4px;font-size:12px">&#9998;</button>' +
+          '<button onclick="event.stopPropagation();delProject(\'' + p.id + '\')" style="background:none;border:none;cursor:pointer;color:#888;padding:2px 4px;font-size:12px">&#10005;</button>' +
+        '</div>' +
+      '</div>' +
+      (client ? '<div style="font-size:12px;color:#666;margin-bottom:6px">&#128100; ' + esc(client.name) + '</div>' : '') +
+      (p.addr ? '<div style="font-size:11px;color:#999;margin-bottom:6px">&#128205; ' + esc(p.addr) + '</div>' : '') +
+      '<div style="display:flex;align-items:center;gap:8px;margin-top:12px">' +
+        '<span style="font-size:10px;font-weight:700;color:' + col + ';background:' + col + '18;padding:2px 8px;border-radius:12px">' + lbl + '</span>' +
+        (p.area ? '<span style="font-size:11px;color:#999">' + p.area + ' m²</span>' : '') +
+      '</div>' +
+      (isCurrent ? '<div style="font-size:10px;font-weight:700;color:#000;margin-top:8px">PROJETO ATUAL</div>' : '') +
+    '</div>';
+  }).join('');
+}
+
+async function selectProject(id) {
+  window._currentProjectId = id;
+  // Reload data for this project
+  document.getElementById('project-selector').style.display = 'none';
+  document.getElementById('loading-overlay').style.display = 'flex';
+  await DB.loadAll();
+  initData();
+  migrateBudget();
+  document.getElementById('loading-overlay').style.display = 'none';
+  document.getElementById('layout').style.display = '';
+  document.getElementById('topbar').style.display = '';
+  // Update topbar name
+  const p = getProjects().find(x => x.id === id);
+  const el = document.getElementById('topbar-proj-name');
+  if (el && p) el.textContent = p.name;
+  nav('dash');
+  // Save last project
+  localStorage.setItem('os3_lastProject', id);
+}
+
+// Client CRUD
+function openClientModal(editId) {
+  ['cl-id','cl-name','cl-email','cl-wa','cl-birth','cl-job','cl-addr'].forEach(f => {
+    const el = document.getElementById(f); if (el) el.value = '';
+  });
+  if (editId) {
+    const cl = getClients().find(x => x.id === editId);
+    if (cl) {
+      document.getElementById('cl-id').value = cl.id;
+      document.getElementById('cl-name').value = cl.name || '';
+      document.getElementById('cl-email').value = cl.email || '';
+      document.getElementById('cl-wa').value = cl.wa || '';
+      document.getElementById('cl-birth').value = cl.birth || '';
+      document.getElementById('cl-job').value = cl.job || '';
+      document.getElementById('cl-addr').value = cl.addr || '';
+    }
+  }
+  document.getElementById('mod-client-title').textContent = editId ? 'Editar Cliente' : 'Novo Cliente';
+  openModal('mod-client');
+}
+
+function saveClient() {
+  const editId = document.getElementById('cl-id').value;
+  const name   = document.getElementById('cl-name').value.trim();
+  if (!name) { alert('Nome obrigatorio.'); return; }
+  const cl = {
+    id: editId || uid(),
+    name,
+    email: document.getElementById('cl-email').value.trim(),
+    wa:    document.getElementById('cl-wa').value.trim(),
+    birth: document.getElementById('cl-birth').value,
+    job:   document.getElementById('cl-job').value.trim(),
+    addr:  document.getElementById('cl-addr').value.trim(),
+  };
+  const clients = getClients();
+  const idx = editId ? clients.findIndex(x => x.id === editId) : -1;
+  if (idx > -1) clients[idx] = cl; else clients.push(cl);
+  DB.set('clients', clients);
+  closeModal('mod-client');
+  // Refresh project client dropdown if open
+  _populateProjectClientDropdown();
+  toast('Cliente salvo');
+}
+
+function _populateProjectClientDropdown() {
+  const sel = document.getElementById('proj-client');
+  if (!sel) return;
+  const clients = getClients();
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">-- Sem cliente --</option>' +
+    clients.map(c => '<option value="' + c.id + '">' + esc(c.name) + '</option>').join('');
+  if (cur) sel.value = cur;
+}
+
+// Project CRUD
+function openProjectModal(editId) {
+  ['proj-id','proj-name','proj-addr','proj-area','proj-scope'].forEach(f => {
+    const el = document.getElementById(f); if (el) el.value = '';
+  });
+  document.getElementById('proj-status').value = 'active';
+  document.getElementById('proj-start').value = todayStr();
+  document.getElementById('proj-end').value = '';
+  // Populate type dropdown from cats
+  const projTypes = (cats().reform_types || ['Reforma Completa','Reforma Parcial','Construcao Nova','Ampliacao','Interiores']);
+  const typeSel = document.getElementById('proj-type');
+  typeSel.innerHTML = '<option value="">-- Selecionar --</option>' +
+    projTypes.map(t => '<option value="' + t + '">' + esc(t) + '</option>').join('');
+  _populateProjectClientDropdown();
+  if (editId) {
+    const p = getProjects().find(x => x.id === editId);
+    if (p) {
+      document.getElementById('proj-id').value = p.id;
+      document.getElementById('proj-name').value = p.name || '';
+      document.getElementById('proj-addr').value = p.addr || '';
+      document.getElementById('proj-area').value = p.area || '';
+      document.getElementById('proj-scope').value = p.scope || '';
+      document.getElementById('proj-status').value = p.status || 'active';
+      document.getElementById('proj-start').value = p.start || '';
+      document.getElementById('proj-end').value = p.end || '';
+      if (p.type) typeSel.value = p.type;
+      if (p.clientId) document.getElementById('proj-client').value = p.clientId;
+    }
+  }
+  document.getElementById('mod-project-title').textContent = editId ? 'Editar Projeto' : 'Novo Projeto';
+  openModal('mod-project');
+}
+
+function saveProject() {
+  const editId = document.getElementById('proj-id').value;
+  const name   = document.getElementById('proj-name').value.trim();
+  const addr   = document.getElementById('proj-addr').value.trim();
+  if (!name || !addr) { alert('Nome e endereco sao obrigatorios.'); return; }
+  const p = {
+    id:       editId || uid(),
+    name,
+    addr,
+    area:     document.getElementById('proj-area').value,
+    type:     document.getElementById('proj-type').value,
+    scope:    document.getElementById('proj-scope').value.trim(),
+    clientId: document.getElementById('proj-client').value,
+    status:   document.getElementById('proj-status').value,
+    start:    document.getElementById('proj-start').value,
+    end:      document.getElementById('proj-end').value,
+    createdAt: editId ? undefined : new Date().toISOString(),
+  };
+  if (!p.createdAt) {
+    const existing = getProjects().find(x => x.id === editId);
+    if (existing) p.createdAt = existing.createdAt;
+  }
+  const projects = getProjects();
+  const idx = editId ? projects.findIndex(x => x.id === editId) : -1;
+  if (idx > -1) projects[idx] = p; else projects.push(p);
+  DB.set('projects', projects);
+  closeModal('mod-project');
+  renderProjectsGrid();
+  toast('Projeto salvo');
+}
+
+function delProject(id) {
+  if (!confirm('Excluir este projeto? Os dados do projeto no banco NAO serao apagados automaticamente.')) return;
+  DB.set('projects', getProjects().filter(p => p.id !== id));
+  renderProjectsGrid();
+  toast('Projeto removido da lista');
+}
 
 // =====================================================================
 // SEED DATA
@@ -5272,20 +5570,53 @@ document.addEventListener('focusin', function(e) {
 // INIT
 // =====================================================================
 async function init() {
-  // Show loading state
   document.getElementById('loading-overlay').style.display = 'flex';
-  // 1. Connect Supabase FIRST
+  document.getElementById('layout').style.display = 'none';
+  document.getElementById('topbar').style.display = 'none';
+
   await initSupabase();
-  // 2. Load all data from Supabase (or localStorage fallback)
+
+  // Load global data (clients + projects) first
   try {
-    await DB.loadAll();
-  } catch(e) {
-    console.error('Failed to load data:', e);
+    if (window._sbUrl) {
+      const gdata = await _sbFetch('GET', 'kv_store?select=key,value&key=in.(clients,projects)');
+      (gdata || []).forEach(row => { DB._c[row.key] = row.value; });
+    }
+  } catch(e) { console.error('Global load error:', e.message); }
+
+  // Check if there's a saved last project or only one project
+  const projects = getProjects();
+  const lastProjId = localStorage.getItem('os3_lastProject');
+  const autoProj = lastProjId && projects.find(p => p.id === lastProjId)
+    ? lastProjId
+    : (projects.length === 1 ? projects[0].id : null);
+
+  document.getElementById('loading-overlay').style.display = 'none';
+
+  if (!projects.length || !autoProj) {
+    // Show project selector
+    // If no projects yet, create default from existing data
+    if (!projects.length && window._sbUrl) {
+      // Migrate existing data as first project
+      const defProj = { id: 'proj_default', name: 'Reforma Higienopolis', addr: '', area: '', type: '', scope: '', clientId: '', status: 'active', start: '', end: '', createdAt: new Date().toISOString() };
+      DB.set('projects', [defProj]);
+      await selectProject('proj_default');
+      return;
+    }
+    showProjectSelector();
+    return;
   }
-  // 3. Seed only if first run (init6 not set)
+
+  // Auto-select project
+  window._currentProjectId = autoProj;
+  await DB.loadAll();
   initData();
   migrateBudget();
-  document.getElementById('loading-overlay').style.display = 'none';
+  document.getElementById('layout').style.display = '';
+  document.getElementById('topbar').style.display = '';
+  const p = getProjects().find(x => x.id === autoProj);
+  const el = document.getElementById('topbar-proj-name');
+  if (el && p) el.textContent = p.name;
   renderDash();
 }
 init();
