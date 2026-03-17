@@ -374,15 +374,30 @@ tfoot td{padding:10px 0;border-top:2px solid var(--black);font-weight:800;font-s
 
 <!-- PROJECT SELECTOR SCREEN -->
 <div id="project-selector" style="display:none;position:fixed;inset:0;background:#fafafa;z-index:10000;overflow-y:auto">
-  <div style="max-width:900px;margin:0 auto;padding:40px 24px">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:40px">
-      <div>
-        <div style="font-size:28px;font-weight:900;letter-spacing:-.03em">ObraSync</div>
-        <div style="font-size:13px;color:#888;margin-top:2px">Selecione um projeto para continuar</div>
+  <div style="max-width:960px;margin:0 auto;padding:40px 24px">
+    <!-- Header -->
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:32px">
+      <div style="font-size:28px;font-weight:900;letter-spacing:-.03em">ObraSync</div>
+      <div style="display:flex;gap:8px" id="ps-actions">
+        <button class="btn btn-p" onclick="openProjectModal()">+ Novo Projeto</button>
       </div>
-      <button class="btn btn-p" onclick="openProjectModal()">+ Novo Projeto</button>
     </div>
-    <div id="projects-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px"></div>
+    <!-- Tabs -->
+    <div style="display:flex;gap:0;border-bottom:2px solid #e8e8e8;margin-bottom:24px">
+      <button id="ps-tab-proj" onclick="setPsTab('projetos')" style="padding:10px 20px;background:none;border:none;border-bottom:2px solid #000;margin-bottom:-2px;font-weight:700;font-size:13px;cursor:pointer">Projetos</button>
+      <button id="ps-tab-cli" onclick="setPsTab('clientes')" style="padding:10px 20px;background:none;border:none;border-bottom:2px solid transparent;margin-bottom:-2px;font-weight:700;font-size:13px;cursor:pointer;color:#888">Clientes</button>
+    </div>
+    <!-- Projects panel -->
+    <div id="ps-panel-projetos">
+      <div id="projects-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px"></div>
+    </div>
+    <!-- Clients panel -->
+    <div id="ps-panel-clientes" style="display:none">
+      <div style="display:flex;justify-content:flex-end;margin-bottom:16px">
+        <button class="btn btn-p" onclick="openClientModal()">+ Novo Cliente</button>
+      </div>
+      <div id="clients-list"></div>
+    </div>
   </div>
 </div>
 
@@ -1499,6 +1514,7 @@ function showProjectSelector() {
   document.getElementById('project-selector').style.display = '';
   document.getElementById('layout').style.display = 'none';
   document.getElementById('topbar').style.display = 'none';
+  setPsTab('projetos');
   renderProjectsGrid();
 }
 
@@ -1545,6 +1561,52 @@ function renderProjectsGrid() {
       (isCurrent ? '<div style="font-size:10px;font-weight:700;color:#000;margin-top:8px">PROJETO ATUAL</div>' : '') +
     '</div>';
   }).join('');
+}
+
+function setPsTab(tab) {
+  const isProj = tab === 'projetos';
+  document.getElementById('ps-panel-projetos').style.display = isProj ? '' : 'none';
+  document.getElementById('ps-panel-clientes').style.display = isProj ? 'none' : '';
+  document.getElementById('ps-tab-proj').style.borderBottomColor = isProj ? '#000' : 'transparent';
+  document.getElementById('ps-tab-proj').style.color = isProj ? '#000' : '#888';
+  document.getElementById('ps-tab-cli').style.borderBottomColor = isProj ? 'transparent' : '#000';
+  document.getElementById('ps-tab-cli').style.color = isProj ? '#888' : '#000';
+  if (!isProj) renderClientsList();
+}
+
+function renderClientsList() {
+  const clients = getClients();
+  const el = document.getElementById('clients-list');
+  if (!el) return;
+  if (!clients.length) {
+    el.innerHTML = '<div style="text-align:center;padding:60px 0;color:#888">Nenhum cliente cadastrado ainda.<br><br><button class="btn btn-p" onclick="openClientModal()">+ Cadastrar primeiro cliente</button></div>';
+    return;
+  }
+  el.innerHTML = clients.map(cl =>
+    '<div style="background:#fff;border:1px solid #e8e8e8;border-radius:8px;padding:16px 20px;margin-bottom:10px;display:flex;align-items:center;gap:16px">' +
+      '<div style="flex:1">' +
+        '<div style="font-size:15px;font-weight:700">' + esc(cl.name) + '</div>' +
+        '<div style="display:flex;gap:16px;margin-top:6px;font-size:12px;color:#666;flex-wrap:wrap">' +
+          (cl.email ? '<span>&#9993; ' + esc(cl.email) + '</span>' : '') +
+          (cl.wa    ? '<span>&#128241; ' + esc(cl.wa) + '</span>' : '') +
+          (cl.job   ? '<span>&#128188; ' + esc(cl.job) + '</span>' : '') +
+          (cl.birth ? '<span>&#127874; ' + fmtD(cl.birth) + '</span>' : '') +
+        '</div>' +
+        (cl.addr ? '<div style="font-size:11px;color:#999;margin-top:4px">&#128205; ' + esc(cl.addr) + '</div>' : '') +
+      '</div>' +
+      '<div style="display:flex;gap:6px;flex-shrink:0">' +
+        '<button class="btn btn-e btn-sm" onclick="openClientModal(\'' + cl.id + '\')">&#9998; Editar</button>' +
+        '<button class="btn btn-d btn-sm" onclick="delClient(\'' + cl.id + '\')">&#10005;</button>' +
+      '</div>' +
+    '</div>'
+  ).join('');
+}
+
+function delClient(id) {
+  if (!confirm('Excluir este cliente?')) return;
+  DB.set('clients', getClients().filter(c => c.id !== id));
+  renderClientsList();
+  toast('Cliente excluido');
 }
 
 async function selectProject(id) {
@@ -1606,8 +1668,9 @@ function saveClient() {
   if (idx > -1) clients[idx] = cl; else clients.push(cl);
   DB.set('clients', clients);
   closeModal('mod-client');
-  // Refresh project client dropdown if open
   _populateProjectClientDropdown();
+  const panel = document.getElementById('ps-panel-clientes');
+  if (panel && panel.style.display !== 'none') renderClientsList();
   toast('Cliente salvo');
 }
 
