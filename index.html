@@ -388,13 +388,15 @@ tfoot td{padding:10px 0;border-top:2px solid var(--black);font-weight:800;font-s
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:32px">
       <div style="font-size:28px;font-weight:900;letter-spacing:-.03em">ObraSync</div>
       <div style="display:flex;gap:8px" id="ps-actions">
-        <button class="btn btn-p" onclick="openProjectModal()">+ Novo Projeto</button>
+        <button class="btn btn-p" id="ps-btn-new" onclick="psBtnNew()">+ Novo Projeto</button>
       </div>
     </div>
     <!-- Tabs -->
     <div style="display:flex;gap:0;border-bottom:2px solid #e8e8e8;margin-bottom:24px">
       <button id="ps-tab-proj" onclick="setPsTab('projetos')" style="padding:10px 20px;background:none;border:none;border-bottom:2px solid #000;margin-bottom:-2px;font-weight:700;font-size:13px;cursor:pointer">Projetos</button>
       <button id="ps-tab-cli" onclick="setPsTab('clientes')" style="padding:10px 20px;background:none;border:none;border-bottom:2px solid transparent;margin-bottom:-2px;font-weight:700;font-size:13px;cursor:pointer;color:#888">Clientes</button>
+      <button id="ps-tab-cat" onclick="setPsTab('categorias')" style="padding:10px 20px;background:none;border:none;border-bottom:2px solid transparent;margin-bottom:-2px;font-weight:700;font-size:13px;cursor:pointer;color:#888">Categorias</button>
+      <button id="ps-tab-for" onclick="setPsTab('fornecedores')" style="padding:10px 20px;background:none;border:none;border-bottom:2px solid transparent;margin-bottom:-2px;font-weight:700;font-size:13px;cursor:pointer;color:#888">Fornecedores</button>
     </div>
     <!-- Projects panel -->
     <div id="ps-panel-projetos">
@@ -406,6 +408,17 @@ tfoot td{padding:10px 0;border-top:2px solid var(--black);font-weight:800;font-s
         <button class="btn btn-p" onclick="openClientModal()">+ Novo Cliente</button>
       </div>
       <div id="clients-list"></div>
+    </div>
+    <!-- Categories panel -->
+    <div id="ps-panel-categorias" style="display:none">
+      <div id="ps-cats-content"></div>
+    </div>
+    <!-- Suppliers panel -->
+    <div id="ps-panel-fornecedores" style="display:none">
+      <div style="display:flex;justify-content:flex-end;margin-bottom:16px">
+        <button class="btn btn-p" onclick="openSupplierModal()">+ Novo Fornecedor</button>
+      </div>
+      <div id="ps-sup-list"></div>
     </div>
   </div>
 </div>
@@ -560,7 +573,6 @@ tfoot td{padding:10px 0;border-top:2px solid var(--black);font-weight:800;font-s
     <button class="nav-btn" onclick="nav('financial')">Lançamentos</button>
     <button class="nav-btn" onclick="nav('installments')">Parcelas</button>
     <div class="sb-label">Obra</div>
-    <button class="nav-btn" onclick="nav('suppliers')">Fornecedores</button>
     <button class="nav-btn" onclick="nav('measurements')">Medições</button>
     <button class="nav-btn" onclick="nav('reembolsos')">Reembolsos</button>
     <button class="nav-btn" onclick="nav('budget')">Orçamento</button>
@@ -718,9 +730,7 @@ tfoot td{padding:10px 0;border-top:2px solid var(--black);font-weight:800;font-s
       </div>
       <div class="fg mb16">
         <span class="flbl">Tipo:</span>
-        <button class="pill active" onclick="setSF(this,'all')">Todos</button>
-        <button class="pill" onclick="setSF(this,'meas')">Medição</button>
-        <button class="pill" onclick="setSF(this,'direct')">Direto</button>
+
       </div>
       <div id="sup-list"></div>
     </div>
@@ -1141,12 +1151,7 @@ tfoot td{padding:10px 0;border-top:2px solid var(--black);font-weight:800;font-s
       </div>
       <div class="ff"><label id="sup-doc-label">CNPJ</label><input type="text" id="sup-doc" placeholder="00.000.000/0000-00"/></div>
       <div class="ff"><label>Classificação</label><select id="sup-class"><option value="">— Selecionar —</option></select></div>
-      <div class="ff"><label>Tipo *</label>
-        <select id="sup-type">
-          <option value="meas">Medição de Obra</option>
-          <option value="direct">Pagamento Direto</option>
-        </select>
-      </div>
+
     </div>
 
     <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--g500);margin:14px 0 10px">Contato</div>
@@ -1333,7 +1338,7 @@ tfoot td{padding:10px 0;border-top:2px solid var(--black);font-weight:800;font-s
     <div style="border-top:1px solid var(--g200);margin-top:12px;padding-top:12px">
       <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px">Fornecedor para Medição</div>
       <div class="fgrid">
-        <div class="ff s2"><label>Fornecedor Responsável</label><select id="bi-sup" onchange="updateBISupCols()"><option value="">— Nenhum (item direto)</option></select></div>
+        <div class="ff"><label>Fornecedor Responsável</label><select id="bi-sup" onchange="updateBISupCols()"><option value="">— Nenhum (item direto)</option></select></div><div class="ff"><label>Tipo de Remuneração</label><select id="bi-sup-remun"><option value="meas">Medição de Obra</option><option value="direct">Pagamento Direto / Parcelas</option></select></div>
       </div>
       <div id="bi-sup-cols" style="display:none;margin-top:8px">
         <div style="font-size:11px;color:var(--g600);margin-bottom:6px">Quais colunas este fornecedor cobre?</div>
@@ -1681,12 +1686,23 @@ function saveSecurityPassword() {
 function getProjects()  { return DB.get('projects')  || []; }
 function getClients()   { return DB.get('clients')   || []; }
 
+function psBtnNew() {
+  const active = document.getElementById('ps-tab-proj').style.borderBottomColor === 'rgb(0, 0, 0)' ? 'projetos'
+    : document.getElementById('ps-tab-cli') && document.getElementById('ps-tab-cli').style.borderBottomColor === 'rgb(0, 0, 0)' ? 'clientes'
+    : 'projetos';
+  // Check which tab is active by panel visibility
+  if (document.getElementById('ps-panel-clientes').style.display !== 'none') openClientModal();
+  else if (document.getElementById('ps-panel-categorias') && document.getElementById('ps-panel-categorias').style.display !== 'none') return;
+  else openProjectModal();
+}
+
 function showProjectSelector() {
   document.getElementById('project-selector').style.display = '';
   document.getElementById('layout').style.display = 'none';
   document.getElementById('topbar').style.display = 'none';
   setPsTab('projetos');
   renderProjectsGrid();
+  // Update new button based on active tab — handled by setPsTab
 }
 
 function hideProjectSelector() {
@@ -1735,14 +1751,129 @@ function renderProjectsGrid() {
 }
 
 function setPsTab(tab) {
-  const isProj = tab === 'projetos';
-  document.getElementById('ps-panel-projetos').style.display = isProj ? '' : 'none';
-  document.getElementById('ps-panel-clientes').style.display = isProj ? 'none' : '';
-  document.getElementById('ps-tab-proj').style.borderBottomColor = isProj ? '#000' : 'transparent';
-  document.getElementById('ps-tab-proj').style.color = isProj ? '#000' : '#888';
-  document.getElementById('ps-tab-cli').style.borderBottomColor = isProj ? 'transparent' : '#000';
-  document.getElementById('ps-tab-cli').style.color = isProj ? '#888' : '#000';
-  if (!isProj) renderClientsList();
+  const tabs = ['projetos','clientes','categorias','fornecedores'];
+  tabs.forEach(t => {
+    const tabId = {projetos:'proj',clientes:'cli',categorias:'cat',fornecedores:'for'}[t] || t.slice(0,3);
+    const btn = document.getElementById('ps-tab-' + tabId);
+    const panel = document.getElementById('ps-panel-' + t);
+    const active = t === tab;
+    if (btn) { btn.style.borderBottomColor = active ? '#000' : 'transparent'; btn.style.color = active ? '#000' : '#888'; }
+    if (panel) panel.style.display = active ? '' : 'none';
+  });
+  if (tab === 'clientes') renderClientsList();
+  if (tab === 'categorias') renderPsCats();
+  if (tab === 'fornecedores') renderPsSuppliers();
+}
+
+function renderPsSuppliers() {
+  const el = document.getElementById('ps-sup-list');
+  if (!el) return;
+  const sups = DB.get('suppliers') || [];
+  if (!sups.length) {
+    el.innerHTML = '<div style="text-align:center;padding:60px 0;color:#888">Nenhum fornecedor cadastrado.<br><br><button class="btn btn-p" onclick="openSupplierModal()">+ Cadastrar primeiro fornecedor</button></div>';
+    return;
+  }
+  const c2 = cats();
+  el.innerHTML = sups.map(s =>
+    '<div style="background:#fff;border:1px solid #e8e8e8;border-radius:8px;padding:16px 20px;margin-bottom:10px;display:flex;align-items:center;gap:16px">' +
+      '<div style="flex:1">' +
+        '<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">' +
+          '<span style="font-size:15px;font-weight:700">' + esc(s.name) + '</span>' +
+          (s.supclass ? '<span style="font-size:10px;background:#f5f5f5;border:1px solid #e8e8e8;padding:1px 6px;border-radius:10px">' + esc(s.supclass) + '</span>' : '') +
+        '</div>' +
+        '<div style="display:flex;gap:16px;font-size:12px;color:#666;flex-wrap:wrap">' +
+          (s.resp    ? '<span>&#128100; ' + esc(s.resp) + '</span>' : '') +
+          (s.contact ? '<span>&#128241; ' + esc(s.contact) + '</span>' : '') +
+          (s.email   ? '<span>&#9993; ' + esc(s.email) + '</span>' : '') +
+          (s.pix     ? '<span>PIX: ' + esc(s.pix) + '</span>' : '') +
+        '</div>' +
+      '</div>' +
+      '<div style="display:flex;gap:6px;flex-shrink:0">' +
+        '<button class="btn btn-e btn-sm" onclick="openSupplierModal(\''+s.id+'\')">&#9998; Editar</button>' +
+        '<button class="btn btn-d btn-sm" onclick="delSupplierPs(\''+s.id+'\')">&#10005;</button>' +
+      '</div>' +
+    '</div>'
+  ).join('');
+}
+
+function delSupplierPs(id) {
+  const s = (DB.get('suppliers')||[]).find(x=>x.id===id);
+  if (!s) return;
+  requirePassword('Excluir Fornecedor', 'Excluir "' + s.name + '"? O fornecedor será removido de todos os projetos.', () => {
+    DB.set('suppliers', (DB.get('suppliers')||[]).filter(x=>x.id!==id));
+    renderPsSuppliers();
+    toast('Fornecedor excluído');
+  });
+}
+
+function renderPsCats() {
+  const el = document.getElementById('ps-cats-content');
+  if (!el) return;
+  // Render the categories view inline
+  const c2 = cats();
+  const sections = [
+    { key:'disciplines', label:'Disciplinas' },
+    { key:'phases',      label:'Fases' },
+    { key:'costcenters', label:'Centros de Custo' },
+    { key:'servicetypes',label:'Tipos de Serviço' },
+    { key:'paymethods',  label:'Formas de Pagamento' },
+    { key:'supclasses',  label:'Classificação de Fornecedor' },
+    { key:'doctypes',    label:'Tipos de Documento' },
+    { key:'reform_types',label:'Tipos de Reforma' },
+  ];
+  let html = '<div style="display:flex;justify-content:flex-end;margin-bottom:16px">';
+  html += '<button class="btn btn-g" onclick="openSetPasswordModal()">&#128274; Senha de Segurança</button></div>';
+  html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px">';
+  sections.forEach(sec => {
+    const items = c2[sec.key] || [];
+    html += '<div style="background:#fff;border:1px solid #e8e8e8;border-radius:8px;padding:16px">';
+    html += '<div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px">' + sec.label + '</div>';
+    html += items.map(item =>
+      '<div style="display:flex;align-items:center;justify-content:space-between;padding:4px 0;border-bottom:1px solid #f5f5f5;font-size:12px">' +
+        '<span>' + esc(item) + '</span>' +
+        '<div style="display:flex;gap:4px">' +
+          '<button onclick="editCatItemPs(\'' + sec.key + '\',\'' + item.replace(/\'/g,"&apos;") + '\')" style="background:none;border:none;cursor:pointer;color:#888;font-size:11px">&#9998;</button>' +
+          '<button onclick="delCatItemPs(\'' + sec.key + '\',\'' + item.replace(/\'/g,"&apos;") + '\')" style="background:none;border:none;cursor:pointer;color:#888;font-size:11px">&#10005;</button>' +
+        '</div>' +
+      '</div>'
+    ).join('');
+    html += '<div style="display:flex;gap:6px;margin-top:10px">';
+    html += '<input type="text" id="ps-cat-inp-' + sec.key + '" placeholder="Novo item..." style="flex:1;padding:5px 8px;border:1px solid #e8e8e8;font-size:12px"/>';
+    html += '<button class="btn btn-p btn-sm" onclick="addCatItemPs(\'' + sec.key + '\')">+</button>';
+    html += '</div></div>';
+  });
+  html += '</div>';
+  el.innerHTML = html;
+}
+
+function addCatItemPs(key) {
+  const inp = document.getElementById('ps-cat-inp-' + key);
+  if (!inp || !inp.value.trim()) return;
+  const c2 = cats();
+  c2[key] = c2[key] || [];
+  if (!c2[key].includes(inp.value.trim())) c2[key].push(inp.value.trim());
+  DB.set('cats', c2);
+  inp.value = '';
+  renderPsCats();
+  toast('Adicionado');
+}
+
+function delCatItemPs(key, val) {
+  const c2 = cats();
+  c2[key] = (c2[key] || []).filter(x => x !== val);
+  DB.set('cats', c2);
+  renderPsCats();
+  toast('Removido');
+}
+
+function editCatItemPs(key, oldVal) {
+  const nv = prompt('Editar:', oldVal);
+  if (!nv || nv.trim() === oldVal) return;
+  const c2 = cats();
+  c2[key] = (c2[key] || []).map(x => x === oldVal ? nv.trim() : x);
+  DB.set('cats', c2);
+  renderPsCats();
+  toast('Atualizado');
 }
 
 function renderClientsList() {
@@ -2413,7 +2544,7 @@ function setSF(btn, val) {
 }
 function renderSuppliers() {
   const sups = DB.get('suppliers') || [];
-  const fil = supFilter === 'all' ? sups : sups.filter(s => s.type === supFilter);
+  const fil = sups; // type is now per project
   const bud = DB.get('budget') || [];
   const meas = DB.get('meas2') || [];
   let html = '';
@@ -2428,7 +2559,7 @@ function renderSuppliers() {
       '<div style="flex:1">' +
       '<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">' +
       '<span class="sup-name">'+s.name+'</span>' +
-      '<span class="sup-badge '+(s.type==='meas'?'sup-meas':'sup-direct')+'">'+(s.type==='meas'?'Medição':'Direto')+'</span>' +
+      // type badge removed - type is per project
       '</div>' +
       '<div class="sup-meta">' + (s.resp ? s.resp + ' · ' : '') + (s.contact || '') + (s.notes ? ' · ' + s.notes : '') + '</div>' +
       '<div style="display:flex;gap:16px;margin-top:8px;font-size:11px">' +
@@ -2784,7 +2915,7 @@ function openSupplierModal(editId) {
   });
   document.getElementById('sup-id').value = editId || '';
   document.getElementById('mod-sup-title').textContent = editId ? 'Editar Fornecedor' : 'Novo Fornecedor';
-  document.getElementById('sup-type').value = 'meas';
+  // type is now per-project
   document.getElementById('sup-person').value = 'pj';
   document.getElementById('sup-actype').value = 'corrente';
   updateSupDocLabel();
@@ -2792,7 +2923,7 @@ function openSupplierModal(editId) {
     const s = (DB.get('suppliers')||[]).find(x => x.id === editId);
     if (s) {
       document.getElementById('sup-name').value    = s.name || '';
-      document.getElementById('sup-type').value    = s.type || 'meas';
+  // type is now per-project
       document.getElementById('sup-person').value  = s.person || 'pj';
       document.getElementById('sup-doc').value     = s.doc || '';
       document.getElementById('sup-class').value   = s.supClass || '';
@@ -2824,7 +2955,7 @@ function saveSupplier() {
   const item = {
     id: editId || uid(),
     name,
-    type:     document.getElementById('sup-type').value,
+    type:     'supplier', // type determined per-project via budget item
     person:   document.getElementById('sup-person').value,
     doc:      g('sup-doc'),
     supClass: g('sup-class'),
@@ -2888,7 +3019,7 @@ function setMS(val) {
 // For 'direct' supplier items (or no supplier): item.pctFis × item.tot
 function physBasePerBI(item, meas2, sups) {
   const sup = item.supplierId ? sups.find(s => s.id === item.supplierId) : null;
-  if (sup && sup.type === 'meas') {
+  if ((item.supRemun || 'meas') === 'meas') {
     const pctAcum = meas2
       .filter(m => m.status !== 'draft')
       .flatMap(m => m.items)
@@ -2922,7 +3053,10 @@ function renderMeas() {
   document.getElementById('gw-rate-lbl') && (document.getElementById('gw-rate-lbl').textContent = FR().toFixed(1));
 
   // ── Supplier pills ─────────────────────────────────────────────────
-  const measSups = sups.filter(s => s.type === 'meas');
+  // Show suppliers that have meas-type items in budget for this project
+  const budItems = DB.get('budget') || [];
+  const measSupIds = new Set(budItems.filter(i => i.supplierId && i.supRemun !== 'direct').map(i => i.supplierId));
+  const measSups = sups.filter(s => measSupIds.has(s.id));
   document.getElementById('meas-sup-pills').innerHTML = measSups.map(s =>
     '<button class="pill'+(measFilter===s.id?' active':'')+'" onclick="setMF(\''+s.id+'\')">'+s.name+'</button>'
   ).join('');
@@ -3323,7 +3457,7 @@ function openGerencWizard(editId, forceEdit) {
       if (!sup) return;
       let pct, pctPrev, maxPct, isAuto, infoHtml;
 
-      if (sup.type === 'meas') {
+      if ((bi.supRemun || 'meas') === 'meas') {
         // AUTO: % vem das medições de fornecedor aprovadas
         // Base = diferença entre acumulado atual e acumulado na última medição de gerenciamento aprovada
         const pctAcumMeas = Math.min(
@@ -4466,7 +4600,7 @@ function renderBudget() {
           const real = realPerBI(i.id, i.disc, i.phase);
           const saldo = i.tot - real;
           const sup = i.supplierId ? sups.find(s=>s.id===i.supplierId) : null;
-          const pctFis = (sup && sup.type==='meas')
+          const pctFis = ((bi.supRemun || 'meas')==='meas')
             ? Math.min(100, (DB.get('meas2')||[]).filter(m=>m.status!=='draft').flatMap(m=>m.items).filter(it=>it.biId===i.id).reduce((s,it)=>s+it.pctPer,0))
             : (i.pctFis || 0);
           const pctFin = i.tot > 0 ? Math.min(100, Math.round(real/i.tot*100)) : 0;
