@@ -1507,8 +1507,10 @@ async function _sbFetch(method, path, body) {
     const txt = await res.text();
     throw new Error(res.status + ' ' + txt);
   }
-  if (res.status === 204) return null;
-  return res.json();
+  if (res.status === 204 || res.headers.get('content-length') === '0') return null;
+  const text = await res.text();
+  if (!text || text.trim() === '') return null;
+  try { return JSON.parse(text); } catch(e) { return null; }
 }
 
 // Project-scoped key helpers
@@ -4600,7 +4602,7 @@ function renderBudget() {
           const real = realPerBI(i.id, i.disc, i.phase);
           const saldo = i.tot - real;
           const sup = i.supplierId ? sups.find(s=>s.id===i.supplierId) : null;
-          const pctFis = ((bi.supRemun || 'meas')==='meas')
+          const pctFis = ((i.supRemun || 'meas')==='meas')
             ? Math.min(100, (DB.get('meas2')||[]).filter(m=>m.status!=='draft').flatMap(m=>m.items).filter(it=>it.biId===i.id).reduce((s,it)=>s+it.pctPer,0))
             : (i.pctFis || 0);
           const pctFin = i.tot > 0 ? Math.min(100, Math.round(real/i.tot*100)) : 0;
