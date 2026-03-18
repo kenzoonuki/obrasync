@@ -377,6 +377,61 @@ tfoot td{padding:10px 0;border-top:2px solid var(--black);font-weight:800;font-s
   80%{transform:translateX(6px)}
 }
 
+
+/* ── Inline Budget Editing ────────────────────────────────────────── */
+.bi-cell-edit {
+  position:relative;
+  padding:0!important;
+}
+.bi-cell-edit input, .bi-cell-edit select {
+  width:100%;
+  border:none;
+  border-bottom:2px solid var(--info);
+  background:rgba(79,70,229,.06);
+  padding:4px 6px;
+  font-size:12px;
+  font-family:var(--font);
+  outline:none;
+  min-width:0;
+}
+.bi-cell-edit input:focus, .bi-cell-edit select:focus {
+  background:rgba(79,70,229,.12);
+  border-bottom-color:var(--info);
+}
+.bi-row.editing td { background:rgba(79,70,229,.04)!important; }
+.bi-row.editing { outline:2px solid var(--info); }
+.ac-dropdown {
+  position:absolute;
+  top:100%;left:0;
+  background:#fff;
+  border:1px solid var(--g200);
+  box-shadow:0 4px 16px rgba(0,0,0,.12);
+  z-index:1000;
+  max-height:180px;
+  overflow-y:auto;
+  min-width:180px;
+  font-size:12px;
+}
+.ac-item {
+  padding:6px 10px;
+  cursor:pointer;
+  white-space:nowrap;
+}
+.ac-item:hover, .ac-item.ac-active { background:var(--g100); }
+.bi-add-row td {
+  padding:4px 8px!important;
+  border-top:2px dashed var(--g200);
+}
+.bi-add-row button {
+  font-size:11px;
+  color:var(--g400);
+  background:none;
+  border:none;
+  cursor:pointer;
+  padding:4px 8px;
+}
+.bi-add-row button:hover { color:var(--black); }
+
 </style>
 </head>
 <body>
@@ -1680,6 +1735,327 @@ function saveSecurityPassword() {
   toast('Senha de segurança salva ✓');
   if (window._afterPasswordSave) { window._afterPasswordSave(); window._afterPasswordSave = null; }
 }
+
+
+// =====================================================================
+// INLINE BUDGET EDITING — Excel-style
+// =====================================================================
+let _biEditCell = null;  // currently editing cell
+
+const _BI_FIELD_TYPE = {
+  phase:'autocomplete', disc:'autocomplete', desc:'text', unit:'autocomplete',
+  qty:'number', pmo:'currency', pmat:'currency', pacab:'currency',
+  supplierId:'supplier'
+};
+const _BI_FIELD_LABEL = {
+  phase:'Fase', disc:'Disciplina', desc:'Descrição', unit:'Unidade',
+  qty:'Qtd', pmo:'MO/un', pmat:'Mat./un', pacab:'Acab./un', supplierId:'Fornecedor'
+};
+const _BI_FIELDS = ['phase','disc','desc','unit','qty','pmo','pmat','pacab','supplierId'];
+
+function _getBIAutocomplete(field) {
+  const c2 = cats();
+  if (field === 'phase')  return c2.phases || [];
+  if (field === 'disc')   return c2.disciplines || [];
+  if (field === 'unit')   return ['vb','m²','m','ml','m³','kg','l','pç','cj','hr','vg'];
+  if (field === 'supplierId') {
+    return (DB.get('suppliers') || []).map(s => ({ id: s.id, label: s.name }));
+  }
+  // For desc — get unique descriptions from existing budget items
+  if (field === 'desc') {
+    return [...new Set((DB.get('budget')||[]).map(i=>i.desc).filter(Boolean))];
+  }
+  return [];
+}
+
+function startBIEdit(td) {
+  if (td.classList.contains('bi-cell-edit')) return;
+  commitBIEdit(); // save any open cell first
+
+  const id    = td.dataset.id;
+  const field = td.dataset.field;
+  const bud   = DB.get('budget') || [];
+  const item  = bud.find(x => x.id === id);
+  if (!item) return;
+
+  td.classList.add('bi-cell-edit');
+  td.parentElement.classList.add('editing');
+  _biEditCell = td;
+
+  const type = _BI_FIELD_TYPE[field];
+  let input;
+
+  if (type === 'supplier') {
+    const sups = DB.get('suppliers') || [];
+    input = document.createElement('select');
+    input.innerHTML = '<option value="">— Sem fornecedor —</option>' +
+      sups.map(s => '<option value="'+s.id+'"'+(item.supplierId===s.id?' selected':'')+'>'+esc(s.name)+'</option>').join('');
+    input.addEventListener('change', () => commitBIEdit());
+    input.addEventListener('keydown', onBICellKeydown);
+  } else if (type === 'autocomplete') {
+    input = document.createElement('input');
+    input.type = 'text';
+    input.value = item[field] || '';
+    const suggestions = _getBIAutocomplete(field);
+    input.addEventListener('input', () => showACDropdown(td, input, suggestions));
+    input.addEventListener('keydown', onBICellKeydown);
+  } else if (type === 'number') {
+    input = document.createElement('input');
+    input.type = 'number';
+    input.min = '0';
+    input.step = '0.01';
+    input.value = item[field] || 0;
+    input.addEventListener('keydown', onBICellKeydown);
+  } else if (type === 'currency') {
+    input = document.createElement('input');
+    input.type = 'text';
+    input.value = (item[field]||0).toFixed(2).replace('.',',');
+    input.addEventListener('input', () => fmtCurrencyInput(input));
+    input.addEventListener('keydown', onBICellKeydown);
+  } else {
+    input = document.createElement('input');
+    input.type = 'text';
+    input.value = item[field] || '';
+    input.addEventListener('keydown', onBICellKeydown);
+  }
+
+  input.dataset.id    = id;
+  input.dataset.field = field;
+  td.innerHTML = '';
+  td.appendChild(input);
+  input.focus();
+  if (input.select) input.select();
+}
+
+function onBICellKeydown(e) {
+  if (e.key === 'Escape') { cancelBIEdit(); return; }
+
+  const acActive = document.querySelector('.ac-item.ac-active');
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    const items = document.querySelectorAll('.ac-item');
+    if (items.length) {
+      const idx = [...items].indexOf(acActive);
+      items.forEach(x => x.classList.remove('ac-active'));
+      items[Math.min(idx+1, items.length-1)].classList.add('ac-active');
+    }
+    return;
+  }
+  if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    const items = document.querySelectorAll('.ac-item');
+    if (items.length) {
+      const idx = [...items].indexOf(acActive);
+      items.forEach(x => x.classList.remove('ac-active'));
+      items[Math.max(idx-1, 0)].classList.add('ac-active');
+    }
+    return;
+  }
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    if (acActive) {
+      e.target.value = acActive.dataset.value || acActive.textContent;
+      hideACDropdown();
+    }
+    commitBIEdit();
+    // Move to next cell or create new row
+    const td = _biEditCell;
+    if (!td) return;
+    const allCells = [...td.parentElement.querySelectorAll('.bi-cell')];
+    const curIdx = allCells.indexOf(td);
+    if (curIdx < allCells.length - 1) {
+      startBIEdit(allCells[curIdx + 1]);
+    } else {
+      // Last cell — create new row
+      addBIInlineRow(td.dataset.id);
+    }
+    return;
+  }
+  if (e.key === 'Tab') {
+    e.preventDefault();
+    if (acActive) {
+      e.target.value = acActive.dataset.value || acActive.textContent;
+      hideACDropdown();
+    }
+    commitBIEdit();
+    const td = _biEditCell;
+    if (!td) return;
+    const allCells = [...td.parentElement.querySelectorAll('.bi-cell')];
+    const curIdx = allCells.indexOf(td);
+    const nextIdx = e.shiftKey ? curIdx - 1 : curIdx + 1;
+    if (nextIdx >= 0 && nextIdx < allCells.length) {
+      startBIEdit(allCells[nextIdx]);
+    }
+    return;
+  }
+  if (e.key === 'ArrowRight' && e.target.selectionStart === e.target.value.length) {
+    commitBIEdit();
+    const td = _biEditCell;
+    if (!td) return;
+    const allCells = [...td.parentElement.querySelectorAll('.bi-cell')];
+    const curIdx = allCells.indexOf(td);
+    if (curIdx < allCells.length - 1) startBIEdit(allCells[curIdx + 1]);
+    return;
+  }
+  if (e.key === 'ArrowLeft' && e.target.selectionStart === 0) {
+    commitBIEdit();
+    const td = _biEditCell;
+    if (!td) return;
+    const allCells = [...td.parentElement.querySelectorAll('.bi-cell')];
+    const curIdx = allCells.indexOf(td);
+    if (curIdx > 0) startBIEdit(allCells[curIdx - 1]);
+    return;
+  }
+}
+
+function commitBIEdit() {
+  hideACDropdown();
+  if (!_biEditCell) return;
+  const td    = _biEditCell;
+  const input = td.querySelector('input, select');
+  if (!input) { _biEditCell = null; return; }
+
+  const id    = input.dataset.id;
+  const field = input.dataset.field;
+  const type  = _BI_FIELD_TYPE[field];
+  const bud   = DB.get('budget') || [];
+  const item  = bud.find(x => x.id === id);
+  if (!item) { _biEditCell = null; return; }
+
+  let val = input.value;
+  if (type === 'number') val = parseFloat(val) || 0;
+  else if (type === 'currency') val = parseCurrency(val);
+  else if (type === 'supplier') val = input.value; // value is supplierId from select
+
+  item[field] = val;
+
+  // Recalculate tot
+  item.tot = Math.round((item.pmo||0) + (item.pmat||0) + (item.pacab||0)) * (item.qty||1);
+  if (item.pmo===0 && item.pmat===0 && item.pacab===0) {
+    item.tot = (item.price||0) * (item.qty||1);
+  } else {
+    item.price = (item.pmo||0) + (item.pmat||0) + (item.pacab||0);
+    item.tot   = item.price * (item.qty||1);
+  }
+
+  DB.set('budget', bud);
+  DB.set('lastBudget', { phase:item.phase, disc:item.disc, unit:item.unit, type:item.type, supplierId:item.supplierId });
+
+  td.classList.remove('bi-cell-edit');
+  td.parentElement.classList.remove('editing');
+  _biEditCell = null;
+
+  // Re-render just this row efficiently
+  renderBudget();
+}
+
+function cancelBIEdit() {
+  hideACDropdown();
+  if (!_biEditCell) return;
+  _biEditCell.classList.remove('bi-cell-edit');
+  if (_biEditCell.parentElement) _biEditCell.parentElement.classList.remove('editing');
+  _biEditCell = null;
+  renderBudget();
+}
+
+function addBIInlineRow(afterId) {
+  const last = DB.get('lastBudget') || {};
+  const bud  = DB.get('budget') || [];
+  const newItem = {
+    id: uid(),
+    phase: last.phase || (cats().phases||[''])[0] || '',
+    disc:  last.disc  || (cats().disciplines||[''])[0] || '',
+    desc:  '',
+    unit:  last.unit  || 'vb',
+    qty:   1,
+    pmo:   0, pmat: 0, pacab: 0, price: 0, tot: 0,
+    type:  'to_contract',
+    supplierId: last.supplierId || '',
+    supCols: null,
+    pctFis: 0,
+    compoeBase: true,
+    supRemun: 'meas',
+  };
+
+  // Insert after afterId if provided
+  if (afterId) {
+    const idx = bud.findIndex(x => x.id === afterId);
+    if (idx > -1) { bud.splice(idx + 1, 0, newItem); }
+    else bud.push(newItem);
+  } else {
+    bud.push(newItem);
+  }
+
+  DB.set('budget', bud);
+  renderBudget();
+
+  // Focus first cell of new row
+  setTimeout(() => {
+    const newRow = document.querySelector('.bi-row[data-id="'+newItem.id+'"]');
+    if (newRow) {
+      const firstCell = newRow.querySelector('.bi-cell');
+      if (firstCell) startBIEdit(firstCell);
+    }
+  }, 50);
+}
+
+function selectBIRow(tr) {
+  // Just highlight — actual editing starts on cell click
+}
+
+// ── Autocomplete dropdown ─────────────────────────────────────────────
+function showACDropdown(td, input, suggestions) {
+  hideACDropdown();
+  const val = input.value.toLowerCase().trim();
+  if (!val && suggestions.length > 8) return;
+
+  const filtered = suggestions.filter(s => {
+    const label = typeof s === 'object' ? s.label : s;
+    return label.toLowerCase().includes(val);
+  }).slice(0, 10);
+
+  if (!filtered.length) return;
+
+  const drop = document.createElement('div');
+  drop.className = 'ac-dropdown';
+  drop.id = 'ac-drop';
+
+  filtered.forEach((s, idx) => {
+    const label = typeof s === 'object' ? s.label : s;
+    const value = typeof s === 'object' ? s.id : s;
+    const item  = document.createElement('div');
+    item.className = 'ac-item' + (idx === 0 ? ' ac-active' : '');
+    item.textContent = label;
+    item.dataset.value = value;
+    item.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      input.value = label;
+      // For supplier field, store the id
+      if (input.dataset.field === 'supplierId') {
+        input.dataset.selectedId = value;
+        input.value = label;
+      }
+      hideACDropdown();
+      commitBIEdit();
+    });
+    drop.appendChild(item);
+  });
+
+  td.style.position = 'relative';
+  td.appendChild(drop);
+}
+
+function hideACDropdown() {
+  const d = document.getElementById('ac-drop');
+  if (d) d.remove();
+}
+
+// Close edit on outside click
+document.addEventListener('click', (e) => {
+  if (_biEditCell && !_biEditCell.contains(e.target)) {
+    commitBIEdit();
+  }
+});
 
 // =====================================================================
 // PROJECTS & CLIENTS
@@ -4638,7 +5014,8 @@ function renderBudget() {
       }
     });
   }
-  const _bud_tbody = document.getElementById('bud-tbody'); if (_bud_tbody) _bud_tbody.innerHTML = rows || '<tr><td colspan="13" style="text-align:center;padding:28px;color:var(--g400)">Nenhum item. Clique em + Novo Item para come\u00e7ar.</td></tr>';
+  const addRowHtml = !isC ? '<tr class="bi-add-row"><td colspan="14"><button onclick="addBIInlineRow()">+ Adicionar linha</button></td></tr>' : '';
+  const _bud_tbody = document.getElementById('bud-tbody'); if (_bud_tbody) _bud_tbody.innerHTML = (rows || '<tr><td colspan="13" style="text-align:center;padding:28px;color:var(--g400)">Nenhum item.</td></tr>') + addRowHtml;
   document.getElementById('bud-tot').textContent = R(totOrc);
   const c = bud.filter(i=>i.type==='contracted').reduce((s,i)=>s+i.tot,0);
   const tc = bud.filter(i=>i.type==='to_contract').reduce((s,i)=>s+i.tot,0);
