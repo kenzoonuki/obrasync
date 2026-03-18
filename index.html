@@ -368,6 +368,15 @@ tfoot td{padding:10px 0;border-top:2px solid var(--black);font-weight:800;font-s
 .card.ok  .cval{color:var(--ok)}
 
 
+
+@keyframes shake {
+  0%,100%{transform:translateX(0)}
+  20%{transform:translateX(-8px)}
+  40%{transform:translateX(8px)}
+  60%{transform:translateX(-6px)}
+  80%{transform:translateX(6px)}
+}
+
 </style>
 </head>
 <body>
@@ -454,6 +463,51 @@ tfoot td{padding:10px 0;border-top:2px solid var(--black);font-weight:800;font-s
     <div class="factions mt16">
       <button class="btn btn-p" onclick="saveProject()">Salvar Projeto</button>
       <button class="btn btn-g" onclick="closeModal('mod-project')">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- MODAL: CONFIRMAÇÃO DE SEGURANÇA -->
+<div class="modal-ov" id="mod-security">
+  <div class="modal" style="max-width:420px;text-align:center">
+    <div style="font-size:32px;margin-bottom:12px">🔒</div>
+    <h3 id="sec-title" style="margin-bottom:8px">Ação Protegida</h3>
+    <p id="sec-desc" class="muted sm" style="margin-bottom:20px"></p>
+    <div class="ff" style="margin-bottom:16px;text-align:left">
+      <label>Senha de Segurança</label>
+      <input type="password" id="sec-password" placeholder="Digite sua senha" style="font-size:16px"
+        onkeydown="if(event.key==='Enter')confirmSecurity()"/>
+    </div>
+    <p id="sec-error" style="color:var(--err);font-size:12px;margin-bottom:12px;display:none">Senha incorreta. Tente novamente.</p>
+    <div class="factions" style="justify-content:center">
+      <button class="btn btn-d" onclick="confirmSecurity()" id="sec-confirm-btn">Confirmar</button>
+      <button class="btn btn-g" onclick="closeModal('mod-security')">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: DEFINIR SENHA -->
+<div class="modal-ov" id="mod-set-password">
+  <div class="modal" style="max-width:420px">
+    <button class="modal-x" onclick="closeModal('mod-set-password')">&#10005;</button>
+    <h3>Definir Senha de Segurança</h3>
+    <p class="muted sm" style="margin:8px 0 16px">Esta senha será solicitada para ações sensíveis como excluir projetos, clientes e medições aprovadas.</p>
+    <div class="ff mb16">
+      <label>Senha atual (deixe em branco se ainda não tem)</label>
+      <input type="password" id="sp-current" placeholder="Senha atual"/>
+    </div>
+    <div class="ff mb16">
+      <label>Nova senha *</label>
+      <input type="password" id="sp-new" placeholder="Mínimo 6 caracteres"/>
+    </div>
+    <div class="ff mb16">
+      <label>Confirmar nova senha *</label>
+      <input type="password" id="sp-confirm" placeholder="Repita a nova senha"/>
+    </div>
+    <div class="factions">
+      <button class="btn btn-p" onclick="saveSecurityPassword()">Salvar Senha</button>
+      <button class="btn btn-g" onclick="closeModal('mod-set-password')">Cancelar</button>
     </div>
   </div>
 </div>
@@ -920,6 +974,7 @@ tfoot td{padding:10px 0;border-top:2px solid var(--black);font-weight:800;font-s
       <div class="sec-hd" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
         <h2>Categorias e Cadastros</h2>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-g btn-sm" onclick="openSetPasswordModal()">&#128274; Senha de Segurança</button>
           <button class="btn btn-g btn-sm" onclick="exportDB()" title="Baixar todos os dados como JSON">&#8595; Exportar DB (JSON)</button>
           <button class="btn btn-g btn-sm" onclick="document.getElementById('db-import-file').click()" title="Restaurar backup JSON">&#8593; Importar DB</button>
           <input type="file" id="db-import-file" accept=".json" style="display:none" onchange="loadImportedDB(this)"/>
@@ -1503,6 +1558,98 @@ const DB = {
 };
 
 
+
+// =====================================================================
+// SECURITY — Senha de proteção para ações sensíveis
+// =====================================================================
+let _secCallback = null;
+
+function _getSecHash() {
+  return DB.get('secPasswordHash') || null;
+}
+
+function _hashPassword(pwd) {
+  // Simple hash for client-side (not cryptographic, but sufficient for UX protection)
+  let hash = 0;
+  const str = 'obrasync_salt_' + pwd;
+  for (let i = 0; i < str.length; i++) {
+    const chr = str.charCodeAt(i);
+    hash = ((hash << 5) - hash) + chr;
+    hash |= 0;
+  }
+  return 'h_' + Math.abs(hash).toString(36) + '_' + str.length;
+}
+
+function requirePassword(title, desc, onConfirm) {
+  const hash = _getSecHash();
+  if (!hash) {
+    // No password set — prompt to set one first
+    if (confirm('Nenhuma senha de segurança definida ainda.\n\nDeseja definir uma agora?\n\n(Sem senha, a ação será executada diretamente)')) {
+      openSetPasswordModal(() => requirePassword(title, desc, onConfirm));
+      return;
+    }
+    // No password — execute directly
+    onConfirm();
+    return;
+  }
+  _secCallback = onConfirm;
+  document.getElementById('sec-title').textContent = title;
+  document.getElementById('sec-desc').textContent = desc;
+  document.getElementById('sec-password').value = '';
+  document.getElementById('sec-error').style.display = 'none';
+  openModal('mod-security');
+  setTimeout(() => document.getElementById('sec-password').focus(), 100);
+}
+
+function confirmSecurity() {
+  const pwd = document.getElementById('sec-password').value;
+  const hash = _getSecHash();
+  if (_hashPassword(pwd) === hash) {
+    closeModal('mod-security');
+    if (_secCallback) { _secCallback(); _secCallback = null; }
+  } else {
+    document.getElementById('sec-error').style.display = '';
+    document.getElementById('sec-password').value = '';
+    document.getElementById('sec-password').focus();
+    // Shake animation
+    const modal = document.querySelector('#mod-security .modal');
+    if (modal) {
+      modal.style.animation = 'shake .3s ease';
+      setTimeout(() => { modal.style.animation = ''; }, 300);
+    }
+  }
+}
+
+function openSetPasswordModal(afterSave) {
+  document.getElementById('sp-current').value = '';
+  document.getElementById('sp-new').value = '';
+  document.getElementById('sp-confirm').value = '';
+  window._afterPasswordSave = afterSave || null;
+  openModal('mod-set-password');
+  setTimeout(() => document.getElementById('sp-new').focus(), 100);
+}
+
+function saveSecurityPassword() {
+  const current = document.getElementById('sp-current').value;
+  const newPwd  = document.getElementById('sp-new').value;
+  const confirm = document.getElementById('sp-confirm').value;
+  const hash    = _getSecHash();
+
+  if (hash && _hashPassword(current) !== hash) {
+    alert('Senha atual incorreta.'); return;
+  }
+  if (newPwd.length < 6) {
+    alert('A nova senha deve ter pelo menos 6 caracteres.'); return;
+  }
+  if (newPwd !== confirm) {
+    alert('As senhas não coincidem.'); return;
+  }
+  DB.set('secPasswordHash', _hashPassword(newPwd));
+  closeModal('mod-set-password');
+  toast('Senha de segurança salva ✓');
+  if (window._afterPasswordSave) { window._afterPasswordSave(); window._afterPasswordSave = null; }
+}
+
 // =====================================================================
 // PROJECTS & CLIENTS
 // =====================================================================
@@ -1603,10 +1750,17 @@ function renderClientsList() {
 }
 
 function delClient(id) {
-  if (!confirm('Excluir este cliente?')) return;
-  DB.set('clients', getClients().filter(c => c.id !== id));
-  renderClientsList();
-  toast('Cliente excluido');
+  const cl = getClients().find(x => x.id === id);
+  if (!cl) return;
+  requirePassword(
+    'Excluir Cliente',
+    'Você está prestes a excluir o cliente "' + cl.name + '".',
+    () => {
+      DB.set('clients', getClients().filter(x => x.id !== id));
+      renderClientsList();
+      toast('Cliente excluído ✓');
+    }
+  );
 }
 
 async function selectProject(id) {
@@ -1749,10 +1903,17 @@ function saveProject() {
 }
 
 function delProject(id) {
-  if (!confirm('Excluir este projeto? Os dados do projeto no banco NAO serao apagados automaticamente.')) return;
-  DB.set('projects', getProjects().filter(p => p.id !== id));
-  renderProjectsGrid();
-  toast('Projeto removido da lista');
+  const p = getProjects().find(x => x.id === id);
+  if (!p) return;
+  requirePassword(
+    'Excluir Projeto',
+    'Você está prestes a excluir "' + p.name + '". Esta ação não pode ser desfeita.',
+    () => {
+      DB.set('projects', getProjects().filter(x => x.id !== id));
+      renderProjectsGrid();
+      toast('Projeto removido ✓');
+    }
+  );
 }
 
 // =====================================================================
@@ -2949,10 +3110,18 @@ function markMeasPaid(id) {
   openModal('mod-entry');
 }
 function delMeas2(id) {
-  if (!confirm('Excluir medi\u00e7\u00e3o?')) return;
+  const m = (DB.get('meas2')||[]).find(x=>x.id===id);
+  if (m && m.status !== 'draft') {
+    requirePassword('Excluir Medição Aprovada', 'Esta medição já foi aprovada. Excluí-la afetará os cálculos de avanço físico.', () => _delMeas2Confirmed(id));
+    return;
+  }
+  _delMeas2Confirmed(id);
+}
+function _delMeas2Confirmed(id) {  if (!confirm('Excluir medi\u00e7\u00e3o?')) return;
   DB.set('meas2', (DB.get('meas2')||[]).filter(m=>m.id!==id));
   renderMeas(); renderDash(); toast('Medi\u00e7\u00e3o exclu\u00edda');
 }
+
 
 // ── Supplier Measurement Wizard ────────────────────────────────────
 function openNewMeasWizard(preSupId, editMeasId, forceEdit) {
