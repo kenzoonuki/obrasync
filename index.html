@@ -476,8 +476,11 @@ tfoot td{padding:10px 0;border-top:2px solid var(--black);font-weight:800;font-s
     <p id="sec-desc" class="muted sm" style="margin-bottom:20px"></p>
     <div class="ff" style="margin-bottom:16px;text-align:left">
       <label>Senha de Segurança</label>
-      <input type="password" id="sec-password" placeholder="Digite sua senha" style="font-size:16px"
-        onkeydown="if(event.key==='Enter')confirmSecurity()"/>
+      <div style="position:relative">
+        <input type="password" id="sec-password" placeholder="Digite sua senha" style="font-size:16px;padding-right:40px;width:100%"
+          onkeydown="if(event.key==='Enter')confirmSecurity()"/>
+        <button type="button" onclick="togglePwdVisibility('sec-password',this)" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:16px;color:var(--g500)">👁</button>
+      </div>
     </div>
     <p id="sec-error" style="color:var(--err);font-size:12px;margin-bottom:12px;display:none">Senha incorreta. Tente novamente.</p>
     <div class="factions" style="justify-content:center">
@@ -492,18 +495,27 @@ tfoot td{padding:10px 0;border-top:2px solid var(--black);font-weight:800;font-s
   <div class="modal" style="max-width:420px">
     <button class="modal-x" onclick="closeModal('mod-set-password')">&#10005;</button>
     <h3>Definir Senha de Segurança</h3>
-    <p class="muted sm" style="margin:8px 0 16px">Esta senha será solicitada para ações sensíveis como excluir projetos, clientes e medições aprovadas.</p>
+    <p class="muted sm" style="margin:8px 0 8px">Esta senha é global — vale para todos os projetos, clientes e fornecedores.</p>
+    <div class="inote" style="margin-bottom:16px;font-size:11px">
+      &#128274; <strong>Esqueceu a senha?</strong> Acesse <strong>supabase.com</strong> → Table Editor → kv_store → encontre a linha com <code>key = "secPasswordHash"</code> → Delete. A senha será removida e você poderá criar uma nova.
+    </div>
     <div class="ff mb16">
       <label>Senha atual (deixe em branco se ainda não tem)</label>
       <input type="password" id="sp-current" placeholder="Senha atual"/>
     </div>
     <div class="ff mb16">
       <label>Nova senha *</label>
-      <input type="password" id="sp-new" placeholder="Mínimo 6 caracteres"/>
+      <div style="position:relative">
+        <input type="password" id="sp-new" placeholder="Mínimo 6 caracteres" style="padding-right:40px;width:100%"/>
+        <button type="button" onclick="togglePwdVisibility('sp-new',this)" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:16px;color:var(--g500)">👁</button>
+      </div>
     </div>
     <div class="ff mb16">
       <label>Confirmar nova senha *</label>
-      <input type="password" id="sp-confirm" placeholder="Repita a nova senha"/>
+      <div style="position:relative">
+        <input type="password" id="sp-confirm" placeholder="Repita a nova senha" style="padding-right:40px;width:100%"/>
+        <button type="button" onclick="togglePwdVisibility('sp-confirm',this)" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:16px;color:var(--g500)">👁</button>
+      </div>
     </div>
     <div class="factions">
       <button class="btn btn-p" onclick="saveSecurityPassword()">Salvar Senha</button>
@@ -543,6 +555,7 @@ tfoot td{padding:10px 0;border-top:2px solid var(--black);font-weight:800;font-s
     <div class="sb-label">Principal</div>
     <button class="nav-btn active" onclick="nav('dash')">Visão Geral</button>
     <button class="nav-btn" onclick="nav('dashboard')">Dashboard Analítico</button>
+    <button class="nav-btn" onclick="nav('categories')">Categorias</button>
     <div class="sb-label">Financeiro</div>
     <button class="nav-btn" onclick="nav('financial')">Lançamentos</button>
     <button class="nav-btn" onclick="nav('installments')">Parcelas</button>
@@ -553,7 +566,6 @@ tfoot td{padding:10px 0;border-top:2px solid var(--black);font-weight:800;font-s
     <button class="nav-btn" onclick="nav('budget')">Orçamento</button>
     <button class="nav-btn" onclick="nav('photos')">Fotos</button>
     <div class="sb-label">Sistema</div>
-    <button class="nav-btn" onclick="nav('categories')">Categorias</button>
   </nav>
   <main id="main">
 
@@ -1497,7 +1509,7 @@ async function _sbFetch(method, path, body) {
 // Project-scoped key helpers
 function _pk(k) { return window._currentProjectId + ':' + k; }
 // Global keys not scoped to project
-const _GLOBAL_KEYS = new Set(['clients','projects','cats','suppliers']);
+const _GLOBAL_KEYS = new Set(['clients','projects','cats','suppliers','secPasswordHash']);
 
 // =====================================================================
 // STORAGE
@@ -1578,6 +1590,18 @@ function _hashPassword(pwd) {
     hash |= 0;
   }
   return 'h_' + Math.abs(hash).toString(36) + '_' + str.length;
+}
+
+function togglePwdVisibility(inputId, btn) {
+  const inp = document.getElementById(inputId);
+  if (!inp) return;
+  if (inp.type === 'password') {
+    inp.type = 'text';
+    btn.textContent = '🙈';
+  } else {
+    inp.type = 'password';
+    btn.textContent = '👁';
+  }
 }
 
 function requirePassword(title, desc, onConfirm) {
