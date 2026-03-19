@@ -383,6 +383,10 @@ tfoot td{padding:10px 0;border-top:2px solid var(--black);font-weight:800;font-s
 
 
 
+
+.entry-selected { background: rgba(79,70,229,.04) !important; }
+.iline { display:grid; gap:8px; align-items:center; padding:6px 16px; font-size:12px; }
+
 </style>
 </head>
 <body>
@@ -697,6 +701,11 @@ tfoot td{padding:10px 0;border-top:2px solid var(--black);font-weight:800;font-s
         <button class="pill" onclick="setFF(this,'paid')">Pagos</button>
         <button class="pill" onclick="setFF(this,'nobase')">Fora da base</button>
         <button class="pill" onclick="setFF(this,'fee')">Honorários</button>
+      </div>
+      <div id="entry-sel-bar" style="display:none;position:sticky;bottom:0;background:#000;color:#fff;padding:10px 16px;border-radius:8px;margin-bottom:8px;align-items:center;gap:12px;z-index:100">
+        <span id="entry-sel-count" style="flex:1;font-size:13px;font-weight:700"></span>
+        <button onclick="delSelectedEntries()" style="background:var(--err);color:#fff;border:none;padding:6px 14px;border-radius:4px;cursor:pointer;font-size:12px;font-weight:700">&#128465; Excluir selecionados</button>
+        <button onclick="_selectedEntries.clear();renderFinancial()" style="background:#fff;color:#000;border:none;padding:6px 14px;border-radius:4px;cursor:pointer;font-size:12px">&#10005; Cancelar</button>
       </div>
       <div id="entries-list"></div>
     </div>
@@ -2412,13 +2421,57 @@ function setFF(btn, f) {
   btn.classList.add('active');
   renderFinancial();
 }
+// Track selected entries for bulk actions
+let _selectedEntries = new Set();
+
+function toggleEntrySelect(id, cb) {
+  if (cb.checked) _selectedEntries.add(id);
+  else _selectedEntries.delete(id);
+  _updateEntrySelBar();
+}
+
+function _updateEntrySelBar() {
+  const bar = document.getElementById('entry-sel-bar');
+  const cnt = document.getElementById('entry-sel-count');
+  if (!bar) return;
+  if (_selectedEntries.size > 0) {
+    bar.style.display = 'flex';
+    cnt.textContent = _selectedEntries.size + ' lançamento' + (_selectedEntries.size > 1 ? 's' : '') + ' selecionado' + (_selectedEntries.size > 1 ? 's' : '');
+  } else {
+    bar.style.display = 'none';
+  }
+}
+
+function delSelectedEntries() {
+  const count = _selectedEntries.size;
+  if (!count) return;
+  requirePassword(
+    'Excluir Lançamentos',
+    'Excluir ' + count + ' lançamento' + (count > 1 ? 's' : '') + ' selecionado' + (count > 1 ? 's' : '') + '? Esta ação não pode ser desfeita.',
+    () => {
+      const ids = new Set(_selectedEntries);
+      DB.set('entries', (DB.get('entries') || []).filter(e => !ids.has(e.id)));
+      _selectedEntries.clear();
+      _updateEntrySelBar();
+      renderFinancial();
+      renderDash();
+      toast(count + ' lançamento' + (count > 1 ? 's excluídos' : ' excluído') + ' ✓');
+    }
+  );
+}
+
+function toggleEntryCollapse(id) {
+  const ec = DB.get('entryCollapsed') || {};
+  ec[id] = !ec[id];
+  DB.set('entryCollapsed', ec);
+  renderFinancial();
+}
+
 function renderFinancial() {
   const entries = DB.get('entries') || [];
   const s = summary();
   const isC = currentRole === 'cliente';
-  const feeTotal = entries.filter(e => e.isFee).reduce((a,e) => a+e.tot, 0);
   const feePaid = entries.filter(e => e.isFee).flatMap(e => e.insts).filter(p => p.status==='paid').reduce((a,p) => a+p.paidAmt, 0);
-  const nbTot = entries.filter(e => e.base===false && !e.isFee).flatMap(e => e.insts).reduce((a,p) => a+p.val, 0);
   document.getElementById('fin-cards').innerHTML =
     '<div class="card"><div class="clbl">Total Lançado</div><div class="cval">'+R(entries.filter(e=>!e.isFee).reduce((a,e)=>a+e.tot,0))+'</div></div>' +
     '<div class="card dk"><div class="clbl">Pago (obra)</div><div class="cval">'+R(s.paid - feePaid)+'</div></div>' +
@@ -2427,7 +2480,11 @@ function renderFinancial() {
     '<div class="card"><div class="clbl">A Pagar (obra)</div><div class="cval">'+R(s.toPay - entries.filter(e=>e.isFee).flatMap(e=>e.insts).filter(p=>p.status!=='paid').reduce((a,p)=>a+p.val,0))+'</div></div>';
   document.getElementById('fin-acts').style.display = isC ? 'none' : 'flex';
   document.getElementById('fin-note').style.display = isC ? 'none' : 'block';
+
+  const _ec = DB.get('entryCollapsed') || {};
   let html = '';
+  let hasEntries = false;
+
   entries.forEach(e => {
     const nb = e.base === false;
     const isFee = !!e.isFee;
@@ -2439,45 +2496,69 @@ function renderFinancial() {
     const fi = (finFilter==='all'||finFilter==='nobase'||finFilter==='fee') ? ins :
       finFilter==='paid' ? ins.filter(p=>p.status==='paid') : ins.filter(p=>p.status!=='paid');
     if (!fi.length) return;
+    hasEntries = true;
+
     const blockCls = isFee ? 'eblock fee-entry' : nb ? 'eblock nb' : 'eblock';
-    const _ec = DB.get('entryCollapsed') || {};
     const isCollapsed = !!_ec[e.id];
-    const paidCount = fi.filter(p=>p.status==='paid').length;
-    const openCount = fi.filter(p=>p.status!=='paid').length;
+    const paidCount = ins.filter(p=>p.status==='paid').length;
+    const openCount = ins.filter(p=>p.status!=='paid').length;
+    const isSelected = _selectedEntries.has(e.id);
+
+    // Parcelas summary
     const instSummary = ins.length > 1
-      ? ' <span class="muted sm">' + ins.length + ' parcelas' +
-        (paidCount?' · <span style="color:var(--ok);font-weight:700">'+paidCount+' paga'+(paidCount>1?'s':'')+'</span>':'')+
-        (openCount?' · '+openCount+' aberta'+(openCount>1?'s':''):'')+
-        '</span>' : '';
-    const _pBtn = ins.length > 1
-      ? '<button class="btn btn-g btn-sm" style="font-size:10px;padding:2px 8px;font-weight:700;vertical-align:middle" onclick="const _ec=DB.get(\'entryCollapsed\')||{};_ec[\''+e.id+'\']=!_ec[\''+e.id+'\'];DB.set(\'entryCollapsed\',_ec);renderFinancial()">'+(isCollapsed?'&#43;':'&#8722;')+'&thinsp;Parcelas</button>'
+      ? '<span class="muted sm" style="margin-left:6px">' + ins.length + ' parcelas' +
+        (paidCount ? ' · <span style="color:var(--ok)">'+paidCount+' paga'+(paidCount>1?'s':'')+'</span>' : '') +
+        (openCount ? ' · '+openCount+' aberta'+(openCount>1?'s':'') : '') + '</span>'
       : '';
-    html += '<div class="'+blockCls+'"><div class="ehdr">' +
-      '<div class="sm muted">'+fmtP(e.comp)+'</div>' +
-      '<div><div class="fw7" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'+e.sup+_pBtn+'</div>' +
-      '<div class="subrow" style="margin-top:2px">'+e.desc+instSummary+'</div>' +
-      '<div style="margin-top:5px"><span class="tag">'+e.disc+'</span><span class="tag">'+e.phase+'</span>' +
-      (isFee ? '<span class="fee-flag">&#36; honorários</span>' : nb ? '<span class="nobase-flag">fora da base</span>' : '') +
-      '</div></div>' +
-      '<div class="fw7" style="font-size:14px">'+R(e.tot)+'</div>' +
-      '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">' +
-      (!isC ? '<button class="btn btn-e btn-sm" onclick="openEntryModal(\''+e.id+'\')">Editar</button><button class="btn btn-d" onclick="delEntry(\''+e.id+'\')">Excluir</button>' : '') +
-      '</div></div>';
-    if (!isCollapsed) {
+
+    // Collapse toggle button
+    const collapseBtn = ins.length > 0
+      ? '<button onclick="toggleEntryCollapse(\''+e.id+'\')" style="background:none;border:1px solid var(--g200);border-radius:3px;cursor:pointer;padding:1px 6px;font-size:11px;color:var(--g500);margin-left:6px">'+(isCollapsed?'&#9660;':'&#9650;')+'</button>'
+      : '';
+
+    html += '<div class="'+blockCls+(isSelected?' entry-selected':'')+'" style="border-left:'+(isSelected?'3px solid var(--info)':'3px solid transparent')+'">';
+    // Header
+    html += '<div class="ehdr">';
+    // Left: checkbox + date + info
+    html += '<div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0">';
+    if (!isC) html += '<input type="checkbox" '+(isSelected?'checked':'')+' onchange="toggleEntrySelect(\''+e.id+'\',this)" onclick="event.stopPropagation()" style="flex-shrink:0"/>';
+    html += '<div style="min-width:44px"><div class="sm muted">'+fmtP(e.comp)+'</div></div>';
+    html += '<div style="flex:1;min-width:0">';
+    html += '<div style="display:flex;align-items:center;flex-wrap:wrap;gap:4px">';
+    html += '<span class="fw7">'+esc(e.sup)+'</span>';
+    html += instSummary + collapseBtn;
+    html += '</div>';
+    html += '<div class="muted sm" style="margin-top:2px">'+esc(e.desc)+'</div>';
+    html += '<div style="margin-top:4px;display:flex;gap:4px;flex-wrap:wrap">';
+    html += '<span class="tag">'+esc(e.disc)+'</span><span class="tag">'+esc(e.phase)+'</span>';
+    html += (isFee ? '<span class="fee-flag">&#36; honorários</span>' : nb ? '<span class="nobase-flag">fora da base</span>' : '');
+    html += '</div></div></div>';
+    // Right: value + actions
+    html += '<div style="display:flex;align-items:center;gap:10px;flex-shrink:0">';
+    html += '<div style="text-align:right"><div class="fw7" style="font-size:14px">'+R(e.tot)+'</div></div>';
+    if (!isC) html += '<div style="display:flex;gap:4px"><button class="btn btn-e btn-sm" onclick="openEntryModal(\''+e.id+'\')" title="Editar">&#9998;</button><button class="btn btn-d" onclick="delEntry(\''+e.id+'\')" title="Excluir">&#10005;</button></div>';
+    html += '</div></div>';
+
+    // Parcelas — always show all, collapsible
+    if (!isCollapsed && fi.length > 0) {
+      html += '<div style="border-top:1px solid var(--g100);margin-top:4px">';
       fi.forEach(p => {
         const ovd = p.status !== 'paid' && isOvd(p.due);
-        html += '<div class="iline">' +
-          '<span class="muted sm">Parc. '+p.n+'/'+ins.length+'</span>' +
-          '<span class="muted sm">Vence: '+fmtD(p.due)+(p.paidAt?' \u00b7 Pago: '+fmtD(p.paidAt):'')+'</span>' +
-          '<span class="fw7">'+R(p.val)+'</span>' +
-          '<span>'+(p.status==='paid'?'<span class="badge b-paid">Pago</span>':ovd?'<span class="badge b-overdue">Vencida</span>':'<span class="badge b-open">Em aberto</span>')+'</span>' +
-          (p.status!=='paid' && !isC ? '<button class="btn-bx" onclick="openPayModal(\''+e.id+'\',\''+p.id+'\')">Baixar</button>' : '<span></span>') +
-          '</div>';
+        html += '<div class="iline" style="grid-template-columns:80px 1fr auto auto auto">';
+        html += '<span class="muted sm">Parc. '+p.n+'/'+ins.length+'</span>';
+        html += '<span class="muted sm">Vence: '+fmtD(p.due)+(p.paidAt?' · Pago: '+fmtD(p.paidAt):'')+'</span>';
+        html += '<span style="text-align:right;min-width:90px">'+R(p.val)+'</span>';
+        html += '<span style="min-width:80px;text-align:center">'+(p.status==='paid'?'<span class="badge b-paid">Pago</span>':ovd?'<span class="badge b-overdue">Vencida</span>':'<span class="badge b-open">Em aberto</span>')+'</span>';
+        html += (p.status!=='paid' && !isC ? '<button class="btn-bx" onclick="openPayModal(\''+e.id+'\',\''+p.id+'\')" style="min-width:60px">Baixar</button>' : '<span style="min-width:60px"></span>');
+        html += '</div>';
       });
+      html += '</div>';
     }
     html += '</div>';
   });
+
   document.getElementById('entries-list').innerHTML = html || '<div class="empty"><p>Nenhum lançamento encontrado.</p></div>';
+  _updateEntrySelBar();
 }
 
 // =====================================================================
@@ -3677,15 +3758,18 @@ function markGerencPaid(id) {
   genFeeInst();
   window._pendingGerencPaidId = id;
   openModal('mod-fee-entry');
-}
 function delGerenc(id) {
-  if (!confirm('Excluir medi\u00e7\u00e3o de gerenciamento?')) return;
-  DB.set('gerenc', (DB.get('gerenc')||[]).filter(g=>g.id!==id));
-  renderMeas(); renderDash(); toast('Exclu\u00eddo');
+  const g = (DB.get('gerenc')||[]).find(x=>x.id===id);
+  const label = g ? 'Ger. '+String(g.seqNum||'?').padStart(3,'0') : 'esta medição';
+  requirePassword(
+    'Excluir Medição de Gerenciamento',
+    'Excluir ' + label + '? Esta ação afetará os cálculos de honorários.',
+    () => {
+      DB.set('gerenc', (DB.get('gerenc')||[]).filter(x=>x.id!==id));
+      renderMeas(); renderDash(); toast('Medição excluída ✓');
+    }
+  );
 }
-
-// Boletim
-function openBoletim(measId) {
   const m = (DB.get('meas2')||[]).find(x=>x.id===measId);
   if (!m) return;
   const sup  = (DB.get('suppliers')||[]).find(s=>s.id===m.supplierId);
@@ -5023,12 +5107,17 @@ function delSelectedBI() {
   const ids = window._biSelected;
   if (!ids || !ids.size) return;
   const n = ids.size;
-  if (!confirm('Excluir ' + n + ' item(ns) selecionado(s)?')) return;
-  DB.set('budget', (DB.get('budget') || []).filter(i => !ids.has(i.id)));
-  window._biSelected = new Set();
-  _lastCheckedCb = null;
-  renderBudget(); renderDash();
-  toast(n + ' item(ns) excluído(s)');
+  requirePassword(
+    'Excluir Itens do Orçamento',
+    'Excluir ' + n + ' item' + (n>1?'s':'') + ' do orçamento? Esta ação não pode ser desfeita.',
+    () => {
+      DB.set('budget', (DB.get('budget') || []).filter(i => !ids.has(i.id)));
+      window._biSelected = new Set();
+      _lastCheckedCb = null;
+      renderBudget(); renderDash();
+      toast(n + ' item' + (n>1?'s excluídos':' excluído') + ' ✓');
+    }
+  );
 }
 function delBI(id) {
   if (!confirm('Excluir item?')) return;
