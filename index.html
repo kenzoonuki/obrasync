@@ -4987,25 +4987,26 @@ function renderBudget() {
           const tp = biItemType(i);
           totOrc += i.tot;
           const chk = window._biSelected && window._biSelected.has(i.id) ? ' checked' : '';
+          const supName = sup ? sup.name : '';
           rows += '<tr class="'+(real>=i.tot&&i.tot>0?'br-done':real>0?'br-partial':'')+' bi-row" data-id="'+i.id+'">' +
             '<td><input type="checkbox" class="bi-cb bi-row-cb" data-id="'+i.id+'"'+chk+' onclick="onBIRowCbClick(this,event)"/></td>' +
-            '<td class="muted sm">'+i.phase+'</td><td class="muted sm">'+i.disc+'</td>' +
-            '<td>'+i.desc+'</td>' +
-            '<td class="muted sm">'+i.unit+'</td>' +
-            '<td style="text-align:right">'+i.qty+'</td>' +
-            '<td style="text-align:right">'+R(i.pmo||0)+'</td>' +
-            '<td style="text-align:right">'+R(i.pmat||0)+'</td>' +
-            '<td style="text-align:right">'+R(i.pacab||0)+'</td>' +
+            '<td class="bi-cell" data-id="'+i.id+'" data-field="phase" onclick="startBIEdit(this)">'+esc(i.phase)+'</td>' +
+            '<td class="bi-cell" data-id="'+i.id+'" data-field="disc" onclick="startBIEdit(this)">'+esc(i.disc)+'</td>' +
+            '<td class="bi-cell" data-id="'+i.id+'" data-field="desc" onclick="startBIEdit(this)">'+esc(i.desc)+'</td>' +
+            '<td class="bi-cell" data-id="'+i.id+'" data-field="unit" onclick="startBIEdit(this)">'+esc(i.unit)+'</td>' +
+            '<td class="bi-cell" data-id="'+i.id+'" data-field="qty" onclick="startBIEdit(this)" style="text-align:right">'+i.qty+'</td>' +
+            '<td class="bi-cell" data-id="'+i.id+'" data-field="pmo" onclick="startBIEdit(this)" style="text-align:right">'+R(i.pmo||0)+'</td>' +
+            '<td class="bi-cell" data-id="'+i.id+'" data-field="pmat" onclick="startBIEdit(this)" style="text-align:right">'+R(i.pmat||0)+'</td>' +
+            '<td class="bi-cell" data-id="'+i.id+'" data-field="pacab" onclick="startBIEdit(this)" style="text-align:right">'+R(i.pacab||0)+'</td>' +
             '<td class="fw7" style="text-align:right">'+R(i.tot)+'</td>' +
             '<td><span class="fw7" style="color:'+(pctFis>=100?'var(--ok)':pctFis>0?'var(--info)':'var(--g400)')+'">'+pctFis.toFixed(1)+'%</span>'+
-            (sup&&sup.type==="meas"?'<div style="font-size:9px;color:var(--fee)">auto-med.</div>':sup?'<div style="font-size:9px;color:var(--g500)">direto</div>':'')+'</span>'+
             '<div class="mpw" style="margin-top:3px"><div class="mpf" style="width:'+pctFis+'%;background:'+(pctFis>=100?'var(--ok)':'var(--info)')+'></div></div>'+
             '<div style="font-size:9px;color:var(--g500);margin-top:1px">'+pctFin+'% financ.</div></td>' +
-            '<td>'+(sup?'<span style="font-size:11px;font-weight:700;color:var(--fee)">'+sup.name+'</span>'+(i.supCols?'<div style="font-size:10px;color:var(--g600);margin-top:2px">'+[i.supCols.mo?'MO':'',i.supCols.mat?'Mat.':'',i.supCols.acab?'Acab.':''].filter(Boolean).join('+')+'</div>':''):'<span style="font-size:11px;color:var(--g400)">direto</span>')+'</td>' +
+            '<td class="bi-cell" data-id="'+i.id+'" data-field="supplierId" onclick="startBIEdit(this)">'+(sup?'<span style="font-size:11px;font-weight:700;color:var(--fee)">'+esc(sup.name)+'</span>':'<span style="font-size:11px;color:var(--g400)">—</span>')+'</td>' +
             '<td><span class="bst '+tp.cls+'">'+tp.label+'</span><br><span class="bst '+st.cls+'" style="margin-top:3px;display:inline-block">'+st.label+'</span></td>' +
-            '<td style="display:flex;gap:4px;flex-wrap:wrap;min-width:110px">'+
-            (!isC?'<button class="btn btn-e btn-sm" onclick="openBudgetModal(\''+i.id+'\')">Editar</button>':'')+
-            (!isC&&i.type!=='contracted'?'<button class="btn btn-p btn-sm" onclick="contractarBI(\''+i.id+'\')">Contratar</button>':'')+
+            '<td style="display:flex;gap:4px;flex-wrap:wrap;min-width:80px">'+
+            (!isC?'<button class="btn btn-e btn-sm" onclick="openBudgetModal(\''+i.id+'\')">&#9998;</button>':'')+
+            (!isC&&i.type!=='contracted'?'<button class="btn btn-p btn-sm" onclick="contractarBI(\''+i.id+'\')">Contr.</button>':'')+
             (!isC?'<button class="btn btn-d" onclick="delBI(\''+i.id+'\')">&#10005;</button>':'')+
             '</td></tr>';
         });
