@@ -113,11 +113,15 @@ tfoot td{padding:10px 0;border-top:2px solid var(--black);font-weight:800;font-s
 .irow{display:grid;grid-template-columns:40px 1fr 1fr;gap:10px;align-items:end;margin-bottom:8px}
 .irow label{font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:var(--g500);font-weight:700;display:block;margin-bottom:3px}
 .irow input{width:100%;padding:6px 9px;border:1px solid var(--g200);font-size:12px}
-.eblock{border-bottom:1px solid var(--g100);padding:12px 0 4px}
-.eblock.nb{border-left:3px solid var(--info);padding-left:10px}
-.eblock.fee-entry{border-left:3px solid var(--fee);padding-left:10px}
-.ehdr{display:grid;grid-template-columns:75px 1fr 120px 120px;gap:10px;align-items:start}
-.iline{display:grid;grid-template-columns:85px 1fr 105px 110px 50px;gap:8px;align-items:center;padding:5px 0 5px 18px;background:var(--g50);margin-bottom:2px;font-size:12px}
+.eblock{border:1px solid var(--g200);border-radius:6px;margin-bottom:8px;overflow:hidden}
+.eblock.nb{border-left:3px solid var(--info)}
+.eblock.fee-entry{border-left:3px solid var(--fee)}
+.entry-selected{border-color:var(--info)!important;background:rgba(79,70,229,.03)}
+.ehdr{display:flex;align-items:center;gap:10px;padding:10px 14px;background:#fff}
+.ehdr-info{flex:1;min-width:0}
+.ehdr-val{text-align:right;white-space:nowrap;min-width:110px}
+.ehdr-acts{display:flex;gap:4px;align-items:center;flex-shrink:0}
+.iline{display:grid;grid-template-columns:70px 1fr 110px 100px 70px;gap:8px;align-items:center;padding:6px 14px;background:var(--g50);border-top:1px solid var(--g100);font-size:11px}
 .modal-ov{display:none;position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:20000;align-items:center;justify-content:center;padding:16px}
 .modal-ov.open{display:flex}
 .modal{background:var(--white);width:100%;max-width:580px;max-height:92vh;overflow-y:auto;padding:28px;position:relative}
@@ -384,8 +388,6 @@ tfoot td{padding:10px 0;border-top:2px solid var(--black);font-weight:800;font-s
 
 
 
-.entry-selected { background: rgba(79,70,229,.04) !important; }
-.iline { display:grid; gap:8px; align-items:center; padding:6px 16px; font-size:12px; }
 
 </style>
 </head>
@@ -2516,43 +2518,43 @@ function renderFinancial() {
       ? '<button onclick="toggleEntryCollapse(\''+e.id+'\')" style="background:none;border:1px solid var(--g200);border-radius:3px;cursor:pointer;padding:1px 6px;font-size:11px;color:var(--g500);margin-left:6px">'+(isCollapsed?'&#9660;':'&#9650;')+'</button>'
       : '';
 
-    html += '<div class="'+blockCls+(isSelected?' entry-selected':'')+'" style="border-left:'+(isSelected?'3px solid var(--info)':'3px solid transparent')+'">';
-    // Header
+    html += '<div class="'+blockCls+(isSelected?' entry-selected':'')+'">';
+    // ── Header ──────────────────────────────────────────────────────
     html += '<div class="ehdr">';
-    // Left: checkbox + date + info
-    html += '<div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0">';
-    if (!isC) html += '<input type="checkbox" '+(isSelected?'checked':'')+' onchange="toggleEntrySelect(\''+e.id+'\',this)" onclick="event.stopPropagation()" style="flex-shrink:0"/>';
-    html += '<div style="min-width:44px"><div class="sm muted">'+fmtP(e.comp)+'</div></div>';
-    html += '<div style="flex:1;min-width:0">';
-    html += '<div style="display:flex;align-items:center;flex-wrap:wrap;gap:4px">';
-    html += '<span class="fw7">'+esc(e.sup)+'</span>';
-    html += instSummary + collapseBtn;
+    // Checkbox
+    if (!isC) html += '<input type="checkbox" '+(isSelected?'checked':'')+' onchange="toggleEntrySelect(\''+e.id+'\',this)" onclick="event.stopPropagation()" style="flex-shrink:0;margin-right:2px"/>';
+    // Date
+    html += '<div style="min-width:48px;flex-shrink:0"><span class="sm muted">'+fmtP(e.comp)+'</span></div>';
+    // Info block
+    html += '<div class="ehdr-info">';
+    html += '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">';
+    html += '<span class="fw7" style="font-size:13px">'+esc(e.sup)+'</span>';
+    html += instSummary;
+    html += collapseBtn;
     html += '</div>';
     html += '<div class="muted sm" style="margin-top:2px">'+esc(e.desc)+'</div>';
     html += '<div style="margin-top:4px;display:flex;gap:4px;flex-wrap:wrap">';
     html += '<span class="tag">'+esc(e.disc)+'</span><span class="tag">'+esc(e.phase)+'</span>';
     html += (isFee ? '<span class="fee-flag">&#36; honorários</span>' : nb ? '<span class="nobase-flag">fora da base</span>' : '');
-    html += '</div></div></div>';
-    // Right: value + actions
-    html += '<div style="display:flex;align-items:center;gap:10px;flex-shrink:0">';
-    html += '<div style="text-align:right"><div class="fw7" style="font-size:14px">'+R(e.tot)+'</div></div>';
-    if (!isC) html += '<div style="display:flex;gap:4px"><button class="btn btn-e btn-sm" onclick="openEntryModal(\''+e.id+'\')" title="Editar">&#9998;</button><button class="btn btn-d" onclick="delEntry(\''+e.id+'\')" title="Excluir">&#10005;</button></div>';
     html += '</div></div>';
+    // Value
+    html += '<div class="ehdr-val"><span class="fw7" style="font-size:14px">'+R(e.tot)+'</span></div>';
+    // Actions
+    if (!isC) html += '<div class="ehdr-acts"><button class="btn btn-e btn-sm" onclick="openEntryModal(\''+e.id+'\')" title="Editar">&#9998;</button><button class="btn btn-d" onclick="delEntry(\''+e.id+'\')" title="Excluir">&#10005;</button></div>';
+    html += '</div>';
 
-    // Parcelas — always show all, collapsible
+    // ── Parcelas ─────────────────────────────────────────────────────
     if (!isCollapsed && fi.length > 0) {
-      html += '<div style="border-top:1px solid var(--g100);margin-top:4px">';
       fi.forEach(p => {
         const ovd = p.status !== 'paid' && isOvd(p.due);
-        html += '<div class="iline" style="grid-template-columns:80px 1fr auto auto auto">';
-        html += '<span class="muted sm">Parc. '+p.n+'/'+ins.length+'</span>';
-        html += '<span class="muted sm">Vence: '+fmtD(p.due)+(p.paidAt?' · Pago: '+fmtD(p.paidAt):'')+'</span>';
-        html += '<span style="text-align:right;min-width:90px">'+R(p.val)+'</span>';
-        html += '<span style="min-width:80px;text-align:center">'+(p.status==='paid'?'<span class="badge b-paid">Pago</span>':ovd?'<span class="badge b-overdue">Vencida</span>':'<span class="badge b-open">Em aberto</span>')+'</span>';
-        html += (p.status!=='paid' && !isC ? '<button class="btn-bx" onclick="openPayModal(\''+e.id+'\',\''+p.id+'\')" style="min-width:60px">Baixar</button>' : '<span style="min-width:60px"></span>');
+        html += '<div class="iline">';
+        html += '<span class="muted sm">'+p.n+'/'+ins.length+'</span>';
+        html += '<span class="muted sm">'+fmtD(p.due)+(p.paidAt?' · pago '+fmtD(p.paidAt):'')+'</span>';
+        html += '<span style="text-align:right">'+R(p.val)+'</span>';
+        html += '<span style="text-align:center">'+(p.status==='paid'?'<span class="badge b-paid">Pago</span>':ovd?'<span class="badge b-overdue">Vencida</span>':'<span class="badge b-open">Em aberto</span>')+'</span>';
+        html += (p.status!=='paid' && !isC ? '<button class="btn-bx" onclick="openPayModal(\''+e.id+'\',\''+p.id+'\')" style="font-size:11px">Baixar</button>' : '<span></span>');
         html += '</div>';
       });
-      html += '</div>';
     }
     html += '</div>';
   });
