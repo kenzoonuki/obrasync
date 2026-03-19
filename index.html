@@ -380,45 +380,58 @@ tfoot td{padding:10px 0;border-top:2px solid var(--black);font-weight:800;font-s
 
 
 /* ── Inline Budget Editing ────────────────────────────────────────── */
+.bi-cell {
+  cursor:pointer;
+  position:relative;
+  min-width:40px;
+  padding:6px 8px!important;
+  transition:background .1s;
+}
+.bi-cell:hover {
+  background:rgba(79,70,229,.06)!important;
+  outline:1px solid rgba(79,70,229,.3);
+  outline-offset:-1px;
+}
 .bi-cell-edit {
   position:relative;
   padding:0!important;
+  background:rgba(79,70,229,.08)!important;
+  outline:2px solid var(--info)!important;
+  outline-offset:-2px;
 }
 .bi-cell-edit input, .bi-cell-edit select {
   width:100%;
   border:none;
-  border-bottom:2px solid var(--info);
-  background:rgba(79,70,229,.06);
-  padding:4px 6px;
+  background:transparent;
+  padding:6px 8px;
   font-size:12px;
   font-family:var(--font);
   outline:none;
   min-width:0;
+  box-sizing:border-box;
 }
-.bi-cell-edit input:focus, .bi-cell-edit select:focus {
-  background:rgba(79,70,229,.12);
-  border-bottom-color:var(--info);
-}
-.bi-row.editing td { background:rgba(79,70,229,.04)!important; }
-.bi-row.editing { outline:2px solid var(--info); }
+.bi-row.editing td { background:rgba(79,70,229,.03)!important; }
 .ac-dropdown {
   position:absolute;
-  top:100%;left:0;
+  top:calc(100% + 2px);left:0;
   background:#fff;
-  border:1px solid var(--g200);
-  box-shadow:0 4px 16px rgba(0,0,0,.12);
-  z-index:1000;
-  max-height:180px;
+  border:1px solid var(--info);
+  box-shadow:0 8px 24px rgba(0,0,0,.15);
+  z-index:9000;
+  max-height:220px;
   overflow-y:auto;
-  min-width:180px;
+  min-width:200px;
+  border-radius:4px;
   font-size:12px;
 }
 .ac-item {
-  padding:6px 10px;
+  padding:7px 12px;
   cursor:pointer;
   white-space:nowrap;
+  border-bottom:1px solid var(--g100);
 }
-.ac-item:hover, .ac-item.ac-active { background:var(--g100); }
+.ac-item:last-child { border-bottom:none; }
+.ac-item:hover, .ac-item.ac-active { background:rgba(79,70,229,.08); color:var(--info); font-weight:600; }
 .bi-add-row td {
   padding:4px 8px!important;
   border-top:2px dashed var(--g200);
@@ -1829,7 +1842,12 @@ function startBIEdit(td) {
 }
 
 function onBICellKeydown(e) {
-  if (e.key === 'Escape') { cancelBIEdit(); return; }
+  if (e.key === 'Escape') {
+    const drop = document.getElementById('ac-drop');
+    if (drop) { hideACDropdown(); return; }
+    cancelBIEdit();
+    return;
+  }
 
   const acActive = document.querySelector('.ac-item.ac-active');
   if (e.key === 'ArrowDown') {
@@ -1926,7 +1944,7 @@ function commitBIEdit() {
   let val = input.value;
   if (type === 'number') val = parseFloat(val) || 0;
   else if (type === 'currency') val = parseCurrency(val);
-  else if (type === 'supplier') val = input.value; // value is supplierId from select
+  // supplier select already has the id as value
 
   item[field] = val;
 
@@ -2005,15 +2023,14 @@ function selectBIRow(tr) {
 }
 
 // ── Autocomplete dropdown ─────────────────────────────────────────────
-function showACDropdown(td, input, suggestions) {
+function showACDropdown(td, input, suggestions, showAll) {
   hideACDropdown();
   const val = input.value.toLowerCase().trim();
-  if (!val && suggestions.length > 8) return;
-
+  
   const filtered = suggestions.filter(s => {
     const label = typeof s === 'object' ? s.label : s;
-    return label.toLowerCase().includes(val);
-  }).slice(0, 10);
+    return showAll || !val || label.toLowerCase().includes(val);
+  }).slice(0, 12);
 
   if (!filtered.length) return;
 
@@ -2030,10 +2047,11 @@ function showACDropdown(td, input, suggestions) {
     item.dataset.value = value;
     item.addEventListener('mousedown', (e) => {
       e.preventDefault();
-      input.value = label;
-      // For supplier field, store the id
+      // For supplier field, value is the id
       if (input.dataset.field === 'supplierId') {
-        input.dataset.selectedId = value;
+        input.value = value; // store id as value
+        input.dataset.displayLabel = label;
+      } else {
         input.value = label;
       }
       hideACDropdown();
