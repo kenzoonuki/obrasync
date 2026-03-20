@@ -2563,7 +2563,7 @@ function renderFinancial() {
     // ── Header ──────────────────────────────────────────────────────
     html += '<div class="ehdr">';
     // Checkbox
-    if (!isC) html += '<input type="checkbox" class="entry-cb" data-id="'+e.id+'" '+(isSelected?'checked':'')+' onchange="toggleEntrySelect(\''+e.id+'\',this,event)" onclick="event.stopPropagation()" style="flex-shrink:0;margin-right:2px"/>';
+    if (!isC) html += '<input type="checkbox" class="entry-cb" data-id="'+e.id+'" '+(isSelected?'checked':'')+' onclick="event.stopPropagation();toggleEntrySelect(\''+e.id+'\',this,event)" style="flex-shrink:0;margin-right:2px"/>';
     // Date
     html += '<div style="min-width:48px;flex-shrink:0"><span class="sm muted">'+fmtP(e.comp)+'</span></div>';
     // Info block
