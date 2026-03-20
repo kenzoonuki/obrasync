@@ -696,6 +696,11 @@ tfoot td{padding:10px 0;border-top:2px solid var(--black);font-weight:800;font-s
       </div>
       <div class="cards" id="fin-cards"></div>
       <div class="inote bl mb16" id="fin-note">&#128161; Use <strong>Lançar Honorários</strong> para registrar pagamentos dos seus honorários de gerenciamento.</div>
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
+        <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--g500);cursor:pointer">
+          <input type="checkbox" id="entry-cb-all" onchange="toggleAllEntries(this)"/> Selecionar todos
+        </label>
+      </div>
       <div class="fg mb16">
         <span class="flbl">Status:</span>
         <button class="pill active" onclick="setFF(this,'all')">Todos</button>
@@ -2426,10 +2431,46 @@ function setFF(btn, f) {
 // Track selected entries for bulk actions
 let _selectedEntries = new Set();
 
-function toggleEntrySelect(id, cb) {
-  if (cb.checked) _selectedEntries.add(id);
-  else _selectedEntries.delete(id);
+let _lastCheckedEntry = null;
+
+function toggleAllEntries(masterCb) {
+  const allCbs = document.querySelectorAll('.entry-cb');
+  allCbs.forEach(cb => {
+    cb.checked = masterCb.checked;
+    const id = cb.dataset.id;
+    if (masterCb.checked) _selectedEntries.add(id);
+    else _selectedEntries.delete(id);
+  });
   _updateEntrySelBar();
+}
+
+function toggleEntrySelect(id, cb, event) {
+  // Shift+click — select range
+  if (event && event.shiftKey && _lastCheckedEntry) {
+    const allCbs = [...document.querySelectorAll('.entry-cb')];
+    const lastIdx = allCbs.findIndex(x => x.dataset.id === _lastCheckedEntry);
+    const curIdx  = allCbs.findIndex(x => x.dataset.id === id);
+    if (lastIdx !== -1 && curIdx !== -1) {
+      const [from, to] = lastIdx < curIdx ? [lastIdx, curIdx] : [curIdx, lastIdx];
+      allCbs.slice(from, to + 1).forEach(x => {
+        x.checked = cb.checked;
+        if (cb.checked) _selectedEntries.add(x.dataset.id);
+        else _selectedEntries.delete(x.dataset.id);
+      });
+      _updateEntrySelBar();
+      return;
+    }
+  }
+  if (cb.checked) { _selectedEntries.add(id); _lastCheckedEntry = id; }
+  else { _selectedEntries.delete(id); _lastCheckedEntry = null; }
+  _updateEntrySelBar();
+  // Sync master checkbox
+  const masterCb = document.getElementById('entry-cb-all');
+  if (masterCb) {
+    const allCbs = document.querySelectorAll('.entry-cb');
+    masterCb.checked = allCbs.length > 0 && [...allCbs].every(x => x.checked);
+    masterCb.indeterminate = _selectedEntries.size > 0 && _selectedEntries.size < allCbs.length;
+  }
 }
 
 function _updateEntrySelBar() {
@@ -2515,14 +2556,14 @@ function renderFinancial() {
 
     // Collapse toggle button
     const collapseBtn = ins.length > 0
-      ? '<button onclick="toggleEntryCollapse(\''+e.id+'\')" style="background:none;border:1px solid var(--g200);border-radius:3px;cursor:pointer;padding:1px 6px;font-size:11px;color:var(--g500);margin-left:6px">'+(isCollapsed?'&#9660;':'&#9650;')+'</button>'
+      ? '<button onclick="toggleEntryCollapse(\''+e.id+'\')" style="background:none;border:1px solid var(--g300);border-radius:3px;cursor:pointer;padding:0 7px;font-size:14px;font-weight:700;color:var(--g600);margin-left:6px;line-height:1.4">'+(isCollapsed?'+':'&#8722;')+'</button>'
       : '';
 
     html += '<div class="'+blockCls+(isSelected?' entry-selected':'')+'">';
     // ── Header ──────────────────────────────────────────────────────
     html += '<div class="ehdr">';
     // Checkbox
-    if (!isC) html += '<input type="checkbox" '+(isSelected?'checked':'')+' onchange="toggleEntrySelect(\''+e.id+'\',this)" onclick="event.stopPropagation()" style="flex-shrink:0;margin-right:2px"/>';
+    if (!isC) html += '<input type="checkbox" class="entry-cb" data-id="'+e.id+'" '+(isSelected?'checked':'')+' onchange="toggleEntrySelect(\''+e.id+'\',this,event)" onclick="event.stopPropagation()" style="flex-shrink:0;margin-right:2px"/>';
     // Date
     html += '<div style="min-width:48px;flex-shrink:0"><span class="sm muted">'+fmtP(e.comp)+'</span></div>';
     // Info block
