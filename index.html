@@ -595,8 +595,8 @@ tfoot td{padding:10px 0;border-top:2px solid var(--black);font-weight:800;font-s
       <button class="active" id="btn-int" onclick="setRole('interno')">Interno</button>
       <button id="btn-cli" onclick="setRole('cliente')">Cliente</button>
     </div>
-    <span class="topbar-user" id="topbar-user">gerente@obra</span>
-    <button onclick="doLogout()" style="background:none;border:1px solid rgba(255,255,255,.3);color:#fff;padding:3px 10px;border-radius:4px;cursor:pointer;font-size:11px;margin-left:8px" title="Sair">Sair</button>
+    <span class="topbar-user" id="topbar-user"></span>
+    <button onclick="doLogout()" style="background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.4);color:#fff;padding:4px 12px;border-radius:4px;cursor:pointer;font-size:12px;font-weight:600;margin-left:8px" title="Sair">Sair</button>
   </div>
 </div>
 <div id="layout">
@@ -2245,6 +2245,17 @@ async function startApp() {
   const p = getProjects().find(x => x.id === autoProj);
   const el = document.getElementById('topbar-proj-name');
   if (el && p) el.textContent = p.name;
+  // Show logged-in email in topbar
+  if (window._sbSession) {
+    const userEl = document.getElementById('topbar-user');
+    if (userEl) {
+      // Get email from JWT token
+      try {
+        const payload = JSON.parse(atob(window._sbSession.access_token.split('.')[1]));
+        userEl.textContent = payload.email || '';
+      } catch(e) { userEl.textContent = ''; }
+    }
+  }
   nav('dash');
   localStorage.setItem('os3_lastProject', autoProj);
 }
