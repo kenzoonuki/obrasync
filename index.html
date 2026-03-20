@@ -435,6 +435,7 @@ tfoot td{padding:10px 0;border-top:2px solid var(--black);font-weight:800;font-s
       <button id="ps-tab-cli" onclick="setPsTab('clientes')" style="padding:10px 20px;background:none;border:none;border-bottom:2px solid transparent;margin-bottom:-2px;font-weight:700;font-size:13px;cursor:pointer;color:#888">Clientes</button>
       <button id="ps-tab-cat" onclick="setPsTab('categorias')" style="padding:10px 20px;background:none;border:none;border-bottom:2px solid transparent;margin-bottom:-2px;font-weight:700;font-size:13px;cursor:pointer;color:#888">Categorias</button>
       <button id="ps-tab-for" onclick="setPsTab('fornecedores')" style="padding:10px 20px;background:none;border:none;border-bottom:2px solid transparent;margin-bottom:-2px;font-weight:700;font-size:13px;cursor:pointer;color:#888">Fornecedores</button>
+      <button id="ps-tab-ger" onclick="setPsTab('gerenciador')" style="padding:10px 20px;background:none;border:none;border-bottom:2px solid transparent;margin-bottom:-2px;font-weight:700;font-size:13px;cursor:pointer;color:#888">Gerenciador</button>
     </div>
     <!-- Projects panel -->
     <div id="ps-panel-projetos">
@@ -457,6 +458,10 @@ tfoot td{padding:10px 0;border-top:2px solid var(--black);font-weight:800;font-s
         <button class="btn btn-p" onclick="openSupplierModal()">+ Novo Fornecedor</button>
       </div>
       <div id="ps-sup-list"></div>
+    </div>
+    <!-- Gerenciador panel -->
+    <div id="ps-panel-gerenciador" style="display:none">
+      <div id="ps-ger-content"></div>
     </div>
   </div>
 </div>
@@ -1571,7 +1576,7 @@ async function _sbFetch(method, path, body) {
 // Project-scoped key helpers
 function _pk(k) { return window._currentProjectId + ':' + k; }
 // Global keys not scoped to project
-const _GLOBAL_KEYS = new Set(['clients','projects','cats','suppliers','secPasswordHash']);
+const _GLOBAL_KEYS = new Set(['clients','projects','cats','suppliers','secPasswordHash','gerenciadorProfile']);
 
 // =====================================================================
 // STORAGE
@@ -1816,9 +1821,9 @@ function renderProjectsGrid() {
 }
 
 function setPsTab(tab) {
-  const tabs = ['projetos','clientes','categorias','fornecedores'];
+  const tabs = ['projetos','clientes','categorias','fornecedores','gerenciador'];
   tabs.forEach(t => {
-    const tabId = {projetos:'proj',clientes:'cli',categorias:'cat',fornecedores:'for'}[t] || t.slice(0,3);
+    const tabId = {projetos:'proj',clientes:'cli',categorias:'cat',fornecedores:'for',gerenciador:'ger'}[t] || t.slice(0,3);
     const btn = document.getElementById('ps-tab-' + tabId);
     const panel = document.getElementById('ps-panel-' + t);
     const active = t === tab;
@@ -1828,6 +1833,98 @@ function setPsTab(tab) {
   if (tab === 'clientes') renderClientsList();
   if (tab === 'categorias') renderPsCats();
   if (tab === 'fornecedores') renderPsSuppliers();
+  if (tab === 'gerenciador') renderGerenciadorProfile();
+}
+
+function renderGerenciadorProfile() {
+  const el = document.getElementById('ps-ger-content');
+  if (!el) return;
+  const g = DB.get('gerenciadorProfile') || {};
+
+  el.innerHTML = '<div style="max-width:640px">' +
+    '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px">' +
+      '<div>' +
+        '<div style="font-size:16px;font-weight:800">Perfil do Gerenciador</div>' +
+        '<div style="font-size:12px;color:#888;margin-top:2px">Dados usados nos relatórios e documentos PDF</div>' +
+      '</div>' +
+      '<button class="btn btn-p" onclick="saveGerenciadorProfile()">Salvar</button>' +
+    '</div>' +
+
+    '<div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#888;margin-bottom:12px">Dados Pessoais / Empresa</div>' +
+    '<div class="fgrid w" style="margin-bottom:20px">' +
+      '<div class="ff s2"><label>Nome completo / Razão Social *</label><input type="text" id="gp-name" value="'+esc(g.name||'')+'" placeholder="Ex: João Silva Arquitetura e Gerenciamento"/></div>' +
+      '<div class="ff"><label>CPF / CNPJ</label><input type="text" id="gp-doc" value="'+esc(g.doc||'')+'" placeholder="000.000.000-00 ou 00.000.000/0000-00"/></div>' +
+      '<div class="ff"><label>E-mail</label><input type="email" id="gp-email" value="'+esc(g.email||'')+'" placeholder="contato@empresa.com"/></div>' +
+      '<div class="ff"><label>Telefone / WhatsApp</label><input type="text" id="gp-phone" value="'+esc(g.phone||'')+'" placeholder="(11) 99999-9999"/></div>' +
+      '<div class="ff s2"><label>Endereço completo</label><input type="text" id="gp-addr" value="'+esc(g.addr||'')+'" placeholder="Rua, número, bairro, cidade — CEP"/></div>' +
+    '</div>' +
+
+    '<div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#888;margin-bottom:12px">Dados Bancários</div>' +
+    '<div class="fgrid w" style="margin-bottom:20px">' +
+      '<div class="ff"><label>Banco</label><input type="text" id="gp-bank" value="'+esc(g.bank||'')+'" placeholder="Ex: Itaú, Nubank"/></div>' +
+      '<div class="ff"><label>Agência</label><input type="text" id="gp-agency" value="'+esc(g.agency||'')+'" placeholder="0000"/></div>' +
+      '<div class="ff"><label>Conta</label><input type="text" id="gp-account" value="'+esc(g.account||'')+'" placeholder="00000-0"/></div>' +
+      '<div class="ff"><label>Tipo de Conta</label>' +
+        '<select id="gp-actype">' +
+          '<option value="corrente"'+(g.actype==='corrente'?' selected':'')+'>Corrente</option>' +
+          '<option value="poupanca"'+(g.actype==='poupanca'?' selected':'')+'>Poupança</option>' +
+        '</select>' +
+      '</div>' +
+      '<div class="ff s2"><label>PIX</label><input type="text" id="gp-pix" value="'+esc(g.pix||'')+'" placeholder="CPF, CNPJ, e-mail ou telefone"/></div>' +
+    '</div>' +
+
+    '<div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#888;margin-bottom:12px">Logo para PDF</div>' +
+    '<div style="border:2px dashed #e8e8e8;border-radius:8px;padding:24px;text-align:center;margin-bottom:20px">' +
+      (g.logo
+        ? '<img src="'+g.logo+'" style="max-height:80px;max-width:240px;margin-bottom:12px;display:block;margin-left:auto;margin-right:auto"/>'
+        : '<div style="font-size:32px;margin-bottom:8px">🏢</div>') +
+      '<div style="font-size:12px;color:#888;margin-bottom:12px">' + (g.logo ? 'Logo atual' : 'Nenhum logo adicionado') + '</div>' +
+      '<input type="file" id="gp-logo-file" accept="image/*" style="display:none" onchange="loadGerLogo(this)"/>' +
+      '<div style="display:flex;gap:8px;justify-content:center">' +
+        '<button class="btn btn-g btn-sm" onclick="document.getElementById(\'gp-logo-file\').click()">📁 Escolher imagem</button>' +
+        (g.logo ? '<button class="btn btn-d btn-sm" onclick="removeGerLogo()">✕ Remover</button>' : '') +
+      '</div>' +
+    '</div>' +
+
+    '<button class="btn btn-p" onclick="saveGerenciadorProfile()" style="width:100%">Salvar Perfil</button>' +
+    '</div>';
+}
+
+function loadGerLogo(input) {
+  if (!input.files || !input.files[0]) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    const g = DB.get('gerenciadorProfile') || {};
+    g.logo = e.target.result;
+    DB.set('gerenciadorProfile', g);
+    renderGerenciadorProfile();
+    toast('Logo salvo ✓');
+  };
+  reader.readAsDataURL(input.files[0]);
+}
+
+function removeGerLogo() {
+  const g = DB.get('gerenciadorProfile') || {};
+  delete g.logo;
+  DB.set('gerenciadorProfile', g);
+  renderGerenciadorProfile();
+  toast('Logo removido');
+}
+
+function saveGerenciadorProfile() {
+  const g = DB.get('gerenciadorProfile') || {};
+  g.name    = document.getElementById('gp-name').value.trim();
+  g.doc     = document.getElementById('gp-doc').value.trim();
+  g.email   = document.getElementById('gp-email').value.trim();
+  g.phone   = document.getElementById('gp-phone').value.trim();
+  g.addr    = document.getElementById('gp-addr').value.trim();
+  g.bank    = document.getElementById('gp-bank').value.trim();
+  g.agency  = document.getElementById('gp-agency').value.trim();
+  g.account = document.getElementById('gp-account').value.trim();
+  g.actype  = document.getElementById('gp-actype').value;
+  g.pix     = document.getElementById('gp-pix').value.trim();
+  DB.set('gerenciadorProfile', g);
+  toast('Perfil salvo ✓');
 }
 
 function renderPsSuppliers() {
