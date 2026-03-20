@@ -397,7 +397,7 @@ tfoot td{padding:10px 0;border-top:2px solid var(--black);font-weight:800;font-s
 <div id="login-screen" style="display:none;position:fixed;inset:0;background:#fafafa;z-index:99999;align-items:center;justify-content:center;flex-direction:column">
   <div style="width:100%;max-width:400px;padding:40px 32px;background:#fff;border:1px solid #e8e8e8;border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,.08)">
     <div style="text-align:center;margin-bottom:32px">
-      <div style="font-size:28px;font-weight:900;letter-spacing:-.03em">ObraSync</div>
+      <div style="display:flex;align-items:center;gap:10px"><img id="ps-app-logo" src="" style="height:36px;object-fit:contain;display:none"/><div style="font-size:28px;font-weight:900;letter-spacing:-.03em" id="ps-app-name">ObraSync</div></div>
       <div style="font-size:13px;color:#888;margin-top:4px">Acesso seguro</div>
     </div>
     <div class="ff mb16">
@@ -435,7 +435,7 @@ tfoot td{padding:10px 0;border-top:2px solid var(--black);font-weight:800;font-s
       <button id="ps-tab-cli" onclick="setPsTab('clientes')" style="padding:10px 20px;background:none;border:none;border-bottom:2px solid transparent;margin-bottom:-2px;font-weight:700;font-size:13px;cursor:pointer;color:#888">Clientes</button>
       <button id="ps-tab-cat" onclick="setPsTab('categorias')" style="padding:10px 20px;background:none;border:none;border-bottom:2px solid transparent;margin-bottom:-2px;font-weight:700;font-size:13px;cursor:pointer;color:#888">Categorias</button>
       <button id="ps-tab-for" onclick="setPsTab('fornecedores')" style="padding:10px 20px;background:none;border:none;border-bottom:2px solid transparent;margin-bottom:-2px;font-weight:700;font-size:13px;cursor:pointer;color:#888">Fornecedores</button>
-      <button id="ps-tab-ger" onclick="setPsTab('gerenciador')" style="padding:10px 20px;background:none;border:none;border-bottom:2px solid transparent;margin-bottom:-2px;font-weight:700;font-size:13px;cursor:pointer;color:#888">Gerenciador</button>
+      <button id="ps-tab-con" onclick="setPsTab('config')" style="padding:10px 20px;background:none;border:none;border-bottom:2px solid transparent;margin-bottom:-2px;font-weight:700;font-size:13px;cursor:pointer;color:#888">Configurações</button>
     </div>
     <!-- Projects panel -->
     <div id="ps-panel-projetos">
@@ -460,8 +460,8 @@ tfoot td{padding:10px 0;border-top:2px solid var(--black);font-weight:800;font-s
       <div id="ps-sup-list"></div>
     </div>
     <!-- Gerenciador panel -->
-    <div id="ps-panel-gerenciador" style="display:none">
-      <div id="ps-ger-content"></div>
+    <div id="ps-panel-config" style="display:none">
+      <div id="ps-config-content"></div>
     </div>
   </div>
 </div>
@@ -595,7 +595,7 @@ tfoot td{padding:10px 0;border-top:2px solid var(--black);font-weight:800;font-s
 <div id="topbar">
   <div class="topbar-left">
     <button onclick="showProjectSelector()" style="background:none;border:none;cursor:pointer;padding:4px 8px;border-radius:4px;color:var(--g500);font-size:11px;display:flex;align-items:center;gap:4px" title="Trocar projeto">&#9664;</button>
-    <span class="logo">ObraSync</span>
+    <img id="topbar-logo-img" src="" style="height:28px;object-fit:contain;display:none;margin-right:4px"/><span class="logo" id="topbar-app-name">ObraSync</span>
     <span class="topbar-proj" id="topbar-proj-name">Projeto</span>
   </div>
   <div class="topbar-right">
@@ -1576,7 +1576,7 @@ async function _sbFetch(method, path, body) {
 // Project-scoped key helpers
 function _pk(k) { return window._currentProjectId + ':' + k; }
 // Global keys not scoped to project
-const _GLOBAL_KEYS = new Set(['clients','projects','cats','suppliers','secPasswordHash','gerenciadorProfile']);
+const _GLOBAL_KEYS = new Set(['clients','projects','cats','suppliers','secPasswordHash','appConfig']);
 
 // =====================================================================
 // STORAGE
@@ -1821,9 +1821,9 @@ function renderProjectsGrid() {
 }
 
 function setPsTab(tab) {
-  const tabs = ['projetos','clientes','categorias','fornecedores','gerenciador'];
+  const tabs = ['projetos','clientes','categorias','fornecedores','config'];
   tabs.forEach(t => {
-    const tabId = {projetos:'proj',clientes:'cli',categorias:'cat',fornecedores:'for',gerenciador:'ger'}[t] || t.slice(0,3);
+    const tabId = {projetos:'proj',clientes:'cli',categorias:'cat',fornecedores:'for',config:'con'}[t] || t.slice(0,3);
     const btn = document.getElementById('ps-tab-' + tabId);
     const panel = document.getElementById('ps-panel-' + t);
     const active = t === tab;
@@ -1833,98 +1833,99 @@ function setPsTab(tab) {
   if (tab === 'clientes') renderClientsList();
   if (tab === 'categorias') renderPsCats();
   if (tab === 'fornecedores') renderPsSuppliers();
-  if (tab === 'gerenciador') renderGerenciadorProfile();
+  if (tab === 'config') renderConfigPanel();
 }
 
-function renderGerenciadorProfile() {
-  const el = document.getElementById('ps-ger-content');
+function renderConfigPanel() {
+  const el = document.getElementById('ps-config-content');
   if (!el) return;
-  const g = DB.get('gerenciadorProfile') || {};
+  const cfg = DB.get('appConfig') || {};
 
-  el.innerHTML = '<div style="max-width:640px">' +
-    '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px">' +
-      '<div>' +
-        '<div style="font-size:16px;font-weight:800">Perfil do Gerenciador</div>' +
-        '<div style="font-size:12px;color:#888;margin-top:2px">Dados usados nos relatórios e documentos PDF</div>' +
-      '</div>' +
-      '<button class="btn btn-p" onclick="saveGerenciadorProfile()">Salvar</button>' +
-    '</div>' +
+  el.innerHTML = '<div style="max-width:560px">' +
+    '<div style="font-size:16px;font-weight:800;margin-bottom:4px">Configurações do Escritório</div>' +
+    '<div style="font-size:12px;color:#888;margin-bottom:28px">Logo e nome usados nos relatórios PDF e na identidade do app</div>' +
 
-    '<div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#888;margin-bottom:12px">Dados Pessoais / Empresa</div>' +
-    '<div class="fgrid w" style="margin-bottom:20px">' +
-      '<div class="ff s2"><label>Nome completo / Razão Social *</label><input type="text" id="gp-name" value="'+esc(g.name||'')+'" placeholder="Ex: João Silva Arquitetura e Gerenciamento"/></div>' +
-      '<div class="ff"><label>CPF / CNPJ</label><input type="text" id="gp-doc" value="'+esc(g.doc||'')+'" placeholder="000.000.000-00 ou 00.000.000/0000-00"/></div>' +
-      '<div class="ff"><label>E-mail</label><input type="email" id="gp-email" value="'+esc(g.email||'')+'" placeholder="contato@empresa.com"/></div>' +
-      '<div class="ff"><label>Telefone / WhatsApp</label><input type="text" id="gp-phone" value="'+esc(g.phone||'')+'" placeholder="(11) 99999-9999"/></div>' +
-      '<div class="ff s2"><label>Endereço completo</label><input type="text" id="gp-addr" value="'+esc(g.addr||'')+'" placeholder="Rua, número, bairro, cidade — CEP"/></div>' +
-    '</div>' +
-
-    '<div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#888;margin-bottom:12px">Dados Bancários</div>' +
-    '<div class="fgrid w" style="margin-bottom:20px">' +
-      '<div class="ff"><label>Banco</label><input type="text" id="gp-bank" value="'+esc(g.bank||'')+'" placeholder="Ex: Itaú, Nubank"/></div>' +
-      '<div class="ff"><label>Agência</label><input type="text" id="gp-agency" value="'+esc(g.agency||'')+'" placeholder="0000"/></div>' +
-      '<div class="ff"><label>Conta</label><input type="text" id="gp-account" value="'+esc(g.account||'')+'" placeholder="00000-0"/></div>' +
-      '<div class="ff"><label>Tipo de Conta</label>' +
-        '<select id="gp-actype">' +
-          '<option value="corrente"'+(g.actype==='corrente'?' selected':'')+'>Corrente</option>' +
-          '<option value="poupanca"'+(g.actype==='poupanca'?' selected':'')+'>Poupança</option>' +
-        '</select>' +
-      '</div>' +
-      '<div class="ff s2"><label>PIX</label><input type="text" id="gp-pix" value="'+esc(g.pix||'')+'" placeholder="CPF, CNPJ, e-mail ou telefone"/></div>' +
-    '</div>' +
-
-    '<div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#888;margin-bottom:12px">Logo para PDF</div>' +
-    '<div style="border:2px dashed #e8e8e8;border-radius:8px;padding:24px;text-align:center;margin-bottom:20px">' +
-      (g.logo
-        ? '<img src="'+g.logo+'" style="max-height:80px;max-width:240px;margin-bottom:12px;display:block;margin-left:auto;margin-right:auto"/>'
-        : '<div style="font-size:32px;margin-bottom:8px">🏢</div>') +
-      '<div style="font-size:12px;color:#888;margin-bottom:12px">' + (g.logo ? 'Logo atual' : 'Nenhum logo adicionado') + '</div>' +
-      '<input type="file" id="gp-logo-file" accept="image/*" style="display:none" onchange="loadGerLogo(this)"/>' +
+    // ── Logo ──────────────────────────────────────────────────────────
+    '<div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#888;margin-bottom:12px">Logo do Escritório</div>' +
+    '<div style="border:2px dashed #e8e8e8;border-radius:8px;padding:32px;text-align:center;margin-bottom:24px;background:#fafafa">' +
+      (cfg.logo
+        ? '<img src="'+cfg.logo+'" style="max-height:100px;max-width:280px;margin-bottom:16px;display:block;margin-left:auto;margin-right:auto;object-fit:contain"/>'
+        : '<div style="font-size:48px;margin-bottom:12px;opacity:.3">🏢</div>') +
+      '<div style="font-size:12px;color:#888;margin-bottom:14px">'+(cfg.logo?'Logo atual — clique para trocar':'Adicione o logo do seu escritório')+'</div>' +
+      '<input type="file" id="cfg-logo-file" accept="image/png,image/jpeg,image/svg+xml,image/webp" style="display:none" onchange="loadAppLogo(this)"/>' +
       '<div style="display:flex;gap:8px;justify-content:center">' +
-        '<button class="btn btn-g btn-sm" onclick="document.getElementById(\'gp-logo-file\').click()">📁 Escolher imagem</button>' +
-        (g.logo ? '<button class="btn btn-d btn-sm" onclick="removeGerLogo()">✕ Remover</button>' : '') +
+        '<button class="btn btn-g" onclick="document.getElementById(\'cfg-logo-file\').click()">📁 '+(cfg.logo?'Trocar logo':'Escolher logo')+'</button>' +
+        (cfg.logo ? '<button class="btn btn-d" onclick="removeAppLogo()">✕ Remover</button>' : '') +
       '</div>' +
     '</div>' +
 
-    '<button class="btn btn-p" onclick="saveGerenciadorProfile()" style="width:100%">Salvar Perfil</button>' +
+    // ── Nome do escritório ────────────────────────────────────────────
+    '<div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#888;margin-bottom:12px">Nome do Escritório</div>' +
+    '<div class="ff" style="margin-bottom:24px">' +
+      '<label>Nome que aparece nos PDFs e na topbar</label>' +
+      '<input type="text" id="cfg-name" value="'+esc(cfg.name||'')+'" placeholder="Ex: Silva Arquitetura e Gerenciamento"/>' +
+    '</div>' +
+
+    // ── Preview ───────────────────────────────────────────────────────
+    '<div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#888;margin-bottom:12px">Preview na Topbar</div>' +
+    '<div style="border:1px solid #e8e8e8;border-radius:6px;padding:12px 20px;background:#fff;display:flex;align-items:center;gap:12px;margin-bottom:24px">' +
+      (cfg.logo ? '<img src="'+cfg.logo+'" style="height:28px;object-fit:contain"/>' : '') +
+      '<span style="font-size:16px;font-weight:900;letter-spacing:-.02em">'+(cfg.name||'ObraSync')+'</span>' +
+    '</div>' +
+
+    '<button class="btn btn-p" onclick="saveAppConfig()" style="width:100%;padding:10px;font-size:14px">Salvar Configurações</button>' +
     '</div>';
 }
 
-function loadGerLogo(input) {
+function loadAppLogo(input) {
   if (!input.files || !input.files[0]) return;
+  const file = input.files[0];
+  if (file.size > 500000) { alert('Logo muito grande. Use uma imagem menor que 500KB.'); return; }
   const reader = new FileReader();
   reader.onload = e => {
-    const g = DB.get('gerenciadorProfile') || {};
-    g.logo = e.target.result;
-    DB.set('gerenciadorProfile', g);
-    renderGerenciadorProfile();
+    const cfg = DB.get('appConfig') || {};
+    cfg.logo = e.target.result;
+    DB.set('appConfig', cfg);
+    applyAppConfig(cfg);
+    renderConfigPanel();
     toast('Logo salvo ✓');
   };
-  reader.readAsDataURL(input.files[0]);
+  reader.readAsDataURL(file);
 }
 
-function removeGerLogo() {
-  const g = DB.get('gerenciadorProfile') || {};
-  delete g.logo;
-  DB.set('gerenciadorProfile', g);
-  renderGerenciadorProfile();
+function removeAppLogo() {
+  const cfg = DB.get('appConfig') || {};
+  delete cfg.logo;
+  DB.set('appConfig', cfg);
+  applyAppConfig(cfg);
+  renderConfigPanel();
   toast('Logo removido');
 }
 
-function saveGerenciadorProfile() {
-  const g = DB.get('gerenciadorProfile') || {};
-  g.name    = document.getElementById('gp-name').value.trim();
-  g.doc     = document.getElementById('gp-doc').value.trim();
-  g.email   = document.getElementById('gp-email').value.trim();
-  g.phone   = document.getElementById('gp-phone').value.trim();
-  g.addr    = document.getElementById('gp-addr').value.trim();
-  g.bank    = document.getElementById('gp-bank').value.trim();
-  g.agency  = document.getElementById('gp-agency').value.trim();
-  g.account = document.getElementById('gp-account').value.trim();
-  g.actype  = document.getElementById('gp-actype').value;
-  g.pix     = document.getElementById('gp-pix').value.trim();
-  DB.set('gerenciadorProfile', g);
-  toast('Perfil salvo ✓');
+function saveAppConfig() {
+  const cfg = DB.get('appConfig') || {};
+  cfg.name = document.getElementById('cfg-name').value.trim();
+  DB.set('appConfig', cfg);
+  applyAppConfig(cfg);
+  toast('Configurações salvas ✓');
+}
+
+function applyAppConfig(cfg) {
+  if (!cfg) cfg = DB.get('appConfig') || {};
+  // Update topbar logo/name
+  const logoEl = document.getElementById('topbar-logo-img');
+  const nameEl = document.getElementById('topbar-app-name');
+  const psLogoEl = document.getElementById('ps-app-logo');
+  const psNameEl = document.getElementById('ps-app-name');
+  if (cfg.logo) {
+    if (logoEl) { logoEl.src = cfg.logo; logoEl.style.display = 'inline'; }
+    if (psLogoEl) { psLogoEl.src = cfg.logo; psLogoEl.style.display = 'inline'; }
+  } else {
+    if (logoEl) logoEl.style.display = 'none';
+    if (psLogoEl) psLogoEl.style.display = 'none';
+  }
+  if (nameEl) nameEl.textContent = cfg.name || 'ObraSync';
+  if (psNameEl) psNameEl.textContent = cfg.name || 'ObraSync';
 }
 
 function renderPsSuppliers() {
@@ -2363,6 +2364,7 @@ async function startApp() {
       if (psUser) psUser.textContent = email;
     } catch(e) {}
   }
+  applyAppConfig();
   nav('dash');
   localStorage.setItem('os3_lastProject', autoProj);
 }
