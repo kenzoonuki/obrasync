@@ -696,10 +696,15 @@ tfoot td{padding:10px 0;border-top:2px solid var(--black);font-weight:800;font-s
       </div>
       <div class="cards" id="fin-cards"></div>
       <div class="inote bl mb16" id="fin-note">&#128161; Use <strong>Lançar Honorários</strong> para registrar pagamentos dos seus honorários de gerenciamento.</div>
-      <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
-        <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--g500);cursor:pointer">
-          <input type="checkbox" id="entry-cb-all" onchange="toggleAllEntries(this)"/> Selecionar todos
-        </label>
+      <div style="display:flex;align-items:center;gap:16px;margin-bottom:10px;padding:0 2px">
+        <div style="display:flex;align-items:center;gap:6px">
+          <input type="checkbox" id="entry-cb-all" onchange="toggleAllEntries(this)" style="width:14px;height:14px"/>
+          <span style="font-size:12px;color:var(--g500)">Selecionar todos</span>
+        </div>
+        <div style="display:flex;gap:6px;margin-left:auto">
+          <button class="btn btn-g btn-sm" onclick="toggleAllEntryCollapse(false)" style="font-size:11px">+ Expandir todos</button>
+          <button class="btn btn-g btn-sm" onclick="toggleAllEntryCollapse(true)" style="font-size:11px">&#8722; Recolher todos</button>
+        </div>
       </div>
       <div class="fg mb16">
         <span class="flbl">Status:</span>
@@ -2501,6 +2506,14 @@ function delSelectedEntries() {
       toast(count + ' lançamento' + (count > 1 ? 's excluídos' : ' excluído') + ' ✓');
     }
   );
+}
+
+function toggleAllEntryCollapse(collapse) {
+  const entries = DB.get('entries') || [];
+  const ec = {};
+  entries.forEach(e => { ec[e.id] = collapse; });
+  DB.set('entryCollapsed', ec);
+  renderFinancial();
 }
 
 function toggleEntryCollapse(id) {
