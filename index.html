@@ -422,7 +422,10 @@ tfoot td{padding:10px 0;border-top:2px solid var(--black);font-weight:800;font-s
     <!-- Header -->
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:32px">
       <div style="font-size:28px;font-weight:900;letter-spacing:-.03em">ObraSync</div>
-      <div style="display:flex;gap:8px" id="ps-actions">
+      <div style="display:flex;align-items:center;gap:12px">
+        <span id="ps-user-email" style="font-size:12px;color:#888"></span>
+        <button onclick="doLogout()" style="background:#f5f5f5;border:1px solid #ddd;color:#333;padding:4px 12px;border-radius:4px;cursor:pointer;font-size:12px;font-weight:600">Sair</button>
+        <div style="width:1px;height:20px;background:#e8e8e8"></div>
         <button class="btn btn-p" id="ps-btn-new" onclick="psBtnNew()">+ Novo Projeto</button>
       </div>
     </div>
@@ -596,7 +599,7 @@ tfoot td{padding:10px 0;border-top:2px solid var(--black);font-weight:800;font-s
       <button id="btn-cli" onclick="setRole('cliente')">Cliente</button>
     </div>
     <span class="topbar-user" id="topbar-user"></span>
-    <button onclick="doLogout()" style="background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.4);color:#fff;padding:4px 12px;border-radius:4px;cursor:pointer;font-size:12px;font-weight:600;margin-left:8px" title="Sair">Sair</button>
+    <button onclick="doLogout()" style="background:#f5f5f5;border:1px solid #ddd;color:#333;padding:4px 12px;border-radius:4px;cursor:pointer;font-size:12px;font-weight:600" title="Sair">Sair</button>
   </div>
 </div>
 <div id="layout">
@@ -1757,7 +1760,14 @@ function showProjectSelector() {
   document.getElementById('topbar').style.display = 'none';
   setPsTab('projetos');
   renderProjectsGrid();
-  // Update new button based on active tab — handled by setPsTab
+  // Update email display
+  if (window._sbSession) {
+    try {
+      const payload = JSON.parse(atob(window._sbSession.access_token.split('.')[1]));
+      const psUser = document.getElementById('ps-user-email');
+      if (psUser) psUser.textContent = payload.email || '';
+    } catch(e) {}
+  }
 }
 
 function hideProjectSelector() {
@@ -2245,16 +2255,16 @@ async function startApp() {
   const p = getProjects().find(x => x.id === autoProj);
   const el = document.getElementById('topbar-proj-name');
   if (el && p) el.textContent = p.name;
-  // Show logged-in email in topbar
+  // Show logged-in email in topbar and project selector
   if (window._sbSession) {
-    const userEl = document.getElementById('topbar-user');
-    if (userEl) {
-      // Get email from JWT token
-      try {
-        const payload = JSON.parse(atob(window._sbSession.access_token.split('.')[1]));
-        userEl.textContent = payload.email || '';
-      } catch(e) { userEl.textContent = ''; }
-    }
+    try {
+      const payload = JSON.parse(atob(window._sbSession.access_token.split('.')[1]));
+      const email = payload.email || '';
+      const topbarUser = document.getElementById('topbar-user');
+      if (topbarUser) topbarUser.textContent = email;
+      const psUser = document.getElementById('ps-user-email');
+      if (psUser) psUser.textContent = email;
+    } catch(e) {}
   }
   nav('dash');
   localStorage.setItem('os3_lastProject', autoProj);
@@ -2372,7 +2382,13 @@ function setRole(r) {
   currentRole = r;
   document.getElementById('btn-int').classList.toggle('active', r === 'interno');
   document.getElementById('btn-cli').classList.toggle('active', r === 'cliente');
-  document.getElementById('topbar-user').textContent = r === 'cliente' ? 'cliente@obra' : 'gerente@obra';
+  // Preserve real email, just update role label if needed
+  if (window._sbSession) {
+    try {
+      const payload = JSON.parse(atob(window._sbSession.access_token.split('.')[1]));
+      document.getElementById('topbar-user').textContent = payload.email || '';
+    } catch(e) {}
+  }
   const sb = document.getElementById('sidebar');
   if (r === 'cliente') {
     sb.innerHTML =
