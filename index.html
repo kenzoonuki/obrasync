@@ -393,6 +393,29 @@ tfoot td{padding:10px 0;border-top:2px solid var(--black);font-weight:800;font-s
 </head>
 <body>
 
+<!-- LOGIN SCREEN -->
+<div id="login-screen" style="display:none;position:fixed;inset:0;background:#fafafa;z-index:99999;align-items:center;justify-content:center;flex-direction:column">
+  <div style="width:100%;max-width:400px;padding:40px 32px;background:#fff;border:1px solid #e8e8e8;border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,.08)">
+    <div style="text-align:center;margin-bottom:32px">
+      <div style="font-size:28px;font-weight:900;letter-spacing:-.03em">ObraSync</div>
+      <div style="font-size:13px;color:#888;margin-top:4px">Acesso seguro</div>
+    </div>
+    <div class="ff mb16">
+      <label>E-mail</label>
+      <input type="email" id="login-email" placeholder="seu@email.com" onkeydown="if(event.key==='Enter')doLogin()"/>
+    </div>
+    <div class="ff mb16">
+      <label>Senha</label>
+      <div style="position:relative">
+        <input type="password" id="login-password" placeholder="Sua senha" style="padding-right:40px;width:100%" onkeydown="if(event.key==='Enter')doLogin()"/>
+        <button type="button" onclick="togglePwdVisibility('login-password',this)" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:16px;color:#888">👁</button>
+      </div>
+    </div>
+    <div id="login-error" style="display:none;background:#fff0f0;border:1px solid #fca5a5;color:#dc2626;padding:8px 12px;border-radius:6px;font-size:12px;margin-bottom:12px"></div>
+    <button class="btn btn-p" onclick="doLogin()" id="login-btn" style="width:100%;padding:10px;font-size:14px">Entrar</button>
+  </div>
+</div>
+
 <!-- PROJECT SELECTOR SCREEN -->
 <div id="project-selector" style="display:none;position:fixed;inset:0;background:#fafafa;z-index:10000;overflow-y:auto">
   <div style="max-width:960px;margin:0 auto;padding:40px 24px">
@@ -573,6 +596,7 @@ tfoot td{padding:10px 0;border-top:2px solid var(--black);font-weight:800;font-s
       <button id="btn-cli" onclick="setRole('cliente')">Cliente</button>
     </div>
     <span class="topbar-user" id="topbar-user">gerente@obra</span>
+    <button onclick="doLogout()" style="background:none;border:1px solid rgba(255,255,255,.3);color:#fff;padding:3px 10px;border-radius:4px;cursor:pointer;font-size:11px;margin-left:8px" title="Sair">Sair</button>
   </div>
 </div>
 <div id="layout">
@@ -1523,9 +1547,10 @@ window._currentProjectId = window._currentProjectId || 'default';
 
 async function _sbFetch(method, path, body) {
   const url = window._sbUrl + '/rest/v1/' + path;
+  const token = window._sbSession ? window._sbSession.access_token : window._sbKey;
   const headers = {
     'apikey': window._sbKey,
-    'Authorization': 'Bearer ' + window._sbKey,
+    'Authorization': 'Bearer ' + token,
     'Content-Type': 'application/json',
     'Prefer': method === 'POST' ? 'resolution=merge-duplicates' : ''
   };
@@ -2099,6 +2124,129 @@ function delProject(id) {
       toast('Projeto removido ✓');
     }
   );
+}
+
+
+// =====================================================================
+// AUTHENTICATION
+// =====================================================================
+
+async function doLogin() {
+  const email = document.getElementById('login-email').value.trim();
+  const pwd   = document.getElementById('login-password').value;
+  const btn   = document.getElementById('login-btn');
+  const errEl = document.getElementById('login-error');
+
+  if (!email || !pwd) { showLoginError('Preencha e-mail e senha.'); return; }
+
+  btn.textContent = 'Entrando...';
+  btn.disabled = true;
+  errEl.style.display = 'none';
+
+  try {
+    const res = await fetch(window._sbUrl + '/auth/v1/token?grant_type=password', {
+      method: 'POST',
+      headers: { 'apikey': window._sbKey, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password: pwd })
+    });
+    const data = await res.json();
+    if (!res.ok || data.error) {
+      showLoginError(data.error_description || data.msg || 'Email ou senha incorretos.');
+      btn.textContent = 'Entrar';
+      btn.disabled = false;
+      return;
+    }
+    // Save session
+    window._sbSession = data;
+    localStorage.setItem('os3_session', JSON.stringify({ access_token: data.access_token, refresh_token: data.refresh_token, expires_at: Date.now() + (data.expires_in * 1000) }));
+    document.getElementById('login-screen').style.display = 'none';
+    await startApp();
+  } catch(e) {
+    showLoginError('Erro de conexão. Verifique sua internet.');
+    btn.textContent = 'Entrar';
+    btn.disabled = false;
+  }
+}
+
+function showLoginError(msg) {
+  const el = document.getElementById('login-error');
+  el.textContent = msg;
+  el.style.display = 'block';
+}
+
+async function tryRestoreSession() {
+  const saved = localStorage.getItem('os3_session');
+  if (!saved) return false;
+  try {
+    const session = JSON.parse(saved);
+    // Check if expired (with 5 min buffer)
+    if (session.expires_at && Date.now() > session.expires_at - 300000) {
+      // Try to refresh
+      const res = await fetch(window._sbUrl + '/auth/v1/token?grant_type=refresh_token', {
+        method: 'POST',
+        headers: { 'apikey': window._sbKey, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refresh_token: session.refresh_token })
+      });
+      const data = await res.json();
+      if (!res.ok || data.error) { localStorage.removeItem('os3_session'); return false; }
+      window._sbSession = data;
+      localStorage.setItem('os3_session', JSON.stringify({ access_token: data.access_token, refresh_token: data.refresh_token, expires_at: Date.now() + (data.expires_in * 1000) }));
+      return true;
+    }
+    window._sbSession = session;
+    return true;
+  } catch(e) { return false; }
+}
+
+function doLogout() {
+  localStorage.removeItem('os3_session');
+  window._sbSession = null;
+  window.location.reload();
+}
+
+async function startApp() {
+  document.getElementById('loading-overlay').style.display = 'flex';
+  document.getElementById('layout').style.display = 'none';
+  document.getElementById('topbar').style.display = 'none';
+
+  // Load global data
+  try {
+    if (window._sbUrl) {
+      const gdata = await _sbFetch('GET', 'kv_store?select=key,value&key=in.(clients,projects,cats,suppliers,secPasswordHash)');
+      (gdata || []).forEach(row => { DB._c[row.key] = row.value; });
+    }
+  } catch(e) { console.error('Global load error:', e.message); }
+
+  const projects = getProjects();
+  const lastProjId = localStorage.getItem('os3_lastProject');
+  const autoProj = lastProjId && projects.find(p => p.id === lastProjId)
+    ? lastProjId
+    : (projects.length === 1 ? projects[0].id : null);
+
+  document.getElementById('loading-overlay').style.display = 'none';
+
+  if (!projects.length || !autoProj) {
+    if (!projects.length && window._sbUrl) {
+      const defProj = { id: 'proj_default', name: 'Meu Projeto', addr: '', area: '', type: '', scope: '', clientId: '', status: 'active', start: '', end: '', createdAt: new Date().toISOString() };
+      DB.set('projects', [defProj]);
+      await selectProject('proj_default');
+      return;
+    }
+    showProjectSelector();
+    return;
+  }
+
+  window._currentProjectId = autoProj;
+  await DB.loadAll();
+  initData();
+  migrateBudget();
+  document.getElementById('layout').style.display = '';
+  document.getElementById('topbar').style.display = '';
+  const p = getProjects().find(x => x.id === autoProj);
+  const el = document.getElementById('topbar-proj-name');
+  if (el && p) el.textContent = p.name;
+  nav('dash');
+  localStorage.setItem('os3_lastProject', autoProj);
 }
 
 // =====================================================================
@@ -6037,54 +6185,21 @@ document.addEventListener('focusin', function(e) {
 // INIT
 // =====================================================================
 async function init() {
-  document.getElementById('loading-overlay').style.display = 'flex';
-  document.getElementById('layout').style.display = 'none';
-  document.getElementById('topbar').style.display = 'none';
-
   await initSupabase();
 
-  // Load global data (clients + projects) first
-  try {
-    if (window._sbUrl) {
-      const gdata = await _sbFetch('GET', 'kv_store?select=key,value&key=in.(clients,projects)');
-      (gdata || []).forEach(row => { DB._c[row.key] = row.value; });
-    }
-  } catch(e) { console.error('Global load error:', e.message); }
-
-  // Check if there's a saved last project or only one project
-  const projects = getProjects();
-  const lastProjId = localStorage.getItem('os3_lastProject');
-  const autoProj = lastProjId && projects.find(p => p.id === lastProjId)
-    ? lastProjId
-    : (projects.length === 1 ? projects[0].id : null);
-
-  document.getElementById('loading-overlay').style.display = 'none';
-
-  if (!projects.length || !autoProj) {
-    // Show project selector
-    // If no projects yet, create default from existing data
-    if (!projects.length && window._sbUrl) {
-      // Migrate existing data as first project
-      const defProj = { id: 'proj_default', name: 'Reforma Higienopolis', addr: '', area: '', type: '', scope: '', clientId: '', status: 'active', start: '', end: '', createdAt: new Date().toISOString() };
-      DB.set('projects', [defProj]);
-      await selectProject('proj_default');
+  if (window._sbUrl) {
+    // Try to restore saved session
+    const hasSession = await tryRestoreSession();
+    if (!hasSession) {
+      // Show login screen
+      document.getElementById('login-screen').style.display = 'flex';
       return;
     }
-    showProjectSelector();
-    return;
+    await startApp();
+  } else {
+    // No Supabase — run locally without auth
+    await startApp();
   }
-
-  // Auto-select project
-  window._currentProjectId = autoProj;
-  await DB.loadAll();
-  initData();
-  migrateBudget();
-  document.getElementById('layout').style.display = '';
-  document.getElementById('topbar').style.display = '';
-  const p = getProjects().find(x => x.id === autoProj);
-  const el = document.getElementById('topbar-proj-name');
-  if (el && p) el.textContent = p.name;
-  renderDash();
 }
 init();
 
