@@ -6134,9 +6134,9 @@ function xlsEnsureCat(key, val) {
 }
 
 function handleXlsFile(input) {
-  // Column mapping:
-  // A(0)=Fase  B(1)=Disciplina  C(2)=Descrição  D(3)=Unidade  E(4)=Quantidade
-  // F(5)=Tipo  G(6)=MO/un  H(7)=Mat./un  I(8)=Acab./un
+  // Colunas fixas (linha 1 = header, sempre ignorada):
+  // A=Fase  B=Disciplina  C=Descrição  D=Unidade  E=Quantidade
+  // F=Tipo  G=MO/un  H=Material/un  I=Acabamento/un
   const file = input.files[0];
   if (!file) return;
   const reader = new FileReader();
@@ -6146,15 +6146,11 @@ function handleXlsFile(input) {
       const wb = XLSX.read(new Uint8Array(e.target.result), {type:'array'});
       const ws = wb.Sheets[wb.SheetNames[0]];
       const rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:''});
-      // Skip header row if first row has text in col A
-      let startRow = 0;
-      if (rows.length > 0) {
-        const first = String(rows[0][0]||'').trim().toLowerCase();
-        if (first && isNaN(parseFloat(first))) startRow = 1;
-      }
+
+      // SEMPRE pula linha 1 (header)
       _xlsData = [];
-      for (let r = startRow; r < rows.length; r++) {
-        const row = rows[r];
+      for (let r = 1; r < rows.length; r++) {
+        const row  = rows[r];
         const fase  = String(row[0]||'').trim();
         const disc  = String(row[1]||'').trim();
         const desc  = String(row[2]||'').trim();
@@ -6164,27 +6160,43 @@ function handleXlsFile(input) {
         const pmo   = parseFloat(String(row[6]||'0').replace(',','.')) || 0;
         const pmat  = parseFloat(String(row[7]||'0').replace(',','.')) || 0;
         const pacab = parseFloat(String(row[8]||'0').replace(',','.')) || 0;
-        if (!desc && !fase && !disc) continue;
+
+        // Pula linha vazia (sem descrição)
+        if (!desc) continue;
+
         const price = pmo + pmat + pacab;
         const tot   = +(price * qty).toFixed(2);
-        // Map tipo to type field
+
+        // Tipo do item
         const tipoLow = tipo.toLowerCase();
-        let type = 'to_contract';
-        if (tipoLow.includes('contrat') || tipoLow.includes('contr')) type = 'contracted';
-        else if (tipoLow.includes('extra')) type = 'extra';
+        let itemType = 'to_contract';
+        if (tipoLow.includes('contrat')) itemType = 'contracted';
+        else if (tipoLow.includes('extra')) itemType = 'extra';
+
         _xlsData.push({
-          _fase_xls: fase, _disc_xls: disc, _tipo_xls: tipo,
-          phase: fase, disc: disc, desc,
-          unit: un, qty,
+          _fase_xls: fase,
+          _disc_xls: disc,
+          phase:  fase,
+          disc:   disc,
+          desc,
+          unit:   un,
+          qty,
           pmo:   pmo   > 0 ? pmo   : 0,
           pmat:  pmat  > 0 ? pmat  : 0,
           pacab: pacab > 0 ? pacab : 0,
-          price, tot, type, pctFis: 0,
-          supplierId: '', supCols: null, compoeBase: true
+          price,
+          tot,
+          type: itemType,
+          pctFis: 0,
+          supplierId: '',
+          supCols: null,
+          compoeBase: true,
+          supRemun: 'meas',
         });
       }
+
       if (!_xlsData.length) {
-        document.getElementById('xls-preview').innerHTML = '<div class="empty"><p>Nenhuma linha válida encontrada. Verifique se o arquivo segue o formato esperado.</p></div>';
+        document.getElementById('xls-preview').innerHTML = '<div class="empty"><p>Nenhuma linha válida encontrada. Verifique se a planilha tem dados a partir da linha 2.</p></div>';
         document.getElementById('xls-import-btn').style.display = 'none';
         return;
       }
@@ -6192,7 +6204,7 @@ function handleXlsFile(input) {
       document.getElementById('xls-import-btn').style.display = '';
       document.getElementById('xls-count').textContent = _xlsData.length;
     } catch(err) {
-      document.getElementById('xls-preview').innerHTML = '<div class="inote" style="color:var(--danger)">Erro ao ler arquivo: '+err.message+'</div>';
+      document.getElementById('xls-preview').innerHTML = '<div class="inote" style="color:var(--err)">Erro ao ler arquivo: '+err.message+'</div>';
     }
   };
   reader.readAsArrayBuffer(file);
