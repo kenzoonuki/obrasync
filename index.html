@@ -962,6 +962,7 @@ tfoot td{padding:10px 0;border-top:2px solid var(--black);font-weight:800;font-s
             <p class="muted sm" style="margin:4px 0 0">Crie e compare cenários antes de promover para o Executivo.</p>
           </div>
           <div class="acts">
+            <button class="btn btn-g" onclick="setBudMode('estimative');openXlsImport()">&#128196; Importar Excel</button>
             <button class="btn btn-p" onclick="openNewScenarioModal()">+ Novo Cenário</button>
           </div>
         </div>
@@ -977,7 +978,7 @@ tfoot td{padding:10px 0;border-top:2px solid var(--black);font-weight:800;font-s
           </div>
           <div class="acts">
             <button class="btn btn-p" onclick="openBudgetModal()">+ Novo Item</button>
-            <button class="btn btn-g" onclick="openXlsImport()">&#128196; Importar Excel</button>
+            <button class="btn btn-g" onclick="setBudMode('executive');openXlsImport()">&#128196; Importar Excel</button>
             <button class="btn btn-g" onclick="exportBudgetPDF()">&#128196; PDF A4</button>
           </div>
         </div>
@@ -6097,6 +6098,10 @@ function openXlsImport() {
   document.getElementById('xls-file').value = '';
   document.getElementById('xls-preview').innerHTML = '';
   document.getElementById('xls-import-btn').style.display = 'none';
+  // Update modal subtitle based on context
+  const isEst = (typeof budMode !== 'undefined' && budMode === 'estimative');
+  const subEl = document.getElementById('xls-modal-sub');
+  if (subEl) subEl.textContent = isEst ? 'Importar para o cenário estimativo selecionado' : 'Importar para o orçamento executivo';
   openModal('mod-xls');
 }
 
@@ -6128,6 +6133,9 @@ function xlsEnsureCat(key, val) {
 }
 
 function handleXlsFile(input) {
+  // Column mapping:
+  // A(0)=Fase  B(1)=Disciplina  C(2)=Descrição  D(3)=Unidade  E(4)=Quantidade
+  // F(5)=Tipo  G(6)=MO/un  H(7)=Mat./un  I(8)=Acab./un
   const file = input.files[0];
   if (!file) return;
   const reader = new FileReader();
@@ -6137,12 +6145,11 @@ function handleXlsFile(input) {
       const wb = XLSX.read(new Uint8Array(e.target.result), {type:'array'});
       const ws = wb.Sheets[wb.SheetNames[0]];
       const rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:''});
-      // Detect header row
+      // Skip header row if first row has text in col A
       let startRow = 0;
       if (rows.length > 0) {
-        const first = rows[0];
-        const maybePriceHeader = String(first[5]||first[4]||'').toLowerCase();
-        if (isNaN(parseFloat(maybePriceHeader)) && maybePriceHeader.length > 0) startRow = 1;
+        const first = String(rows[0][0]||'').trim().toLowerCase();
+        if (first && isNaN(parseFloat(first))) startRow = 1;
       }
       _xlsData = [];
       for (let r = startRow; r < rows.length; r++) {
@@ -6150,19 +6157,33 @@ function handleXlsFile(input) {
         const fase  = String(row[0]||'').trim();
         const disc  = String(row[1]||'').trim();
         const desc  = String(row[2]||'').trim();
-        const un    = String(row[3]||'vb').trim() || 'vb';
+        const un    = String(row[3]||'').trim() || 'vb';
         const qty   = parseFloat(String(row[4]||'1').replace(',','.')) || 1;
-        const price = parseFloat(String(row[5]||'0').replace(',','.')) || 0;
-        if (!fase && !disc && !desc) continue;
-        const st_xls = String(row[6]||'').trim();
+        const tipo  = String(row[5]||'').trim();
+        const pmo   = parseFloat(String(row[6]||'0').replace(',','.')) || 0;
+        const pmat  = parseFloat(String(row[7]||'0').replace(',','.')) || 0;
+        const pacab = parseFloat(String(row[8]||'0').replace(',','.')) || 0;
+        if (!desc && !fase && !disc) continue;
+        const price = pmo + pmat + pacab;
+        const tot   = +(price * qty).toFixed(2);
+        // Map tipo to type field
+        const tipoLow = tipo.toLowerCase();
+        let type = 'to_contract';
+        if (tipoLow.includes('contrat') || tipoLow.includes('contr')) type = 'contracted';
+        else if (tipoLow.includes('extra')) type = 'extra';
         _xlsData.push({
-          _fase_xls: fase, _disc_xls: disc, _st_xls: st_xls,
-          phase: fase, disc: disc, desc, unit: un, qty, price,
-          tot: +(qty*price).toFixed(2), type:'contracted', st: st_xls, pctFis: 0
+          _fase_xls: fase, _disc_xls: disc, _tipo_xls: tipo,
+          phase: fase, disc: disc, desc,
+          unit: un, qty,
+          pmo:   pmo   > 0 ? pmo   : 0,
+          pmat:  pmat  > 0 ? pmat  : 0,
+          pacab: pacab > 0 ? pacab : 0,
+          price, tot, type, pctFis: 0,
+          supplierId: '', supCols: null, compoeBase: true
         });
       }
       if (!_xlsData.length) {
-        document.getElementById('xls-preview').innerHTML = '<div class="empty"><p>Nenhuma linha válida encontrada.</p></div>';
+        document.getElementById('xls-preview').innerHTML = '<div class="empty"><p>Nenhuma linha válida encontrada. Verifique se o arquivo segue o formato esperado.</p></div>';
         document.getElementById('xls-import-btn').style.display = 'none';
         return;
       }
@@ -6177,74 +6198,62 @@ function handleXlsFile(input) {
 }
 
 function renderXlsMapping() {
-  const c = cats();
-  const phases = c.phases || [];
-  const discs  = c.disciplines || [];
-  const sts    = c.servicetypes || [];
+  const c2 = cats();
+  const phases = c2.phases || [];
+  const discs  = c2.disciplines || [];
 
-  // Collect unique raw values from Excel
   const uniqueFases = [...new Set(_xlsData.map(i => i._fase_xls).filter(Boolean))];
   const uniqueDiscs = [...new Set(_xlsData.map(i => i._disc_xls).filter(Boolean))];
-  const uniqueSts   = [...new Set(_xlsData.map(i => i._st_xls).filter(Boolean))];
 
-  // Build select options HTML for a category list, with a "+ novo" empty option
   function optHtml(list, selected) {
     const isNew = selected && !list.find(x => x.toLowerCase() === selected.toLowerCase());
-    let opts = list.map(v =>
-      '<option value="'+v+'"'+(v===selected?' selected':'')+'>'+v+'</option>'
-    ).join('');
-    if (isNew && selected) {
-      opts = '<option value="'+selected+'" selected>'+selected+' ✦ novo</option>' + opts;
-    }
-    opts = '<option value="">— selecionar —</option>' + opts;
-    return opts;
+    let opts = list.map(v => '<option value="'+v+'"'+(v===selected?' selected':'')+'>'+v+'</option>').join('');
+    if (isNew && selected) opts = '<option value="'+selected+'" selected>'+selected+' ✦ novo</option>' + opts;
+    return '<option value="">— selecionar —</option>' + opts;
   }
 
-  // Build mapping table rows
-  function mapRows(label, key, list, uniques, idPrefix) {
+  function mapRows(label, list, uniques, idPrefix) {
     if (!uniques.length) return '';
     let rows = '<tr><td colspan="3" style="background:var(--g50);font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;padding:6px 10px;color:var(--g500)">'+label+'</td></tr>';
     uniques.forEach((raw, i) => {
       const best = xlsBestMatch(raw, list);
       const isNew = raw && !best;
       rows += '<tr>' +
-        '<td class="muted sm" style="max-width:160px;overflow:hidden;text-overflow:ellipsis" title="'+raw+'">'+raw+'</td>' +
-        '<td style="font-size:18px;color:var(--g300);text-align:center">→</td>' +
-        '<td><select id="xlsmap-'+idPrefix+'-'+i+'" style="width:100%;font-size:12px">' +
-          optHtml(list, best || raw) +
-        '</select>' +
-        (isNew ? '<span style="font-size:9px;color:var(--info);margin-left:4px">✦ será criado</span>' : '') +
+        '<td class="muted sm" style="max-width:160px">'+esc(raw)+'</td>' +
+        '<td style="font-size:16px;color:var(--g300);text-align:center">→</td>' +
+        '<td><select id="xlsmap-'+idPrefix+'-'+i+'" style="width:100%;font-size:12px">'+optHtml(list, best||raw)+'</select>' +
+        (isNew ? '<span style="font-size:9px;color:var(--info)">✦ será criado</span>' : '') +
         '</td></tr>';
     });
     return rows;
   }
 
-  const tableHtml =
-    '<div style="margin-bottom:10px">' +
-    '<p style="font-size:12px;color:var(--g500);margin-bottom:8px">Verifique e ajuste os mapeamentos abaixo. Valores marcados com <strong>✦ será criado</strong> serão adicionados automaticamente às Categorias.</p>' +
-    '<div class="tw"><table style="width:100%">' +
-    '<thead><tr><th>Valor no Excel</th><th></th><th>Categoria do sistema</th></tr></thead><tbody>' +
-    mapRows('Fases de Obra', 'phases', phases, uniqueFases, 'fase') +
-    mapRows('Disciplinas', 'disciplines', discs, uniqueDiscs, 'disc') +
-    mapRows('Tipos de Serviço / Insumo', 'servicetypes', sts, uniqueSts, 'st') +
-    '</tbody></table></div></div>' +
-    '<hr style="margin:12px 0"/>' +
-    '<p style="font-size:11px;color:var(--g400);margin-bottom:6px">Prévia dos '+_xlsData.length+' itens a importar:</p>' +
-    '<div class="tw" style="max-height:160px;overflow-y:auto"><table>' +
-    '<thead><tr><th>Fase</th><th>Disc.</th><th>Descrição</th><th>Un.</th><th>Qtd.</th><th>P.Unit.</th><th>Total</th></tr></thead><tbody>' +
+  const hasMapping = uniqueFases.length || uniqueDiscs.length;
+  const mappingHtml = hasMapping
+    ? '<p class="muted sm" style="margin-bottom:8px">Valores marcados com <strong>✦ será criado</strong> serão adicionados automaticamente às Categorias.</p>' +
+      '<div class="tw"><table style="width:100%"><thead><tr><th>Valor no Excel</th><th></th><th>Categoria do sistema</th></tr></thead><tbody>' +
+      mapRows('Fases', phases, uniqueFases, 'fase') +
+      mapRows('Disciplinas', discs, uniqueDiscs, 'disc') +
+      '</tbody></table></div><hr style="margin:12px 0"/>'
+    : '';
+
+  const previewHtml =
+    '<p class="muted sm" style="margin-bottom:6px">Prévia — '+_xlsData.length+' itens:</p>' +
+    '<div class="tw" style="max-height:180px;overflow-y:auto"><table>' +
+    '<thead><tr><th>Fase</th><th>Disc.</th><th>Descrição</th><th>Un.</th><th>Qtd.</th><th>MO/un</th><th>Mat./un</th><th>Acab./un</th><th>Total</th></tr></thead><tbody>' +
     _xlsData.map(i =>
-      '<tr><td class="muted sm">'+i._fase_xls+'</td><td class="muted sm">'+i._disc_xls+'</td>' +
-      '<td>'+i.desc+'</td><td class="muted">'+i.unit+'</td><td class="muted">'+i.qty+'</td>' +
-      '<td class="muted">'+R(i.price)+'</td><td class="fw7">'+R(i.tot)+'</td></tr>'
+      '<tr><td class="muted sm">'+esc(i._fase_xls)+'</td><td class="muted sm">'+esc(i._disc_xls)+'</td>' +
+      '<td>'+esc(i.desc)+'</td><td class="muted">'+esc(i.unit)+'</td><td class="muted">'+i.qty+'</td>' +
+      '<td class="muted">'+(i.pmo>0?R(i.pmo):'—')+'</td>' +
+      '<td class="muted">'+(i.pmat>0?R(i.pmat):'—')+'</td>' +
+      '<td class="muted">'+(i.pacab>0?R(i.pacab):'—')+'</td>' +
+      '<td class="fw7">'+R(i.tot)+'</td></tr>'
     ).join('') +
     '</tbody></table></div>';
 
-  document.getElementById('xls-preview').innerHTML = tableHtml;
-
-  // Store unique arrays on window for use in confirmXlsImport
+  document.getElementById('xls-preview').innerHTML = mappingHtml + previewHtml;
   window._xlsUniqueFases = uniqueFases;
   window._xlsUniqueDiscs = uniqueDiscs;
-  window._xlsUniqueSts   = uniqueSts;
 }
 
 function confirmXlsImport() {
@@ -6252,46 +6261,55 @@ function confirmXlsImport() {
 
   const uniqueFases = window._xlsUniqueFases || [];
   const uniqueDiscs = window._xlsUniqueDiscs || [];
-  const uniqueSts   = window._xlsUniqueSts   || [];
 
-  // Read chosen mappings from selects, auto-create missing categories
+  // Map phases
   const faseMap = {};
   uniqueFases.forEach((raw, i) => {
     const sel = document.getElementById('xlsmap-fase-'+i);
     const chosen = sel ? sel.value.replace(' ✦ novo','').trim() : raw;
     faseMap[raw] = xlsEnsureCat('phases', chosen || raw);
   });
+  // Map disciplines
   const discMap = {};
   uniqueDiscs.forEach((raw, i) => {
     const sel = document.getElementById('xlsmap-disc-'+i);
     const chosen = sel ? sel.value.replace(' ✦ novo','').trim() : raw;
     discMap[raw] = xlsEnsureCat('disciplines', chosen || raw);
   });
-  const stMap = {};
-  uniqueSts.forEach((raw, i) => {
-    const sel = document.getElementById('xlsmap-st-'+i);
-    const chosen = sel ? sel.value.replace(' ✦ novo','').trim() : raw;
-    stMap[raw] = xlsEnsureCat('servicetypes', chosen || raw);
-  });
 
-  // Apply mappings and import
-  const bud = DB.get('budget') || [];
-  _xlsData.forEach(item => {
-    item.id    = uid();
-    item.phase = faseMap[item._fase_xls] || item._fase_xls;
-    item.disc  = discMap[item._disc_xls] || item._disc_xls;
-    item.st    = stMap[item._st_xls]     || item._st_xls || '';
-    // clean internal xls fields
-    delete item._fase_xls; delete item._disc_xls; delete item._st_xls;
-    bud.push(item);
-  });
+  const isEstimative = (typeof budMode !== 'undefined' && budMode === 'estimative');
 
-  const _xlsKey = (typeof budMode !== 'undefined' && budMode === 'estimative') ? 'budgetEstimative' : 'budget';
-  DB.set(_xlsKey, bud);
-  closeModal('mod-xls');
-  if (_xlsKey === 'budgetEstimative') { renderEstimative(); } else { renderBudget(); renderDash(); }
+  if (isEstimative) {
+    // Import into current scenario
+    const scenarios = DB.get('budgetScenarios') || [];
+    const sc = scenarios.find(s => s.id === activeScenarioId);
+    if (!sc) { toast('Selecione um cenário antes de importar'); return; }
+    _xlsData.forEach(item => {
+      item.id    = uid();
+      item.phase = faseMap[item._fase_xls] || item._fase_xls;
+      item.disc  = discMap[item._disc_xls] || item._disc_xls;
+      delete item._fase_xls; delete item._disc_xls; delete item._tipo_xls;
+      sc.items = sc.items || [];
+      sc.items.push(item);
+    });
+    DB.set('budgetScenarios', scenarios);
+    closeModal('mod-xls');
+    renderScenarioList();
+  } else {
+    const bud = DB.get('budget') || [];
+    _xlsData.forEach(item => {
+      item.id    = uid();
+      item.phase = faseMap[item._fase_xls] || item._fase_xls;
+      item.disc  = discMap[item._disc_xls] || item._disc_xls;
+      delete item._fase_xls; delete item._disc_xls; delete item._tipo_xls;
+      bud.push(item);
+    });
+    DB.set('budget', bud);
+    closeModal('mod-xls');
+    renderBudget(); renderDash();
+  }
   renderCats();
-  toast(_xlsData.length + ' itens importados do Excel!');
+  toast(_xlsData.length + ' itens importados ✓');
   _xlsData = [];
 }
 
