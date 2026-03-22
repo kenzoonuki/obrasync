@@ -225,7 +225,7 @@ tfoot td{padding:10px 0;border-top:2px solid var(--black);font-weight:800;font-s
 /* budget multi-select */
 .bi-cb{width:15px;height:15px;cursor:pointer;accent-color:var(--danger)}
 #bud-table th:first-child,#bud-table td:first-child{width:28px;padding:4px 8px;text-align:center}
-.bud-sel-bar{display:none;position:sticky;bottom:16px;left:0;right:0;z-index:100;background:var(--black);color:#fff;border-radius:8px;padding:10px 16px;margin:8px 0;align-items:center;gap:12px;box-shadow:0 4px 16px rgba(0,0,0,.35)}
+.bud-sel-bar{display:none;position:sticky;bottom:16px;left:0;right:0;z-index:500;background:var(--black);color:#fff;border-radius:8px;padding:10px 16px;margin:8px 0;align-items:center;gap:12px;box-shadow:0 4px 24px rgba(0,0,0,.5)}
 .bud-sel-bar.visible{display:flex}
 .bud-sel-bar .sel-count{flex:1;font-size:13px;font-weight:700}
 .bud-sel-bar button{font-size:12px;padding:5px 14px;border-radius:5px;border:none;cursor:pointer;font-weight:700}
@@ -388,6 +388,21 @@ tfoot td{padding:10px 0;border-top:2px solid var(--black);font-weight:800;font-s
 
 
 
+
+
+/* ── Drag & Drop discipline reorder ─────────────────────────── */
+.disc-group { transition: opacity .15s; }
+.disc-group.drag-over { outline: 2px dashed var(--info); outline-offset: 2px; background: rgba(79,70,229,.04); }
+.disc-group.dragging  { opacity: .4; }
+.drag-handle {
+  cursor: grab;
+  color: var(--g300);
+  font-size: 14px;
+  padding: 0 6px;
+  user-select: none;
+  flex-shrink: 0;
+}
+.drag-handle:active { cursor: grabbing; }
 
 </style>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
@@ -1742,6 +1757,69 @@ function saveSecurityPassword() {
   if (window._afterPasswordSave) { window._afterPasswordSave(); window._afterPasswordSave = null; }
 }
 
+
+
+// =====================================================================
+// DRAG & DROP — Discipline Reorder
+// =====================================================================
+let _dragDisc = null;
+let _dragTarget = null;
+
+function onDiscDragStart(e, disc) {
+  _dragDisc = disc;
+  e.dataTransfer.effectAllowed = 'move';
+  e.currentTarget.classList.add('dragging');
+}
+
+function onDiscDragOver(e) {
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  const row = e.currentTarget;
+  if (row.dataset.disc !== _dragDisc) {
+    document.querySelectorAll('.disc-group.drag-over').forEach(el => el.classList.remove('drag-over'));
+    row.classList.add('drag-over');
+    _dragTarget = row.dataset.disc;
+  }
+}
+
+function onDiscDrop(e, targetDisc, mode) {
+  e.preventDefault();
+  if (!_dragDisc || _dragDisc === targetDisc) return;
+
+  const isExec = mode === 'exec';
+  const scId   = isExec ? null : mode.replace('sc_', '');
+  const key    = isExec ? 'budDiscOrder' : 'scDiscOrder_' + scId;
+
+  // Get current order
+  let order = DB.get(key) || [];
+  const allDiscs = isExec
+    ? [...new Set((DB.get('budget')||[]).map(i => i.disc))]
+    : [...new Set(((getScenarios().find(s=>s.id===scId)||{}).items||[]).map(i=>i.disc))];
+
+  // Build full ordered list
+  const full = [...order.filter(d => allDiscs.includes(d)), ...allDiscs.filter(d => !order.includes(d)).sort()];
+
+  // Reorder: move _dragDisc before targetDisc
+  const from = full.indexOf(_dragDisc);
+  const to   = full.indexOf(targetDisc);
+  if (from === -1 || to === -1) return;
+  full.splice(from, 1);
+  full.splice(to, 0, _dragDisc);
+
+  DB.set(key, full);
+
+  document.querySelectorAll('.disc-group.drag-over').forEach(el => el.classList.remove('drag-over'));
+  _dragDisc = null; _dragTarget = null;
+
+  if (isExec) renderBudget();
+  else renderScenarioList();
+}
+
+function onDiscDragEnd(e) {
+  e.currentTarget.classList.remove('dragging');
+  document.querySelectorAll('.disc-group.drag-over').forEach(el => el.classList.remove('drag-over'));
+  _dragDisc = null;
+}
 
 // =====================================================================
 // PROJECTS & CLIENTS
@@ -4470,10 +4548,16 @@ function buildScenarioCard(sc, execOrigin) {
     h += '</div>';
   }
 
-  // Group by discipline
+  // Group by discipline — respect saved order
   const byDisc = {};
   items.forEach(i => { (byDisc[i.disc] = byDisc[i.disc] || []).push(i); });
-  const discs = Object.keys(byDisc).sort();
+  const _scDiscOrderKey = 'scDiscOrder_' + sid;
+  const _scDiscOrder = DB.get(_scDiscOrderKey) || [];
+  const _allScDiscs = Object.keys(byDisc);
+  const discs = [
+    ..._scDiscOrder.filter(d => _allScDiscs.includes(d)),
+    ..._allScDiscs.filter(d => !_scDiscOrder.includes(d)).sort()
+  ];
   const collapsed = _scCollapsed[sid] || new Set();
 
   discs.forEach(disc => {
@@ -4482,10 +4566,18 @@ function buildScenarioCard(sc, execOrigin) {
     const isCollapsed = collapsed.has(disc);
     const discSafe  = disc.replace(/'/g, "\\'");
 
-    h += '<div style="margin-top:12px">';
+    h += '<div class="disc-group" style="margin-top:12px"' +
+      ' draggable="true" data-disc="' + esc(disc) + '"' +
+      ' ondragstart="onDiscDragStart(event,\'' + discSafe + '\')"' +
+      ' ondragover="onDiscDragOver(event)"' +
+      ' ondrop="onDiscDrop(event,\'' + discSafe + '\',\'sc_' + sid + '\')"' +
+      ' ondragend="onDiscDragEnd(event)">';
     // Discipline header row
-    h += '<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px;background:var(--g100);border:1px solid var(--g200);border-radius:3px;cursor:pointer;font-weight:800;font-size:12px" onclick="toggleScDisc(\'' + sid + '\',\'' + discSafe + '\')">';
-    h +=   '<span>' + esc(disc) + ' <span style="font-weight:400;color:var(--g500)">(' + discItems.length + ' itens)</span></span>';
+    h += '<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px;background:var(--g100);border:1px solid var(--g200);border-radius:3px;cursor:pointer;font-weight:800;font-size:12px">';
+    h +=   '<div style="display:flex;align-items:center;gap:8px">';
+    h +=     '<span class="drag-handle" onclick="event.stopPropagation()" title="Arrastar">⠿</span>';
+    h +=     '<span onclick="toggleScDisc(\'' + sid + '\',\'' + discSafe + '\')">' + esc(disc) + ' <span style="font-weight:400;color:var(--g500)">(' + discItems.length + ' itens)</span></span>';
+    h +=   '</div>';
     h +=   '<span style="display:flex;align-items:center;gap:12px"><span class="muted">' + R(discTot) + '</span><span style="font-size:13px">' + (isCollapsed ? '▶' : '▼') + '</span></span>';
     h += '</div>';
 
@@ -4984,22 +5076,35 @@ function renderBudget() {
     if (!window._discCollapsed) window._discCollapsed = {};
     const grouped = {};
     fil.forEach(i => { if(!grouped[i.disc]) grouped[i.disc]=[]; grouped[i.disc].push(i); });
-    Object.keys(grouped).sort().forEach(disc => {
+    // Respect saved discipline order
+    const _discOrder = DB.get('budDiscOrder') || [];
+    const _allDiscs = Object.keys(grouped);
+    const _orderedDiscs = [
+      ..._discOrder.filter(d => _allDiscs.includes(d)),
+      ..._allDiscs.filter(d => !_discOrder.includes(d)).sort()
+    ];
+    _orderedDiscs.forEach(disc => {
       const items = grouped[disc];
       const dOrc   = items.reduce((s,i) => s+i.tot, 0);
       const dReal  = items.reduce((s,i) => s+realPerBI(i.id,i.disc,i.phase), 0);
       const dSaldo = dOrc - dReal;
       const dPctFis = dOrc > 0 ? Math.min(100, dReal/dOrc*100) : 0;
-      // use disc directly as key — no encoding (avoids read/write mismatch)
       const isCollapsed = !!window._discCollapsed[disc];
       const safeDisc = disc.replace(/'/g,"\\'");
 
       // ── discipline header row ──────────────────────────────────────
-      rows += '<tr class="bgh" style="cursor:pointer" onclick="window._discCollapsed[\''+safeDisc+'\']=!window._discCollapsed[\''+safeDisc+'\'];renderBudget()">' +
+      rows += '<tr class="bgh disc-group" draggable="true" data-disc="'+esc(disc)+'" style="cursor:pointer"' +
+        ' ondragstart="onDiscDragStart(event,\''+safeDisc+'\')"' +
+        ' ondragover="onDiscDragOver(event)"' +
+        ' ondrop="onDiscDrop(event,\''+safeDisc+'\',\'exec\')"' +
+        ' ondragend="onDiscDragEnd(event)">' +
+        '<td style="border-top:2px solid var(--black);text-align:center" onclick="event.stopPropagation()">' +
+          '<span class="drag-handle" title="Arrastar para reordenar" onclick="event.stopPropagation()">⠿</span>' +
+        '</td>' +
         '<td style="border-top:2px solid var(--black);text-align:center" onclick="event.stopPropagation()">' +
           '<input type="checkbox" class="bi-cb bi-disc-cb" data-disc="'+disc+'" title="Marcar '+disc+'" onchange="toggleDiscBI(this,\''+disc+'\')"/>' +
         '</td>' +
-        '<td colspan="2" style="border-top:2px solid var(--black);padding-top:10px">' +
+        '<td colspan="2" style="border-top:2px solid var(--black);padding-top:10px" onclick="window._discCollapsed[\''+safeDisc+'\']=!window._discCollapsed[\''+safeDisc+'\'];renderBudget()">' +
           '<span style="display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border:2px solid var(--black);border-radius:3px;font-size:11px;font-weight:900;margin-right:8px;flex-shrink:0">'+(isCollapsed?'+':'−')+'</span>' +
           disc +
           (isCollapsed ? ' <span style="margin-left:10px;font-size:11px;font-weight:400;text-transform:none;letter-spacing:0;color:var(--g600)">'+items.length+' ite'+(items.length>1?'ns':'m')+'</span>' : '') +
