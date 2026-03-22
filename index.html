@@ -6151,15 +6151,26 @@ function handleXlsFile(input) {
       _xlsData = [];
       for (let r = 1; r < rows.length; r++) {
         const row  = rows[r];
+        // Helper: parse number from Excel cell — handles R$, dots as thousands sep, comma as decimal
+        function xlsNum(v) {
+          if (v === null || v === undefined || v === '') return 0;
+          if (typeof v === 'number') return v;
+          const s = String(v).trim()
+            .replace(/R\$\s*/g, '')   // remove R$
+            .replace(/\./g, '')        // remove thousand dots
+            .replace(',', '.');        // comma → decimal point
+          return parseFloat(s) || 0;
+        }
+
         const fase  = String(row[0]||'').trim();
         const disc  = String(row[1]||'').trim();
         const desc  = String(row[2]||'').trim();
         const un    = String(row[3]||'').trim() || 'vb';
-        const qty   = parseFloat(String(row[4]||'1').replace(',','.')) || 1;
+        const qty   = xlsNum(row[4]) || 1;
         const tipo  = String(row[5]||'').trim();
-        const pmo   = parseFloat(String(row[6]||'0').replace(',','.')) || 0;
-        const pmat  = parseFloat(String(row[7]||'0').replace(',','.')) || 0;
-        const pacab = parseFloat(String(row[8]||'0').replace(',','.')) || 0;
+        const pmo   = xlsNum(row[6]);
+        const pmat  = xlsNum(row[7]);
+        const pacab = xlsNum(row[8]);
 
         // Pula linha vazia (sem descrição)
         if (!desc) continue;
