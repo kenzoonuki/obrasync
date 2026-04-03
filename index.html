@@ -1092,6 +1092,8 @@ tfoot td{padding:10px 0;border-top:2px solid var(--black);font-weight:800;font-s
         <div class="cat-add"><div><label style="font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--g500);font-weight:700;display:block;margin-bottom:4px">Nova Forma</label><input type="text" id="new-paymethod" placeholder="Ex: Cartão Crédito" style="width:220px"/></div><button class="btn btn-p btn-sm" onclick="addCat('paymethods','new-paymethod')">Adicionar</button></div></div>
       <div class="cat-sec"><h3>Tipos de Documento</h3><div class="cat-list" id="cat-doctypes"></div>
         <div class="cat-add"><div><label style="font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--g500);font-weight:700;display:block;margin-bottom:4px">Novo Tipo</label><input type="text" id="new-doctype" placeholder="Ex: Boleto" style="width:220px"/></div><button class="btn btn-p btn-sm" onclick="addCat('doctypes','new-doctype')">Adicionar</button></div></div>
+      <div class="cat-sec"><h3>Unidades de Medida</h3><div class="cat-list" id="cat-units"></div>
+        <div class="cat-add"><div><label style="font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--g500);font-weight:700;display:block;margin-bottom:4px">Nova Unidade</label><input type="text" id="new-unit" placeholder="Ex: m², vb, un" style="width:220px"/></div><button class="btn btn-p btn-sm" onclick="addCat('units','new-unit')">Adicionar</button></div></div>
       <div class="cat-sec" style="border-top:2px solid var(--black);padding-top:20px;margin-top:8px"><h3>Classificação de Fornecedores</h3>
         <p class="muted sm" style="margin:-4px 0 12px">Categorias usadas no cadastro de fornecedores (ex: Empreiteiro, Construtora, Pintura)</p>
         <div class="cat-list" id="cat-supclasses"></div>
@@ -1390,7 +1392,7 @@ tfoot td{padding:10px 0;border-top:2px solid var(--black);font-weight:800;font-s
       <div class="ff"><label>Fase *</label><select id="bi-phase"><option value="">— Selecionar —</option></select></div>
       <div class="ff"><label>Disciplina *</label><select id="bi-disc"></select></div>
       <div class="ff s2"><label>Descrição *</label><input type="text" id="bi-desc" placeholder="Ex: Assentamento de Porcelanato"/></div>
-      <div class="ff"><label>Unidade</label><select id="bi-unit"><option>vb</option><option>m²</option><option>m</option><option>un</option><option>gl</option><option>kg</option><option>hrs</option></select></div>
+      <div class="ff"><label>Unidade</label><select id="bi-unit"></select></div>
       <div class="ff"><label>Quantidade</label><input type="number" id="bi-qty" value="1" min="0" step="0.01" oninput="calcBI()"/></div>
       <div class="ff"><label>Tipo</label><select id="bi-type" onchange="toggleBITypeFields()"><option value="contracted">Contratado</option><option value="to_contract">A Contratar</option><option value="extra">Extra</option></select></div>
       <!-- Campos A Contratar -->
@@ -1652,8 +1654,8 @@ const DB = {
         const k = row.key.startsWith(pid + ':') ? row.key.slice(pid.length + 1) : row.key;
         this._c[k] = row.value;
       });
-      // Load global keys (clients, projects)
-      const gdata = await _sbFetch('GET', 'kv_store?select=key,value&key=in.(clients,projects)');
+      // Load global keys
+      const gdata = await _sbFetch('GET', 'kv_store?select=key,value&key=in.(clients,projects,cats,suppliers,secPasswordHash,appConfig)');
       (gdata || []).forEach(row => { this._c[row.key] = row.value; });
       console.log('✓ Projeto carregado:', pid, '—', (data||[]).length, 'chaves');
     } catch(e) {
@@ -2490,6 +2492,7 @@ function initData() {
       paymethods: ['PIX','Transferência','Boleto','Cheque','Dinheiro'],
       supclasses: ['Empreiteiro','Construtora','Pintura','Hidráulica','Elétrica','Marcenaria','Serralheria','Paisagismo','Outros'],
       doctypes: ['NF','Recibo','Contrato','Medição','Outro'],
+      units: ['vb','m²','m','m³','un','gl','kg','hrs','Linear','Unid.','pt','cx','L','pç'],
       reform_types: ['Reforma Completa','Reforma Parcial','Construção Nova','Ampliação','Interiores'],
     });
   }
@@ -4885,6 +4888,7 @@ function openScenarioItemModal(scId, itemId) {
   const c = cats();
   pop('bi-disc', c.disciplines||[]);
   pop('bi-phase', c.phases||[]);
+  pop('bi-unit', c.units||['vb','m²','m','un','gl','kg','hrs']);
   document.getElementById('bi-id').value = itemId || '';
   document.getElementById('bi-id').dataset.bmode = 'scenario';
   document.getElementById('mod-bud-title').textContent = itemId ? 'Editar Item — ' + sc.name : 'Novo Item — ' + sc.name;
@@ -5697,7 +5701,7 @@ function viewPhoto(id) {
 // =====================================================================
 function renderCats() {
   const c = cats();
-  ['disciplines','phases','costcenters','servicetypes','paymethods','doctypes'].forEach(k => {
+  ['disciplines','phases','costcenters','servicetypes','paymethods','doctypes','units'].forEach(k => {
     const el = document.getElementById('cat-'+k); if(!el) return;
     el.innerHTML = (c[k]||[]).map(v =>
       '<div class="cat-chip"><span>'+v+'</span>' +
@@ -6008,6 +6012,7 @@ function openBudgetModal(modeOrId, editId) {
   const c = cats();
   pop('bi-disc', c.disciplines||[]);
   pop('bi-phase', c.phases||[]);
+  pop('bi-unit', c.units||['vb','m²','m','un','gl','kg','hrs']);
   const sups = DB.get('suppliers') || [];
   const supSel = document.getElementById('bi-sup');
   supSel.innerHTML = '<option value="">— Nenhum (item direto)</option>' +
@@ -6321,6 +6326,7 @@ function handleXlsFile(input) {
         _xlsData.push({
           _fase_xls: fase,
           _disc_xls: disc,
+          _unit_xls: un,
           phase:  fase,
           disc:   disc,
           desc,
@@ -6359,9 +6365,11 @@ function renderXlsMapping() {
   const c2 = cats();
   const phases = c2.phases || [];
   const discs  = c2.disciplines || [];
+  const units  = c2.units || [];
 
   const uniqueFases = [...new Set(_xlsData.map(i => i._fase_xls).filter(Boolean))];
   const uniqueDiscs = [...new Set(_xlsData.map(i => i._disc_xls).filter(Boolean))];
+  const uniqueUnits = [...new Set(_xlsData.map(i => i._unit_xls).filter(Boolean))];
 
   function optHtml(list, selected) {
     const isNew = selected && !list.find(x => x.toLowerCase() === selected.toLowerCase());
@@ -6386,12 +6394,13 @@ function renderXlsMapping() {
     return rows;
   }
 
-  const hasMapping = uniqueFases.length || uniqueDiscs.length;
+  const hasMapping = uniqueFases.length || uniqueDiscs.length || uniqueUnits.length;
   const mappingHtml = hasMapping
     ? '<p class="muted sm" style="margin-bottom:8px">Valores marcados com <strong>✦ será criado</strong> serão adicionados automaticamente às Categorias.</p>' +
       '<div class="tw"><table style="width:100%"><thead><tr><th>Valor no Excel</th><th></th><th>Categoria do sistema</th></tr></thead><tbody>' +
       mapRows('Fases', phases, uniqueFases, 'fase') +
       mapRows('Disciplinas', discs, uniqueDiscs, 'disc') +
+      mapRows('Unidades', units, uniqueUnits, 'unit') +
       '</tbody></table></div><hr style="margin:12px 0"/>'
     : '';
 
@@ -6413,6 +6422,7 @@ function renderXlsMapping() {
   document.getElementById('xls-preview').innerHTML = mappingHtml + previewHtml;
   window._xlsUniqueFases = uniqueFases;
   window._xlsUniqueDiscs = uniqueDiscs;
+  window._xlsUniqueUnits = uniqueUnits;
 }
 
 function confirmXlsImport() {
@@ -6420,6 +6430,7 @@ function confirmXlsImport() {
 
   const uniqueFases = window._xlsUniqueFases || [];
   const uniqueDiscs = window._xlsUniqueDiscs || [];
+  const uniqueUnits = window._xlsUniqueUnits || [];
 
   // Map phases
   const faseMap = {};
@@ -6435,6 +6446,13 @@ function confirmXlsImport() {
     const chosen = sel ? sel.value.replace(' ✦ novo','').trim() : raw;
     discMap[raw] = xlsEnsureCat('disciplines', chosen || raw);
   });
+  // Map units
+  const unitMap = {};
+  uniqueUnits.forEach((raw, i) => {
+    const sel = document.getElementById('xlsmap-unit-'+i);
+    const chosen = sel ? sel.value.replace(' ✦ novo','').trim() : raw;
+    unitMap[raw] = xlsEnsureCat('units', chosen || raw);
+  });
 
   const isEstimative = (typeof budMode !== 'undefined' && budMode === 'estimative');
 
@@ -6447,7 +6465,8 @@ function confirmXlsImport() {
       item.id    = uid();
       item.phase = faseMap[item._fase_xls] || item._fase_xls;
       item.disc  = discMap[item._disc_xls] || item._disc_xls;
-      delete item._fase_xls; delete item._disc_xls; delete item._tipo_xls;
+      item.unit  = unitMap[item._unit_xls] || item._unit_xls || 'vb';
+      delete item._fase_xls; delete item._disc_xls; delete item._unit_xls; delete item._tipo_xls;
       sc.items = sc.items || [];
       sc.items.push(item);
     });
@@ -6460,7 +6479,8 @@ function confirmXlsImport() {
       item.id    = uid();
       item.phase = faseMap[item._fase_xls] || item._fase_xls;
       item.disc  = discMap[item._disc_xls] || item._disc_xls;
-      delete item._fase_xls; delete item._disc_xls; delete item._tipo_xls;
+      item.unit  = unitMap[item._unit_xls] || item._unit_xls || 'vb';
+      delete item._fase_xls; delete item._disc_xls; delete item._unit_xls; delete item._tipo_xls;
       bud.push(item);
     });
     DB.set('budget', bud);
