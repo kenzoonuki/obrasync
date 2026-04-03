@@ -1445,27 +1445,34 @@ tfoot td{padding:10px 0;border-top:2px solid var(--black);font-weight:800;font-s
 <!-- MODAL: EDIÇÃO EM MASSA -->
 <div class="modal-ov" id="mod-bulk">
   <div class="modal" style="max-width:520px">
-    <button class="modal-x" onclick="closeModal('mod-bulk')">&#10005;</button>
+    <button class="modal-x" onclick="_scBulkId=null;closeModal('mod-bulk')">&#10005;</button>
     <h3 id="mod-bulk-title">Editar em Massa</h3>
     <p class="muted sm" id="mod-bulk-sub" style="margin:-8px 0 16px"></p>
     <p style="font-size:11px;color:var(--g500);margin-bottom:14px">Deixe em branco os campos que não deseja alterar. Apenas os campos preenchidos serão aplicados aos itens selecionados.</p>
     <div class="fgrid">
-      <div class="ff"><label>Fase</label><input type="text" id="bulk-phase" placeholder="— não alterar —"/></div>
+      <div class="ff"><label>Fase</label><select id="bulk-phase"><option value="">— não alterar —</option></select></div>
       <div class="ff"><label>Disciplina</label><select id="bulk-disc"><option value="">— não alterar —</option></select></div>
-      <div class="ff"><label>Tipo</label>
-        <select id="bulk-type">
-          <option value="">— não alterar —</option>
-          <option value="contracted">Contratado</option>
-          <option value="to_contract">A Contratar</option>
-          <option value="extra">Extra</option>
-        </select></div>
-      <div class="ff"><label>Fornecedor</label><select id="bulk-sup"><option value="">— não alterar —</option></select></div>
-      <div class="ff"><label>Tipo de Serviço / Insumo</label><select id="bulk-st"><option value="">— não alterar —</option></select></div>
-      <div class="ff"><label>% Físico</label><input type="number" id="bulk-pct" min="0" max="100" step="1" placeholder="— não alterar —"/></div>
+      <div id="bulk-exec-fields" style="display:contents">
+        <div class="ff"><label>Tipo</label>
+          <select id="bulk-type">
+            <option value="">— não alterar —</option>
+            <option value="contracted">Contratado</option>
+            <option value="to_contract">A Contratar</option>
+            <option value="extra">Extra</option>
+          </select></div>
+        <div class="ff"><label>Fornecedor</label><select id="bulk-sup"><option value="">— não alterar —</option></select></div>
+        <div class="ff"><label>Tipo de Serviço / Insumo</label><select id="bulk-st"><option value="">— não alterar —</option></select></div>
+        <div class="ff"><label>% Físico</label><input type="number" id="bulk-pct" min="0" max="100" step="1" placeholder="— não alterar —"/></div>
+      </div>
+      <div id="bulk-est-fields" style="display:none">
+        <div class="ff"><label>MO / un (R$)</label><input type="number" id="bulk-pmo" min="0" step="0.01" placeholder="— não alterar —"/></div>
+        <div class="ff"><label>Mat. / un (R$)</label><input type="number" id="bulk-pmat" min="0" step="0.01" placeholder="— não alterar —"/></div>
+        <div class="ff"><label>Acab. / un (R$)</label><input type="number" id="bulk-pacab" min="0" step="0.01" placeholder="— não alterar —"/></div>
+      </div>
     </div>
     <div class="factions mt16">
       <button class="btn btn-p" onclick="applyBulkEdit()">&#10003; Aplicar a todos selecionados</button>
-      <button class="btn btn-g" onclick="closeModal('mod-bulk')">Cancelar</button>
+      <button class="btn btn-g" onclick="_scBulkId=null;closeModal('mod-bulk')">Cancelar</button>
     </div>
   </div>
 </div>
@@ -4711,17 +4718,25 @@ function openScenarioBulkEdit(scId) {
   const sc = scenarios.find(s => s.id === scId);
   const c = cats();
   const selItems = (sc.items||[]).filter(i => sel.has(i.id));
-  // Reuse existing bulk modal — prefill with common values
+  // Prefill with common values
   const sameDisc  = selItems.every(i => i.disc  === selItems[0].disc)  ? selItems[0].disc  : '';
   const samePhase = selItems.every(i => i.phase === selItems[0].phase) ? selItems[0].phase : '';
-  pop('bulk-disc', c.disciplines||[]);
-  pop('bulk-phase', c.phases||[]);
-  document.getElementById('bulk-disc').value  = sameDisc;
-  document.getElementById('bulk-phase').value = samePhase;
+  // Show/hide context fields
+  document.getElementById('bulk-exec-fields').style.display = 'none';
+  document.getElementById('bulk-est-fields').style.display  = 'contents';
+  // Populate selects
+  const phaseSel = document.getElementById('bulk-phase');
+  phaseSel.innerHTML = '<option value="">— não alterar —</option>' +
+    (c.phases||[]).map(p => '<option value="'+p+'">'+p+'</option>').join('');
+  phaseSel.value = samePhase;
+  const discSel = document.getElementById('bulk-disc');
+  discSel.innerHTML = '<option value="">— não alterar —</option>' +
+    (c.disciplines||[]).map(d => '<option value="'+d+'">'+d+'</option>').join('');
+  discSel.value = sameDisc;
   document.getElementById('bulk-pmo').value   = '';
   document.getElementById('bulk-pmat').value  = '';
   document.getElementById('bulk-pacab').value = '';
-  document.getElementById('bulk-count').textContent = sel.size + ' itens selecionados';
+  document.getElementById('mod-bulk-sub').textContent = sel.size + ' item(ns) selecionado(s) serão afetados.';
   openModal('mod-bulk');
 }
 
@@ -4737,23 +4752,29 @@ function applyScenarioBulkEdit() {
   const pmo   = document.getElementById('bulk-pmo').value;
   const pmat  = document.getElementById('bulk-pmat').value;
   const pacab = document.getElementById('bulk-pacab').value;
+  if (!disc && !phase && pmo === '' && pmat === '' && pacab === '') {
+    alert('Preencha ao menos um campo para aplicar.'); return;
+  }
+  let changed = 0;
   sc.items = (sc.items||[]).map(i => {
     if (!sel.has(i.id)) return i;
     const ni = {...i};
-    if (disc)  ni.disc  = disc;
     if (phase) ni.phase = phase;
-    if (pmo  !== '') ni.pmo  = parseFloat(pmo)  || 0;
-    if (pmat !== '') ni.pmat = parseFloat(pmat) || 0;
-    if (pacab!== '') ni.pacab= parseFloat(pacab)|| 0;
+    if (disc)  ni.disc  = disc;
+    if (pmo   !== '') ni.pmo   = parseFloat(pmo)   || 0;
+    if (pmat  !== '') ni.pmat  = parseFloat(pmat)  || 0;
+    if (pacab !== '') ni.pacab = parseFloat(pacab) || 0;
     ni.price = ni.pmo + ni.pmat + ni.pacab;
     ni.tot   = +(ni.qty * ni.price).toFixed(2);
+    changed++;
     return ni;
   });
   saveScenarios(scenarios);
   _scSelected[scId] = new Set();
+  _scBulkId = null;
   closeModal('mod-bulk');
   renderScenarioList();
-  toast('Edição em massa aplicada ✓');
+  toast(changed + ' item(ns) atualizados ✓');
 }
 
 // ── Toggle scenario open/closed ───────────────────────────────────────
@@ -5570,10 +5591,16 @@ function openBulkEditModal() {
   if (!n) return;
   document.getElementById('mod-bulk-sub').textContent = n + ' item(ns) selecionado(s) serão afetados.';
   // Clear fields
-  ['bulk-phase','bulk-pct'].forEach(id => document.getElementById(id).value = '');
-  ['bulk-type','bulk-disc','bulk-st','bulk-sup'].forEach(id => document.getElementById(id).value = '');
+  ['bulk-pct'].forEach(id => document.getElementById(id).value = '');
+  ['bulk-phase','bulk-type','bulk-disc','bulk-st','bulk-sup'].forEach(id => document.getElementById(id).value = '');
+  // Show/hide context fields
+  document.getElementById('bulk-exec-fields').style.display = 'contents';
+  document.getElementById('bulk-est-fields').style.display  = 'none';
   // Populate selects
   const c = cats();
+  pop('bulk-phase', c.phases||[]);
+  document.getElementById('bulk-phase').insertAdjacentHTML('afterbegin','<option value="">— não alterar —</option>');
+  document.getElementById('bulk-phase').value = '';
   const discSel = document.getElementById('bulk-disc');
   discSel.innerHTML = '<option value="">— não alterar —</option>' +
     (c.disciplines||[]).map(d => '<option value="'+d+'">'+d+'</option>').join('');
