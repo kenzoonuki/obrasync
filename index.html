@@ -5123,10 +5123,10 @@ function renderBudget() {
         ' ondrop="onDiscDrop(event,\''+safeDisc+'\',\'exec\')"' +
         ' ondragend="onDiscDragEnd(event)">' +
         '<td style="border-top:2px solid var(--black);text-align:center" onclick="event.stopPropagation()">' +
-          '<span class="drag-handle" title="Arrastar para reordenar" onclick="event.stopPropagation()">⠿</span>' +
+          '<input type="checkbox" class="bi-cb bi-disc-cb" data-disc="'+disc+'" title="Marcar '+disc+'" onchange="toggleDiscBI(this,\''+disc+'\')"/>' +
         '</td>' +
         '<td style="border-top:2px solid var(--black);text-align:center" onclick="event.stopPropagation()">' +
-          '<input type="checkbox" class="bi-cb bi-disc-cb" data-disc="'+disc+'" title="Marcar '+disc+'" onchange="toggleDiscBI(this,\''+disc+'\')"/>' +
+          '<span class="drag-handle" title="Arrastar para reordenar" onclick="event.stopPropagation()">⠿</span>' +
         '</td>' +
         '<td colspan="2" style="border-top:2px solid var(--black);padding-top:10px" onclick="window._discCollapsed[\''+safeDisc+'\']=!window._discCollapsed[\''+safeDisc+'\'];renderBudget()">' +
           '<span style="display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border:2px solid var(--black);border-radius:3px;font-size:11px;font-weight:900;margin-right:8px;flex-shrink:0">'+(isCollapsed?'+':'−')+'</span>' +
