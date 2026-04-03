@@ -2495,6 +2495,12 @@ function initData() {
       units: ['vb','m²','m','m³','un','gl','kg','hrs','Linear','Unid.','pt','cx','L','pç'],
       reform_types: ['Reforma Completa','Reforma Parcial','Construção Nova','Ampliação','Interiores'],
     });
+  } else {
+    // Migração: adiciona keys ausentes para usuários que já têm cats
+    const _mc = DB.get('cats');
+    let _migrated = false;
+    if (!_mc.units) { _mc.units = ['vb','m²','m','m³','un','gl','kg','hrs','Linear','Unid.','pt','cx','L','pç']; _migrated = true; }
+    if (_migrated) DB.set('cats', _mc);
   }
   if (!DB.get('suppliers')) {
     DB.set('suppliers', []);
@@ -4595,7 +4601,11 @@ function buildScenarioCard(sc, execOrigin) {
     h += '</div>';
 
     if (!isCollapsed) {
-      h += '<div class="tw"><table style="width:100%">';
+      // colgroup fixa larguras absolutas iguais em todas as tabelas do cenário
+      const _cg = !isClosed
+        ? '<colgroup><col style="width:32px"><col style="width:80px"><col><col style="width:52px"><col style="width:55px"><col style="width:88px"><col style="width:88px"><col style="width:88px"><col style="width:98px"><col style="width:95px"></colgroup>'
+        : '<colgroup><col style="width:80px"><col><col style="width:52px"><col style="width:55px"><col style="width:88px"><col style="width:88px"><col style="width:88px"><col style="width:98px"></colgroup>';
+      h += '<div class="tw"><table style="width:100%;table-layout:fixed">' + _cg;
       h += '<thead><tr>';
       if (!isClosed) h += '<th style="width:32px"><input type="checkbox" onchange="toggleScDiscSel(this,\'' + sid + '\',\'' + discSafe + '\')" ' + (discItems.every(i => selSet.has(i.id)) ? 'checked' : '') + '/></th>';
       h += '<th>Fase</th><th>Descrição</th><th>Un.</th>';
@@ -4611,7 +4621,7 @@ function buildScenarioCard(sc, execOrigin) {
         h += '<tr' + (iSel ? ' style="background:#f0f4ff"' : '') + '>';
         if (!isClosed) h += '<td><input type="checkbox" ' + (iSel ? 'checked' : '') + ' onchange="toggleScItemSel(this,\'' + sid + '\',\'' + iid + '\')" onclick="event.stopPropagation()"/></td>';
         h += '<td class="muted sm">' + esc(i.phase) + '</td>';
-        h += '<td>' + esc(i.desc) + '</td>';
+        h += '<td style="white-space:normal;word-break:break-word">' + esc(i.desc) + '</td>';
         h += '<td class="muted sm">' + esc(i.unit) + '</td>';
         h += '<td style="text-align:right">' + i.qty + '</td>';
         h += '<td style="text-align:right">' + R(i.pmo  || 0) + '</td>';
