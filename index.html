@@ -1612,6 +1612,7 @@ const _GLOBAL_KEYS = new Set(['clients','projects','cats','suppliers','secPasswo
 // DB usa Supabase (kv_store) com cache em memória para performance
 const DB = {
   _c: {}, // cache em memória (scoped ao projeto atual)
+  _loaded: false, // true after a successful loadAll — prevents seed from overwriting real data
 
   get(k) {
     return (this._c[k] !== undefined) ? this._c[k] : null;
@@ -1633,6 +1634,7 @@ const DB = {
 
   async loadAll() {
     this._c = {}; // limpa cache ao trocar projeto
+    this._loaded = false;
     if (!window._sbUrl) {
       const keys = ['cats','suppliers','budget','entries','meas','meas2','photos',
         'gerenc','reports','feeRate','lastEntry','lastBudget','entryCollapsed',
@@ -1640,6 +1642,7 @@ const DB = {
       keys.forEach(k => {
         try { this._c[k] = JSON.parse(localStorage.getItem('os3_' + k) || 'null'); } catch(e) {}
       });
+      this._loaded = true;
       console.warn('Supabase não configurado — usando localStorage');
       return;
     }
@@ -1657,6 +1660,7 @@ const DB = {
       // Load global keys
       const gdata = await _sbFetch('GET', 'kv_store?select=key,value&key=in.(clients,projects,cats,suppliers,secPasswordHash,appConfig)');
       (gdata || []).forEach(row => { this._c[row.key] = row.value; });
+      this._loaded = true;
       console.log('✓ Projeto carregado:', pid, '—', (data||[]).length, 'chaves');
     } catch(e) {
       console.error('DB.loadAll error:', e.message);
@@ -2503,7 +2507,9 @@ function initData() {
     if (!_mc.units) { _mc.units = ['vb','m²','m','m³','un','gl','kg','hrs','Linear','Unid.','pt','cx','L','pç']; _migrated = true; }
     if (_migrated) DB.set('cats', _mc);
   }
-  if (!DB.get('suppliers')) {
+  // Only seed suppliers if loadAll completed successfully — avoids overwriting
+  // real data with [] when Supabase fetch fails and cache returns null.
+  if (DB._loaded && DB.get('suppliers') === null) {
     DB.set('suppliers', []);
   }
 
