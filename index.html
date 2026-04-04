@@ -224,7 +224,7 @@ tfoot td{padding:10px 0;border-top:2px solid var(--black);font-weight:800;font-s
 #bud-table thead th{padding:6px 6px 6px 0}
 #bud-table tbody td{padding:6px 6px 6px 0}
 #bud-table tfoot td{padding:6px 0}
-#bud-table td:nth-child(4){white-space:normal;min-width:100px}
+#bud-table td:nth-child(4){white-space:normal;min-width:120px;max-width:220px;word-break:break-word;line-height:1.35}
 /* budget multi-select */
 .bi-cb{width:15px;height:15px;cursor:pointer;accent-color:var(--danger)}
 #bud-table th:first-child,#bud-table td:first-child{width:24px;padding:4px 6px;text-align:center}
@@ -2128,11 +2128,40 @@ function delCatItemPs(key, val) {
 function editCatItemPs(key, oldVal) {
   const nv = prompt('Editar:', oldVal);
   if (!nv || nv.trim() === oldVal) return;
+  const newVal = nv.trim();
   const c2 = cats();
-  c2[key] = (c2[key] || []).map(x => x === oldVal ? nv.trim() : x);
+  c2[key] = (c2[key] || []).map(x => x === oldVal ? newVal : x);
   DB.set('cats', c2);
+
+  // Propagate rename to all records that reference the old value as a string
+  const fieldMap = {
+    disciplines: [
+      { store: 'budget',  field: 'disc' },
+      { store: 'budgetEstimative', field: 'disc' },
+      { store: 'entries', field: 'disc' },
+      { store: 'photos',  field: 'disc' },
+    ],
+    phases: [
+      { store: 'budget',  field: 'phase' },
+      { store: 'budgetEstimative', field: 'phase' },
+      { store: 'entries', field: 'phase' },
+      { store: 'photos',  field: 'phase' },
+    ],
+    costcenters:  [{ store: 'entries',   field: 'cc' }],
+    servicetypes: [{ store: 'entries',   field: 'st' }],
+    supclasses:   [{ store: 'suppliers', field: 'supClass' }],
+    units:        [{ store: 'budget',    field: 'unit' }, { store: 'budgetEstimative', field: 'unit' }],
+  };
+  (fieldMap[key] || []).forEach(({ store, field }) => {
+    const arr = DB.get(store);
+    if (!Array.isArray(arr)) return;
+    let changed = false;
+    arr.forEach(item => { if (item[field] === oldVal) { item[field] = newVal; changed = true; } });
+    if (changed) DB.set(store, arr);
+  });
+
   renderPsCats();
-  toast('Atualizado');
+  toast('Atualizado em todas as referências');
 }
 
 function renderClientsList() {
