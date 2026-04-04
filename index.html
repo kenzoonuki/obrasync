@@ -1132,7 +1132,7 @@ tfoot td{padding:10px 0;border-top:2px solid var(--black);font-weight:800;font-s
     <div class="fgrid w">
       <div class="ff"><label>Competência</label><input type="month" id="e-comp"/></div>
       <div class="ff"><label>Data</label><input type="date" id="e-date"/></div>
-      <div class="ff"><label>Fornecedor *</label><input type="text" id="e-sup" placeholder="Nome do fornecedor"/></div>
+      <div class="ff"><label>Fornecedor *</label><select id="e-sup"><option value="">— Selecionar —</option></select></div>
       <div class="ff"><label>Descrição *</label><input type="text" id="e-desc" placeholder="Ex: Medição #3"/></div>
       <div class="ff"><label>Disciplina</label><select id="e-disc"></select></div>
       <div class="ff"><label>Fase</label><select id="e-phase"></select></div>
@@ -1140,7 +1140,7 @@ tfoot td{padding:10px 0;border-top:2px solid var(--black);font-weight:800;font-s
       <div class="ff"><label>Tipo de Serviço</label><select id="e-st"></select></div>
       <div class="ff"><label>Tipo de Documento</label><select id="e-dt"></select></div>
       <div class="ff"><label>Forma de Pagamento</label><select id="e-pm"></select></div>
-      <div class="ff"><label>Valor Total (R$) *</label><input type="number" id="e-tot" min="0" step="0.01" placeholder="0,00" oninput="genInst()"/></div>
+      <div class="ff"><label>Valor Total (R$) *</label><input type="text" id="e-tot" placeholder="0,00" oninput="formatBRLInput(this);genInst()"/></div>
       <div class="ff"><label>Nº de Parcelas</label><input type="number" id="e-np" min="1" max="60" value="1" oninput="genInst()"/></div>
       <div class="ff"><label>1º Vencimento</label><input type="date" id="e-fd" oninput="genInst()"/></div>
       <div class="ff"><label>Observações</label><input type="text" id="e-notes" placeholder="Opcional"/></div>
@@ -3802,7 +3802,8 @@ function markMeasPaid(id) {
   const ms = DB.get('meas2')||[];
   const m = ms.find(x=>x.id===id);
   if (!m) return;
-  const sup = (DB.get('suppliers')||[]).find(s=>s.id===m.supplierId);
+  const _measSups = DB.get('suppliers') || [];
+  const sup = _measSups.find(s=>s.id===m.supplierId);
   // Pre-fill entry modal
   const c = cats();
   pop('e-disc', c.disciplines||[]);
@@ -3811,13 +3812,16 @@ function markMeasPaid(id) {
   pop('e-st', c.servicetypes||[]);
   pop('e-dt', c.doctypes||[]);
   pop('e-pm', c.paymethods||[]);
+  // Populate supplier select
+  const _mSupSel = document.getElementById('e-sup');
+  _mSupSel.innerHTML = '<option value="">— Selecionar —</option>' + _measSups.map(s=>'<option value="'+s.id+'">'+esc(s.name)+'</option>').join('');
   document.getElementById('e-id').value = '';
   document.getElementById('mod-entry-title').textContent = 'Lançamento — Medição Paga';
   document.getElementById('e-comp').value = m.per;
   document.getElementById('e-date').value = todayStr();
-  document.getElementById('e-sup').value = sup ? sup.name : '';
+  _mSupSel.value = sup ? sup.id : '';
   document.getElementById('e-desc').value = 'Med. '+String(m.seqNum).padStart(3,'0')+' — '+(sup?sup.name:'');
-  document.getElementById('e-tot').value = m.total.toFixed(2);
+  setBRLInput('e-tot', m.total);
   document.getElementById('e-np').value = 1;
   document.getElementById('e-fd').value = todayStr();
   document.getElementById('e-notes').value = 'Medi\u00e7\u00e3o de obra per\u00edodo '+fmtP(m.per);
@@ -5230,6 +5234,7 @@ function renderBudget() {
             '<td style="display:flex;gap:3px;flex-wrap:wrap;min-width:90px">'+
             (!isC?'<button class="btn btn-e btn-sm" onclick="openBudgetModal(\''+i.id+'\')">Editar</button>':'')+
             (!isC&&i.type!=='contracted'?'<button class="btn btn-p btn-sm" onclick="contractarBI(\''+i.id+'\')">Contratar</button>':'')+
+            (!isC&&(!i.supplierId||(i.supRemun==='direct'))?'<button class="btn btn-sm" style="background:var(--info);color:#fff" onclick="lancarBI(\''+i.id+'\')">Lançar</button>':'')+
             (!isC?'<button class="btn btn-d" onclick="delBI(\''+i.id+'\')">&#10005;</button>':'')+
             '</td></tr>';
         });
@@ -5810,6 +5815,11 @@ function openEntryModal(editId) {
   pop('e-disc',c.disciplines||[]); pop('e-phase',c.phases||[]);
   pop('e-cc',c.costcenters||[]); pop('e-st',c.servicetypes||[]);
   pop('e-dt',c.doctypes||[]); pop('e-pm',c.paymethods||[]);
+  // Populate suppliers from global list
+  const _sups = DB.get('suppliers') || [];
+  const supSel = document.getElementById('e-sup');
+  supSel.innerHTML = '<option value="">— Selecionar —</option>' +
+    _sups.map(s => '<option value="'+s.id+'">'+esc(s.name)+'</option>').join('');
   const bud = DB.get('budget') || [];
   const budSel = document.getElementById('e-budid');
   budSel.innerHTML = '<option value="">— Nenhum</option>' +
@@ -5821,7 +5831,10 @@ function openEntryModal(editId) {
     if (e) {
       document.getElementById('e-comp').value = e.comp;
       document.getElementById('e-date').value = e.date;
-      document.getElementById('e-sup').value = e.sup;
+      // Try to match supplier by id or by name (legacy entries store name as string)
+      { const _sel = document.getElementById('e-sup');
+        const _byId = _sups.find(s=>s.id===e.sup||s.name===e.sup);
+        _sel.value = _byId ? _byId.id : ''; }
       document.getElementById('e-desc').value = e.desc;
       document.getElementById('e-disc').value = e.disc;
       document.getElementById('e-phase').value = e.phase;
@@ -5829,7 +5842,7 @@ function openEntryModal(editId) {
       document.getElementById('e-st').value = e.st||'';
       document.getElementById('e-dt').value = e.dt||'';
       document.getElementById('e-pm').value = e.pm||'';
-      document.getElementById('e-tot').value = e.tot;
+      setBRLInput('e-tot', e.tot);
       document.getElementById('e-np').value = e.insts.length;
       document.getElementById('e-fd').value = e.insts[0] ? e.insts[0].due : '';
       document.getElementById('e-notes').value = e.notes||'';
@@ -5842,7 +5855,7 @@ function openEntryModal(editId) {
     const last = DB.get('lastEntry') || {};
     document.getElementById('e-comp').value = iso.slice(0,7);
     document.getElementById('e-date').value = iso;
-    document.getElementById('e-sup').value = last.sup || '';
+    { const _sel = document.getElementById('e-sup'); const _lsup = _sups.find(s=>s.id===last.sup||s.name===last.sup); _sel.value = _lsup ? _lsup.id : ''; }
     document.getElementById('e-desc').value = '';
     document.getElementById('e-tot').value = '';
     document.getElementById('e-np').value = 1;
@@ -5861,7 +5874,7 @@ function openEntryModal(editId) {
   genInst(); openModal('mod-entry');
 }
 function genInst() {
-  const tot = parseFloat(document.getElementById('e-tot').value) || 0;
+  const tot = parseBRLInput('e-tot');
   const n = Math.max(1, parseInt(document.getElementById('e-np').value)||1);
   const fd = document.getElementById('e-fd').value || todayStr();
   document.getElementById('e-tot-preview').textContent = 'Total: ' + R(tot);
@@ -5872,23 +5885,26 @@ function genInst() {
     const d = new Date(fd+'T12:00:00'); d.setMonth(d.getMonth()+(i-1));
     const due = d.toISOString().slice(0,10);
     const val = i===n ? last : base;
+    const fmtVal = val.toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
     html += '<div class="irow"><div><label>Nº</label><input type="text" value="'+i+'/'+n+'" readonly style="background:var(--g50);text-align:center"/></div>' +
       '<div><label>Vencimento</label><input type="date" id="id-due-'+i+'" value="'+due+'"/></div>' +
-      '<div><label>Valor (R$)</label><input type="number" id="id-val-'+i+'" value="'+val.toFixed(2)+'" step="0.01"/></div></div>';
+      '<div><label>Valor (R$)</label><input type="text" id="id-val-'+i+'" value="'+fmtVal+'" placeholder="0,00" oninput="formatBRLInput(this)"/></div></div>';
   }
   document.getElementById('inst-rows').innerHTML = html;
 }
 function saveEntry() {
-  const sup = document.getElementById('e-sup').value.trim();
+  const supEl = document.getElementById('e-sup');
+  const sup = supEl.options[supEl.selectedIndex]?.text?.trim() || supEl.value.trim();
   const desc = document.getElementById('e-desc').value.trim();
-  const tot = parseFloat(document.getElementById('e-tot').value);
+  const tot = parseBRLInput('e-tot');
   if (!sup || !desc || !tot) { alert('Preencha: Fornecedor, Descrição e Valor Total.'); return; }
   const n = Math.max(1, parseInt(document.getElementById('e-np').value)||1);
   const insts = [];
   for (let i = 1; i <= n; i++) {
+    const valEl = document.getElementById('id-val-'+i);
+    const val = valEl ? parseFloat(valEl.value.replace(/\./g,'').replace(',','.')) || 0 : 0;
     insts.push({id:uid(), n:i, due:document.getElementById('id-due-'+i)?.value||'',
-      val:parseFloat(document.getElementById('id-val-'+i)?.value)||0,
-      status:'open', paidAt:null, paidAmt:0, proof:''});
+      val, status:'open', paidAt:null, paidAmt:0, proof:''});
   }
   const entries = DB.get('entries') || [];
   const editId = document.getElementById('e-id').value;
@@ -6229,6 +6245,25 @@ function contractarBI(id) {
   DB.set('budget', bud);
   renderBudget(); renderDash();
   toast('Item marcado como Contratado ✓');
+}
+function lancarBI(id) {
+  const bud = DB.get('budget') || [];
+  const item = bud.find(x => x.id === id);
+  if (!item) return;
+  // Open entry modal pre-filled with budget item data
+  openEntryModal();
+  setTimeout(() => {
+    document.getElementById('e-desc').value = item.desc || '';
+    document.getElementById('e-disc').value = item.disc || '';
+    document.getElementById('e-phase').value = item.phase || '';
+    setBRLInput('e-tot', item.tot || 0);
+    document.getElementById('e-budid').value = item.id;
+    // Pre-select supplier if direct remun
+    if (item.supplierId) {
+      document.getElementById('e-sup').value = item.supplierId;
+    }
+    genInst();
+  }, 50);
 }
 
 
