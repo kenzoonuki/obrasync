@@ -5190,14 +5190,11 @@ function renderBudget() {
           (isCollapsed ? ' <span style="margin-left:10px;font-size:11px;font-weight:400;text-transform:none;letter-spacing:0;color:var(--g600)">'+items.length+' ite'+(items.length>1?'ns':'m')+'</span>' : '') +
         '</td>' +
         (isCollapsed
-          ? '<td colspan="6" style="border-top:2px solid var(--black)">' +
-              '<span style="font-size:11px;color:var(--g600)">% medido: </span>' +
-              '<span style="font-weight:800;font-size:12px;color:'+(dPctFis>=100?'var(--ok)':dPctFis>0?'var(--info)':'var(--g500)')+'">'+dPctFis.toFixed(1)+'%</span>' +
-              '<div class="mpw" style="margin-top:3px;max-width:120px"><div class="mpf" style="width:'+dPctFis+'%;background:'+(dPctFis>=100?'var(--ok)':'var(--info)')+'"></div></div>' +
-            '</td>' +
+          ? '<td colspan="5" style="border-top:2px solid var(--black)"></td>' +
             '<td style="border-top:2px solid var(--black);font-weight:800;text-align:right">'+R(dOrc)+'</td>' +
-            '<td style="border-top:2px solid var(--black)" colspan="3"></td>'
-          : '<td colspan="6" style="border-top:2px solid var(--black)"></td>' +
+            '<td style="border-top:2px solid var(--black);font-weight:800;color:'+(dPctFis>=100?'var(--ok)':dPctFis>0?'var(--info)':'var(--g400)')+'">'+dPctFis.toFixed(1)+'%</td>' +
+            '<td style="border-top:2px solid var(--black)" colspan="2"></td>'
+          : '<td colspan="5" style="border-top:2px solid var(--black)"></td>' +
             '<td style="border-top:2px solid var(--black);font-weight:800;text-align:right">'+R(dOrc)+'</td>' +
             '<td style="border-top:2px solid var(--black)" colspan="3"></td>'
         ) +
@@ -5228,8 +5225,7 @@ function renderBudget() {
             '<td style="text-align:right">'+R(i.pmat||0)+'</td>' +
             '<td style="text-align:right">'+R(i.pacab||0)+'</td>' +
             '<td class="fw7" style="text-align:right">'+R(i.tot)+'</td>' +
-            '<td style="white-space:nowrap"><span class="fw7" style="color:'+(pctFis>=100?'var(--ok)':pctFis>0?'var(--info)':'var(--g400)')+'">'+pctFis.toFixed(1)+'%</span>'+
-            '<div class="mpw" style="margin-top:2px"><div class="mpf" style="width:'+pctFis+'%;background:'+(pctFis>=100?'var(--ok)':'var(--info)')+'></div></div></td>' +
+            '<td style="white-space:nowrap"><span class="fw7" style="color:'+(pctFis>=100?'var(--ok)':pctFis>0?'var(--info)':'var(--g400)')+'">'+pctFis.toFixed(1)+'%</span></td>' +
             '<td><span class="bst '+tp.cls+'">'+tp.label+'</span><br><span class="bst '+st.cls+'" style="margin-top:3px;display:inline-block">'+st.label+'</span></td>' +
             '<td style="display:flex;gap:3px;flex-wrap:wrap;min-width:90px">'+
             (!isC?'<button class="btn btn-e btn-sm" onclick="openBudgetModal(\''+i.id+'\')">Editar</button>':'')+
