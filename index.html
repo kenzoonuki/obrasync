@@ -1404,9 +1404,9 @@ tfoot td{padding:10px 0;border-top:2px solid var(--black);font-weight:800;font-s
     <div style="border-top:1px solid var(--g200);margin-top:12px;padding-top:12px">
       <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px">Custo Unitário Decomposto</div>
       <div class="fgrid">
-        <div class="ff"><label>Mão de Obra (R$/un)</label><input type="number" id="bi-pmo" value="0" min="0" step="0.01" oninput="calcBI()"/></div>
-        <div class="ff"><label>Material Bruto (R$/un)</label><input type="number" id="bi-pmat" value="0" min="0" step="0.01" oninput="calcBI()"/></div>
-        <div class="ff"><label>Acabamento (R$/un)</label><input type="number" id="bi-pacab" value="0" min="0" step="0.01" oninput="calcBI()"/></div>
+        <div class="ff"><label>Mão de Obra (R$/un)</label><input type="text" id="bi-pmo" placeholder="0,00" oninput="formatBRLInput(this);calcBI()"/></div>
+        <div class="ff"><label>Material Bruto (R$/un)</label><input type="text" id="bi-pmat" placeholder="0,00" oninput="formatBRLInput(this);calcBI()"/></div>
+        <div class="ff"><label>Acabamento (R$/un)</label><input type="text" id="bi-pacab" placeholder="0,00" oninput="formatBRLInput(this);calcBI()"/></div>
       </div>
       <div style="font-size:13px;font-weight:800;margin:8px 0 4px">
         Total do item: <span id="bi-tot">R$ 0,00</span>
@@ -1470,9 +1470,9 @@ tfoot td{padding:10px 0;border-top:2px solid var(--black);font-weight:800;font-s
         <div class="ff"><label>% Físico</label><input type="number" id="bulk-pct" min="0" max="100" step="1" placeholder="— não alterar —"/></div>
       </div>
       <div id="bulk-est-fields" style="display:none">
-        <div class="ff"><label>MO / un (R$)</label><input type="number" id="bulk-pmo" min="0" step="0.01" placeholder="— não alterar —"/></div>
-        <div class="ff"><label>Mat. / un (R$)</label><input type="number" id="bulk-pmat" min="0" step="0.01" placeholder="— não alterar —"/></div>
-        <div class="ff"><label>Acab. / un (R$)</label><input type="number" id="bulk-pacab" min="0" step="0.01" placeholder="— não alterar —"/></div>
+        <div class="ff"><label>MO / un (R$)</label><input type="text" id="bulk-pmo" placeholder="— não alterar —" oninput="formatBRLInput(this)"/></div>
+        <div class="ff"><label>Mat. / un (R$)</label><input type="text" id="bulk-pmat" placeholder="— não alterar —" oninput="formatBRLInput(this)"/></div>
+        <div class="ff"><label>Acab. / un (R$)</label><input type="text" id="bulk-pacab" placeholder="— não alterar —" oninput="formatBRLInput(this)"/></div>
       </div>
     </div>
     <div class="factions mt16">
@@ -4790,9 +4790,9 @@ function applyScenarioBulkEdit() {
     const ni = {...i};
     if (phase) ni.phase = phase;
     if (disc)  ni.disc  = disc;
-    if (pmo   !== '') ni.pmo   = parseFloat(pmo)   || 0;
-    if (pmat  !== '') ni.pmat  = parseFloat(pmat)  || 0;
-    if (pacab !== '') ni.pacab = parseFloat(pacab) || 0;
+    if (pmo   !== '') ni.pmo   = parseBRLInput('bulk-pmo');
+    if (pmat  !== '') ni.pmat  = parseBRLInput('bulk-pmat');
+    if (pacab !== '') ni.pacab = parseBRLInput('bulk-pacab');
     ni.price = ni.pmo + ni.pmat + ni.pacab;
     ni.tot   = +(ni.qty * ni.price).toFixed(2);
     changed++;
@@ -4923,9 +4923,9 @@ function openScenarioItemModal(scId, itemId) {
       document.getElementById('bi-desc').value  = item.desc;
       document.getElementById('bi-unit').value  = item.unit;
       document.getElementById('bi-qty').value   = item.qty;
-      document.getElementById('bi-pmo').value   = item.pmo   || 0;
-      document.getElementById('bi-pmat').value  = item.pmat  || 0;
-      document.getElementById('bi-pacab').value = item.pacab || 0;
+      setBRLInput('bi-pmo',   item.pmo);
+      setBRLInput('bi-pmat',  item.pmat);
+      setBRLInput('bi-pacab', item.pacab);
       document.getElementById('bi-type').value  = item.type  || 'to_contract';
       document.getElementById('bi-compoe-base').checked = item.compoeBase !== false;
     }
@@ -4933,9 +4933,9 @@ function openScenarioItemModal(scId, itemId) {
     document.getElementById('bi-id').value      = '';
     document.getElementById('bi-desc').value    = '';
     document.getElementById('bi-qty').value     = 1;
-    document.getElementById('bi-pmo').value     = 0;
-    document.getElementById('bi-pmat').value    = 0;
-    document.getElementById('bi-pacab').value   = 0;
+    setBRLInput('bi-pmo',   0);
+    setBRLInput('bi-pmat',  0);
+    setBRLInput('bi-pacab', 0);
     document.getElementById('bi-type').value    = 'to_contract';
     document.getElementById('bi-compoe-base').checked = true;
     const lastB = DB.get('lastBudget') || {};
@@ -4954,9 +4954,9 @@ function saveScenarioItem() {
   const desc  = document.getElementById('bi-desc').value.trim();
   if (!phase || !desc) { alert('Preencha fase e descrição.'); return; }
   const qty   = parseFloat(document.getElementById('bi-qty').value)  || 0;
-  const pmo   = parseFloat(document.getElementById('bi-pmo').value)  || 0;
-  const pmat  = parseFloat(document.getElementById('bi-pmat').value) || 0;
-  const pacab = parseFloat(document.getElementById('bi-pacab').value)|| 0;
+  const pmo   = parseBRLInput('bi-pmo');
+  const pmat  = parseBRLInput('bi-pmat');
+  const pacab = parseBRLInput('bi-pacab');
   const price = pmo + pmat + pacab;
   const tot   = +(qty * price).toFixed(2);
   const item  = {
@@ -6051,9 +6051,9 @@ function openBudgetModal(modeOrId, editId) {
       document.getElementById('bi-desc').value    = item.desc;
       document.getElementById('bi-unit').value    = item.unit;
       document.getElementById('bi-qty').value     = item.qty;
-      document.getElementById('bi-pmo').value     = item.pmo  || 0;
-      document.getElementById('bi-pmat').value    = item.pmat || 0;
-      document.getElementById('bi-pacab').value   = item.pacab|| 0;
+      setBRLInput('bi-pmo',   item.pmo);
+      setBRLInput('bi-pmat',  item.pmat);
+      setBRLInput('bi-pacab', item.pacab);
       document.getElementById('bi-type').value    = item.type;
       supSel.value = item.supplierId || '';
       document.getElementById('bi-sup-mo').checked   = item.supCols?.mo   !== false;
@@ -6068,9 +6068,9 @@ function openBudgetModal(modeOrId, editId) {
     document.getElementById('bi-phase').value    = '';
     document.getElementById('bi-desc').value     = '';
     document.getElementById('bi-qty').value      = 1;
-    document.getElementById('bi-pmo').value      = 0;
-    document.getElementById('bi-pmat').value     = 0;
-    document.getElementById('bi-pacab').value    = 0;
+    setBRLInput('bi-pmo',   0);
+    setBRLInput('bi-pmat',  0);
+    setBRLInput('bi-pacab', 0);
     document.getElementById('bi-type').value     = 'to_contract';
     document.getElementById('bi-sup-mo').checked   = true;
     document.getElementById('bi-sup-mat').checked  = false;
@@ -6090,11 +6090,27 @@ function openBudgetModal(modeOrId, editId) {
   calcBI();
   openModal('mod-bud');
 }
+function formatBRLInput(el) {
+  const digits = el.value.replace(/\D/g, '');
+  if (!digits) { el.value = ''; return; }
+  el.value = (parseInt(digits, 10) / 100).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
+}
+function parseBRLInput(id) {
+  const v = document.getElementById(id).value;
+  if (!v) return 0;
+  return parseFloat(v.replace(/\./g, '').replace(',', '.')) || 0;
+}
+function setBRLInput(id, num) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const n = parseFloat(num) || 0;
+  el.value = n ? n.toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2}) : '';
+}
 function calcBI() {
   const q    = parseFloat(document.getElementById('bi-qty').value)||0;
-  const pmo  = parseFloat(document.getElementById('bi-pmo').value)||0;
-  const pmat = parseFloat(document.getElementById('bi-pmat').value)||0;
-  const pacab= parseFloat(document.getElementById('bi-pacab').value)||0;
+  const pmo  = parseBRLInput('bi-pmo');
+  const pmat = parseBRLInput('bi-pmat');
+  const pacab= parseBRLInput('bi-pacab');
   const unit = pmo + pmat + pacab;
   const tot  = +(q * unit).toFixed(2);
   document.getElementById('bi-tot').textContent = R(tot);
@@ -6111,9 +6127,9 @@ function updateBISupPreview() {
   const pv = document.getElementById('bi-sup-preview');
   if (!pv) return;
   const q    = parseFloat(document.getElementById('bi-qty').value)||0;
-  const pmo  = parseFloat(document.getElementById('bi-pmo').value)||0;
-  const pmat = parseFloat(document.getElementById('bi-pmat').value)||0;
-  const pacab= parseFloat(document.getElementById('bi-pacab').value)||0;
+  const pmo  = parseBRLInput('bi-pmo');
+  const pmat = parseBRLInput('bi-pmat');
+  const pacab= parseBRLInput('bi-pacab');
   const mo   = document.getElementById('bi-sup-mo')?.checked;
   const mat  = document.getElementById('bi-sup-mat')?.checked;
   const acab = document.getElementById('bi-sup-acab')?.checked;
@@ -6135,9 +6151,9 @@ function saveBudgetItem() {
   const desc  = document.getElementById('bi-desc').value.trim();
   if (!phase || !desc) { alert('Preencha fase e descrição.'); return; }
   const qty   = parseFloat(document.getElementById('bi-qty').value)||0;
-  const pmo   = parseFloat(document.getElementById('bi-pmo').value)||0;
-  const pmat  = parseFloat(document.getElementById('bi-pmat').value)||0;
-  const pacab = parseFloat(document.getElementById('bi-pacab').value)||0;
+  const pmo   = parseBRLInput('bi-pmo');
+  const pmat  = parseBRLInput('bi-pmat');
+  const pacab = parseBRLInput('bi-pacab');
   const price = pmo + pmat + pacab;
   const tot   = +(qty * price).toFixed(2);
   const supId = document.getElementById('bi-sup').value || '';
