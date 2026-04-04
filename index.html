@@ -2508,7 +2508,12 @@ function initData() {
   }
 
   // ── Seed project data — only if this project has never been initialized ──
-  if (DB.get('init7')) return;
+  // Checks both init7 and the presence of any real data to avoid wiping existing projects
+  // that were created before init7 was introduced (previously used init6).
+  if (DB.get('init7') || DB.get('budget') !== null || DB.get('entries') !== null) {
+    DB.set('init7', true); // ensure flag is set for older projects
+    return;
+  }
 
   // New project starts completely empty
   DB.set('budget', []);
@@ -3498,6 +3503,7 @@ function saveSupplier() {
   DB.set('suppliers', sups);
   closeModal('mod-supplier');
   renderSuppliers();
+  renderPsSuppliers();
   toast(idx > -1 ? 'Fornecedor atualizado' : 'Fornecedor adicionado');
 }
 function delSupplier(id) {
