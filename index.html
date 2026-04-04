@@ -1021,9 +1021,9 @@ tfoot td{padding:10px 0;border-top:2px solid var(--black);font-weight:800;font-s
             <thead><tr>
               <th><input type="checkbox" class="bi-cb" id="bud-cb-all" title="Marcar todos" onchange="toggleAllBI(this)"/></th>
               <th>Fase</th><th>Disciplina</th><th>Descrição</th><th>Un.</th>
-              <th style="text-align:right">Qtd.</th><th style="text-align:right">MO/un</th>
-              <th style="text-align:right">Mat./un</th><th style="text-align:right">Acab./un</th>
-              <th style="text-align:right">Total</th><th>% Físico</th><th>Fornecedor</th><th>Status</th><th>Ações</th>
+              <th style="text-align:right">Qtd.</th><th style="text-align:right">MDO</th>
+              <th style="text-align:right">MAT</th><th style="text-align:right">ACB</th>
+              <th style="text-align:right">Total</th><th>%</th><th>Status</th><th>Ações</th>
             </tr></thead>
             <tbody id="bud-tbody"></tbody>
             <tfoot><tr>
@@ -5167,10 +5167,10 @@ function renderBudget() {
               '<div class="mpw" style="margin-top:3px;max-width:120px"><div class="mpf" style="width:'+dPctFis+'%;background:'+(dPctFis>=100?'var(--ok)':'var(--info)')+'"></div></div>' +
             '</td>' +
             '<td style="border-top:2px solid var(--black);font-weight:800;text-align:right">'+R(dOrc)+'</td>' +
-            '<td style="border-top:2px solid var(--black)" colspan="4"></td>'
+            '<td style="border-top:2px solid var(--black)" colspan="3"></td>'
           : '<td colspan="6" style="border-top:2px solid var(--black)"></td>' +
             '<td style="border-top:2px solid var(--black);font-weight:800;text-align:right">'+R(dOrc)+'</td>' +
-            '<td style="border-top:2px solid var(--black)" colspan="4"></td>'
+            '<td style="border-top:2px solid var(--black)" colspan="3"></td>'
         ) +
         '</tr>';
 
@@ -5192,7 +5192,7 @@ function renderBudget() {
             '<td><input type="checkbox" class="bi-cb bi-row-cb" data-id="'+i.id+'"'+chk+' onclick="onBIRowCbClick(this,event)"/></td>' +
             '<td class="muted sm">'+esc(i.phase)+'</td>' +
             '<td class="muted sm">'+esc(i.disc)+'</td>' +
-            '<td>'+esc(i.desc)+'</td>' +
+            '<td>'+esc(i.desc)+(sup?'<div style="font-size:8px;color:var(--g400);margin-top:2px;font-weight:400">'+esc(sup.name)+'</div>':'')+'</td>' +
             '<td class="muted sm">'+esc(i.unit)+'</td>' +
             '<td style="text-align:right">'+i.qty+'</td>' +
             '<td style="text-align:right">'+R(i.pmo||0)+'</td>' +
@@ -5201,7 +5201,6 @@ function renderBudget() {
             '<td class="fw7" style="text-align:right">'+R(i.tot)+'</td>' +
             '<td style="white-space:nowrap"><span class="fw7" style="color:'+(pctFis>=100?'var(--ok)':pctFis>0?'var(--info)':'var(--g400)')+'">'+pctFis.toFixed(1)+'%</span>'+
             '<div class="mpw" style="margin-top:2px"><div class="mpf" style="width:'+pctFis+'%;background:'+(pctFis>=100?'var(--ok)':'var(--info)')+'></div></div></td>' +
-            '<td>'+(sup?'<span style="font-size:11px;font-weight:700;color:var(--fee)">'+esc(sup.name)+'</span>'+(i.supCols?'<div style="font-size:10px;color:var(--g600);margin-top:2px">'+[i.supCols.mo?'MO':'',i.supCols.mat?'Mat.':'',i.supCols.acab?'Acab.':''].filter(Boolean).join('+')+'</div>':''):'<span style="font-size:11px;color:var(--g400)">—</span>')+'</td>' +
             '<td><span class="bst '+tp.cls+'">'+tp.label+'</span><br><span class="bst '+st.cls+'" style="margin-top:3px;display:inline-block">'+st.label+'</span></td>' +
             '<td style="display:flex;gap:3px;flex-wrap:wrap;min-width:90px">'+
             (!isC?'<button class="btn btn-e btn-sm" onclick="openBudgetModal(\''+i.id+'\')">Editar</button>':'')+
@@ -5215,8 +5214,8 @@ function renderBudget() {
       }
     });
   }
-  const addRowHtml = !isC ? '<tr class="bi-add-row"><td colspan="14"><button onclick="addBIInlineRow()">+ Adicionar linha</button></td></tr>' : '';
-  const _bud_tbody = document.getElementById('bud-tbody'); if (_bud_tbody) _bud_tbody.innerHTML = (rows || '<tr><td colspan="13" style="text-align:center;padding:28px;color:var(--g400)">Nenhum item.</td></tr>') + addRowHtml;
+  const addRowHtml = !isC ? '<tr class="bi-add-row"><td colspan="13"><button onclick="addBIInlineRow()">+ Adicionar linha</button></td></tr>' : '';
+  const _bud_tbody = document.getElementById('bud-tbody'); if (_bud_tbody) _bud_tbody.innerHTML = (rows || '<tr><td colspan="12" style="text-align:center;padding:28px;color:var(--g400)">Nenhum item.</td></tr>') + addRowHtml;
   document.getElementById('bud-tot').textContent = R(totOrc);
   const c = bud.filter(i=>i.type==='contracted').reduce((s,i)=>s+i.tot,0);
   const tc = bud.filter(i=>i.type==='to_contract').reduce((s,i)=>s+i.tot,0);
