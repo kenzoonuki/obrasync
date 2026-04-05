@@ -5783,6 +5783,7 @@ function applyBulkEdit() {
   });
   DB.set('budget', bud);
   closeModal('mod-bulk');
+  clearBISelection();
   renderBudget(); renderDash();
   toast(changed + ' item(ns) atualizados');
 }
