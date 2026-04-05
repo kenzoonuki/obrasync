@@ -1029,7 +1029,7 @@ tfoot td{padding:10px 0;border-top:2px solid var(--black);font-weight:800;font-s
               <th>Fase</th><th>Disciplina</th><th>Descrição</th><th>Un.</th>
               <th style="text-align:right">Qtd.</th><th style="text-align:right">MDO</th>
               <th style="text-align:right">MAT</th><th style="text-align:right">ACB</th>
-              <th style="text-align:right">Total</th><th>%</th><th>Status</th><th>Ações</th>
+              <th style="text-align:right">Total</th><th>%</th><th>Tipo</th><th>Ações</th>
             </tr></thead>
             <tbody id="bud-tbody"></tbody>
             <tfoot><tr>
@@ -5375,7 +5375,6 @@ function renderBudget() {
             ? Math.min(100, (DB.get('meas2')||[]).filter(m=>m.status!=='draft').flatMap(m=>m.items).filter(it=>it.biId===i.id).reduce((s,it)=>s+it.pctPer,0))
             : (i.pctFis || 0);
           const pctFin = i.tot > 0 ? Math.min(100, Math.round(real/i.tot*100)) : 0;
-          const st = biStatus(i);
           const tp = biItemType(i);
           totOrc += i.tot;
           const chk = window._biSelected && window._biSelected.has(i.id) ? ' checked' : '';
@@ -5391,7 +5390,7 @@ function renderBudget() {
             '<td style="text-align:right">'+R(i.pacab||0)+'</td>' +
             '<td class="fw7" style="text-align:right">'+R(i.tot)+'</td>' +
             '<td style="white-space:nowrap"><span class="fw7" style="color:'+(pctFis>=100?'var(--ok)':pctFis>0?'var(--info)':'var(--g400)')+'">'+pctFis.toFixed(1)+'%</span></td>' +
-            '<td><span class="bst '+tp.cls+'">'+tp.label+'</span><br><span class="bst '+st.cls+'" style="margin-top:3px;display:inline-block">'+st.label+'</span></td>' +
+            '<td><span class="bst '+tp.cls+'">'+tp.label+'</span></td>' +
             '<td style="display:flex;gap:3px;flex-wrap:wrap;min-width:90px">'+
             (!isC?'<button class="btn btn-e btn-sm" onclick="openBudgetModal(\''+i.id+'\')">Editar</button>':'')+
             (!isC&&i.type!=='contracted'?'<button class="btn btn-p btn-sm" onclick="contractarBI(\''+i.id+'\')">Contratar</button>':'')+
@@ -6219,9 +6218,24 @@ function confirmPay() {
   if (!e || !p) return;
   p.status='paid'; p.paidAt=dt; p.paidAmt=amt; p.proof=document.getElementById('pay-proof').value;
   DB.set('entries', entries);
+  // Sincronizar status de medições: se todos os lançamentos de uma medição
+  // estão pagos, marcar a medição como paga automaticamente
+  const ms = DB.get('meas2') || [];
+  let measChanged = false;
+  ms.forEach(m => {
+    if (m.status !== 'approved') return;
+    const biIds = new Set((m.items||[]).map(it=>it.biId).filter(Boolean));
+    if (!biIds.size) return;
+    const relEntries = entries.filter(en => en.budId && biIds.has(en.budId));
+    if (!relEntries.length) return;
+    if (relEntries.every(en => (en.insts||[]).length > 0 && (en.insts||[]).every(pp => pp.status === 'paid'))) {
+      m.status = 'paid'; measChanged = true;
+    }
+  });
+  if (measChanged) DB.set('meas2', ms);
   closeModal('mod-pay');
   renderFinancial(); renderInstallments(); renderDash();
-  if (e.isFee) renderMeas();
+  renderMeas();
   toast('Pagamento registrado');
 }
 
