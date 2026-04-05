@@ -6300,6 +6300,7 @@ function saveBudgetItem() {
     type: item_type,
     supplierId: supId,
     supCols,
+    supRemun: supId ? (document.getElementById('bi-sup-remun').value || 'meas') : null,
     pctFis: existing ? (existing.pctFis||0) : 0,
     compoeBase: document.getElementById('bi-compoe-base').checked,
     plannedDate: item_type === 'to_contract' ? (document.getElementById('bi-planned-date').value||null) : null,
