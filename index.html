@@ -820,6 +820,7 @@ tfoot td{padding:10px 0;border-top:2px solid var(--black);font-weight:800;font-s
     <input type="hidden" id="rb-id"/>
     <input type="hidden" id="rb-sup-id"/>
     <div class="fgrid w" style="margin-bottom:12px">
+      <div class="ff s2" id="rb-sup-row"><label>Fornecedor / Responsável *</label><select id="rb-sup-sel"></select></div>
       <div class="ff"><label>Data da Compra *</label><input type="date" id="rb-date"/></div>
       <div class="ff"><label>Competência</label><input type="month" id="rb-comp"/></div>
       <div class="ff s2"><label>Descrição / NF *</label><input type="text" id="rb-desc" placeholder="Ex: NF 1234 — Tinta acrílica"/></div>
@@ -936,7 +937,7 @@ tfoot td{padding:10px 0;border-top:2px solid var(--black);font-weight:800;font-s
       <div class="sec-hd">
         <h2>Reembolsos</h2>
         <div class="acts">
-          <button class="btn btn-g" onclick="openReembolsoModal('_gerenc')">&#128181; + Compra do Gerenciador</button>
+          <button class="btn btn-g" onclick="openReembolsoModal(null)">&#128181; + Novo Reembolso</button>
           <button class="btn btn-p" onclick="abrirFecharRelatorio()">&#128196; Fechar Relatório</button>
         </div>
       </div>
@@ -2731,6 +2732,7 @@ function setRole(r) {
       '<div class="sb-label">Obra</div>' +
       '<button class="nav-btn" onclick="nav(\'suppliers\')">Fornecedores</button>' +
       '<button class="nav-btn" onclick="nav(\'measurements\')">Medições</button>' +
+      '<button class="nav-btn" onclick="nav(\'reembolsos\')">Reembolsos</button>' +
       '<button class="nav-btn" onclick="nav(\'budget\')">Orçamento</button>' +
       '<button class="nav-btn" onclick="nav(\'photos\')">Fotos</button>' +
       '<div class="sb-label">Sistema</div>' +
@@ -3444,8 +3446,17 @@ function imprimirRelatorioReembolso(id) {
 function openReembolsoModal(supId, editId) {
   const bud = DB.get('budget') || [];
   const cats_data = cats();
+  const sups = DB.get('suppliers') || [];
+
+  // Populate supplier select
+  const supSel = document.getElementById('rb-sup-sel');
+  supSel.innerHTML =
+    '<option value="_gerenc">Gerenciador de Obra</option>' +
+    sups.map(s => '<option value="'+s.id+'">'+esc(s.name)+'</option>').join('');
+  supSel.value = supId || '_gerenc';
+
   document.getElementById('rb-id').value = editId || '';
-  document.getElementById('rb-sup-id').value = supId;
+  document.getElementById('rb-sup-id').value = '';
   document.getElementById('rb-date').value = todayStr();
   document.getElementById('rb-comp').value = new Date().toISOString().slice(0,7);
   document.getElementById('rb-desc').value = '';
@@ -3462,6 +3473,7 @@ function openReembolsoModal(supId, editId) {
   if (editId) {
     const r = (DB.get('reembolsos')||[]).find(x=>x.id===editId);
     if (r) {
+      supSel.value = r.supId || '_gerenc';
       document.getElementById('rb-date').value = r.date||'';
       document.getElementById('rb-comp').value = r.comp||'';
       document.getElementById('rb-desc').value = r.desc||'';
@@ -3474,9 +3486,7 @@ function openReembolsoModal(supId, editId) {
     }
   }
   toggleRbLink();
-  const sups = DB.get('suppliers') || [];
-  const sup = supId==='_gerenc' ? {name:'Gerenciador de Obra'} : sups.find(s=>s.id===supId);
-  document.getElementById('mod-reemb-title').textContent = (editId?'Editar':'Nova')+' Compra — '+(sup?sup.name:'');
+  document.getElementById('mod-reemb-title').textContent = (editId?'Editar':'Nova')+' Compra para Reembolso';
   openModal('mod-reemb');
 }
 
@@ -3488,7 +3498,7 @@ function toggleRbLink() {
 }
 
 function saveReembolso() {
-  const supId  = document.getElementById('rb-sup-id').value;
+  const supId  = document.getElementById('rb-sup-sel').value || '_gerenc';
   const editId = document.getElementById('rb-id').value;
   const date   = document.getElementById('rb-date').value;
   const comp   = document.getElementById('rb-comp').value;
