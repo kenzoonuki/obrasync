@@ -756,13 +756,19 @@ tfoot td{padding:10px 0;border-top:2px solid var(--black);font-weight:800;font-s
           <button class="btn btn-g btn-sm" onclick="toggleAllEntryCollapse(true)" style="font-size:11px">&#8722; Recolher todos</button>
         </div>
       </div>
-      <div class="fg mb16">
+      <div class="fg mb16" id="fin-filter-pills">
         <span class="flbl">Status:</span>
         <button class="pill active" onclick="setFF(this,'all')">Todos</button>
         <button class="pill" onclick="setFF(this,'open')">Em aberto</button>
         <button class="pill" onclick="setFF(this,'paid')">Pagos</button>
         <button class="pill" onclick="setFF(this,'nobase')">Fora da base</button>
         <button class="pill" onclick="setFF(this,'fee')">Honorários</button>
+      </div>
+      <div class="fg mb16" id="fin-sort-pills">
+        <span class="flbl">Ordenar:</span>
+        <button class="pill active" onclick="setSortFF(this,'comp')">Competência</button>
+        <button class="pill" onclick="setSortFF(this,'date')">Lançamento</button>
+        <button class="pill" onclick="setSortFF(this,'paidAt')">Pagamento</button>
       </div>
       <div id="entry-sel-bar" style="display:none;position:sticky;bottom:0;background:#000;color:#fff;padding:10px 16px;border-radius:8px;margin-bottom:8px;align-items:center;gap:12px;z-index:100">
         <span id="entry-sel-count" style="flex:1;font-size:13px;font-weight:700"></span>
@@ -801,7 +807,6 @@ tfoot td{padding:10px 0;border-top:2px solid var(--black);font-weight:800;font-s
       <div class="sec-hd">
         <h2>Fornecedores</h2>
         <div class="acts">
-    html += '<button class="btn btn-p btn-sm" onclick="openReembolsoModal(\''+supId+'\')">' + '+ Reembolso</button>';
         <button class="btn btn-p" onclick="openSupplierModal()">+ Novo Fornecedor</button>
       </div>
       </div>
@@ -2925,9 +2930,16 @@ function buildPies() {
 // FINANCEIRO
 // =====================================================================
 let finFilter = 'all';
+let finSort   = 'comp';
 function setFF(btn, f) {
   finFilter = f;
-  document.querySelectorAll('#view-financial .pill').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('#fin-filter-pills .pill').forEach(p => p.classList.remove('active'));
+  btn.classList.add('active');
+  renderFinancial();
+}
+function setSortFF(btn, s) {
+  finSort = s;
+  document.querySelectorAll('#fin-sort-pills .pill').forEach(p => p.classList.remove('active'));
   btn.classList.add('active');
   renderFinancial();
 }
@@ -3039,7 +3051,17 @@ function renderFinancial() {
   let html = '';
   let hasEntries = false;
 
-  entries.forEach(e => {
+  const sorted = [...entries].sort((a, b) => {
+    if (finSort === 'date')   return (a.date||'').localeCompare(b.date||'');
+    if (finSort === 'paidAt') {
+      const pa = [...(a.insts||[])].filter(p=>p.paidAt).map(p=>p.paidAt).sort().pop() || '';
+      const pb = [...(b.insts||[])].filter(p=>p.paidAt).map(p=>p.paidAt).sort().pop() || '';
+      return pb.localeCompare(pa); // mais recente primeiro
+    }
+    return (a.comp||'').localeCompare(b.comp||''); // default: competência
+  });
+
+  sorted.forEach(e => {
     const nb = e.base === false;
     const isFee = !!e.isFee;
     if (finFilter === 'nobase' && (!nb || isFee)) return;
@@ -5233,7 +5255,8 @@ function biStatus(item) {
   const real = realPerBI(item.id, item.disc, item.phase);
   if (contr <= 0) return {label:'À pagar', cls:'bst-open'};
   if (real <= 0)  return {label:'A pagar', cls:'bst-hired'};
-  if (real >= item.tot) return real > item.tot ? {label:'Excedido', cls:'bst-over'} : {label:'Pago', cls:'bst-done'};
+  // Compara real pago contra valor contratado (não contra tot orçado)
+  if (real >= contr) return real > contr ? {label:'Excedido', cls:'bst-over'} : {label:'Pago', cls:'bst-done'};
   return {label:'Em Execução', cls:'bst-partial'};
 }
 
@@ -5302,9 +5325,14 @@ function renderBudget() {
     _orderedDiscs.forEach(disc => {
       const items = grouped[disc];
       const dOrc   = items.reduce((s,i) => s+i.tot, 0);
-      const dReal  = items.reduce((s,i) => s+realPerBI(i.id,i.disc,i.phase), 0);
-      const dSaldo = dOrc - dReal;
-      const dPctFis = dOrc > 0 ? Math.min(100, dReal/dOrc*100) : 0;
+      // % física: média ponderada pelo tot de cada item (usa medições se remun=meas)
+      const _m2d = DB.get('meas2') || [];
+      const dPctFis = dOrc > 0 ? Math.min(100, items.reduce((s,i) => {
+        const pf = ((i.supRemun||'meas')==='meas')
+          ? Math.min(100, _m2d.filter(m=>m.status!=='draft').flatMap(m=>m.items||[]).filter(it=>it.biId===i.id).reduce((sm,it)=>sm+(it.pctPer||0),0))
+          : (i.pctFis||0);
+        return s + pf * i.tot;
+      }, 0) / dOrc) : 0;
       const isCollapsed = !!window._discCollapsed[disc];
       const safeDisc = disc.replace(/'/g,"\\'");
 
