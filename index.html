@@ -6049,9 +6049,28 @@ function genInst() {
     const fmtVal = val.toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
     html += '<div class="irow"><div><label>Nº</label><input type="text" value="'+i+'/'+n+'" readonly style="background:var(--g50);text-align:center"/></div>' +
       '<div><label>Vencimento</label><input type="date" id="id-due-'+i+'" value="'+due+'"/></div>' +
-      '<div><label>Valor (R$)</label><input type="text" id="id-val-'+i+'" value="'+fmtVal+'" placeholder="0,00" oninput="formatBRLInput(this)"/></div></div>';
+      '<div><label>Valor (R$)</label><input type="text" id="id-val-'+i+'" value="'+fmtVal+'" placeholder="0,00" oninput="formatBRLInput(this);redistInst('+i+','+n+')"/></div></div>';
   }
   document.getElementById('inst-rows').innerHTML = html;
+}
+function redistInst(idx, n) {
+  const tot = parseBRLInput('e-tot');
+  let sumBefore = 0;
+  for (let i = 1; i <= idx; i++) {
+    const el = document.getElementById('id-val-'+i);
+    sumBefore += el ? (parseFloat(el.value.replace(/\./g,'').replace(',','.')) || 0) : 0;
+  }
+  const remaining = Math.round((tot - sumBefore) * 100) / 100;
+  const rest = n - idx;
+  if (rest <= 0) return;
+  const base = Math.floor((remaining / rest) * 100) / 100;
+  const last = Math.round((remaining - base * (rest - 1)) * 100) / 100;
+  for (let i = idx + 1; i <= n; i++) {
+    const el = document.getElementById('id-val-'+i);
+    if (!el) continue;
+    const val = i === n ? last : base;
+    el.value = val.toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
+  }
 }
 function saveEntry() {
   const supEl = document.getElementById('e-sup');
