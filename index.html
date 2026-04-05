@@ -6131,7 +6131,7 @@ function saveEntry() {
 function delEntry(id) {
   if (!confirm('Excluir este lançamento?')) return;
   DB.set('entries', (DB.get('entries')||[]).filter(e=>e.id!==id));
-  renderFinancial(); renderDash(); toast('Excluído');
+  renderFinancial(); renderBudget(); renderDash(); toast('Excluído');
 }
 
 // =====================================================================
