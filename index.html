@@ -3208,11 +3208,11 @@ function renderSuppliers() {
       '<span><span class="muted">Itens:</span> <strong>'+items.length+'</strong></span>' +
       '<span><span class="muted">Orçado:</span> <strong>'+R(totalOrc)+'</strong></span>' +
       '<span><span class="muted">Realizado:</span> <strong>'+R(totalReal)+'</strong></span>' +
-      (s.type==='meas' ? '<span><span class="muted">Última med.:</span> <strong>'+(lastMeas ? 'Med. '+String(lastMeas.seqNum).padStart(3,'0')+' · '+fmtD(lastMeas.date) : '—')+'</strong></span>' : '') +
+      (lastMeas ? '<span><span class="muted">Última med.:</span> <strong>Med. '+String(lastMeas.seqNum).padStart(3,'0')+' · '+fmtD(lastMeas.date)+'</strong></span>' : '') +
       '</div>' +
       '</div>' +
       '<div style="display:flex;gap:6px;flex-shrink:0">' +
-      (s.type==='meas' ? '<button class="btn btn-p btn-sm" onclick="openNewMeasWizard(\''+s.id+'\')">+ Medição</button>' : '') +
+      '<button class="btn btn-p btn-sm" onclick="openNewMeasWizard(\''+s.id+'\')">+ Medição</button>' +
       '<button class="btn btn-g btn-sm" onclick="openReembolsoModal(\''+s.id+'\')">&#128181; + Reembolso</button>' +
       '<button class="btn btn-e btn-sm" onclick="openSupplierModal(\''+s.id+'\')">Editar</button>' +
       '<button class="btn btn-d" onclick="delSupplier(\''+s.id+'\')">✕</button>' +
@@ -3931,7 +3931,7 @@ function _delMeas2Confirmed(id) {  if (!confirm('Excluir medi\u00e7\u00e3o?')) r
 // ── Supplier Measurement Wizard ────────────────────────────────────
 function openNewMeasWizard(preSupId, editMeasId, forceEdit) {
   if (editMeasId && forceEdit && !confirm('Esta medi\u00e7\u00e3o j\u00e1 foi emitida. Deseja corrigir mesmo assim? O status ser\u00e1 mantido.')) return;
-  const sups = (DB.get('suppliers')||[]).filter(s => s.type === 'meas');
+  const sups = DB.get('suppliers') || [];
   const sel = document.getElementById('mw-sup');
   sel.innerHTML = '<option value="">— Selecionar —</option>' +
     sups.map(s => '<option value="'+s.id+'">'+s.name+'</option>').join('');
