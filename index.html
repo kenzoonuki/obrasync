@@ -6117,7 +6117,7 @@ function saveEntry() {
     cc:entry.cc, st:entry.st, dt:entry.dt, pm:entry.pm,
     base:entry.base, budId:entry.budId
   });
-  closeModal('mod-entry'); renderFinancial(); renderDash();
+  closeModal('mod-entry'); renderFinancial(); renderBudget(); renderDash();
   // If opened from "Marcar Paga" on a measurement, now mark it paid
   if (window._pendingMeasPaidId) {
     const ms = DB.get('meas2')||[];
