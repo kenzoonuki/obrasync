@@ -1383,7 +1383,7 @@ tfoot td{padding:10px 0;border-top:2px solid var(--black);font-weight:800;font-s
     <!-- preenchido por JS -->
   </div>
   <div style="position:fixed;bottom:24px;right:24px;display:flex;gap:10px;z-index:700" id="boletim-actions">
-    <button class="btn btn-p" onclick="window.print()">&#128424; Imprimir / PDF</button>
+    <button class="btn btn-p" onclick="document.body.classList.add('print-boletim');window.print();document.body.classList.remove('print-boletim')">&#128424; Imprimir / PDF</button>
     <button class="btn btn-g" onclick="closeBoletim()">Fechar</button>
   </div>
 </div>
@@ -4060,8 +4060,32 @@ function saveMeasWizard() {
   const record  = { id: editId||uid(), supplierId: supId, per, date, status: sta, notes, items, total: +total.toFixed(2), seqNum };
   if (editIdx > -1) ms[editIdx] = record; else ms.push(record);
   DB.set('meas2', ms);
+  // If editing an existing measurement, update the linked financial entry if any
+  if (editId) {
+    const entries = DB.get('entries') || [];
+    // Find entry linked to this measurement by description pattern or measId
+    const sup = (DB.get('suppliers')||[]).find(s=>s.id===supId);
+    const supName = sup ? sup.name : '';
+    const descPattern = 'Med. '+String(seqNum).padStart(3,'0');
+    const linked = entries.find(e =>
+      !e.isFee && e.desc && e.desc.startsWith(descPattern) && e.desc.includes(supName)
+    );
+    if (linked) {
+      const newTot = +total.toFixed(2);
+      linked.tot = newTot;
+      // Redistribute amount across installments preserving paid status
+      const n = linked.insts.length;
+      const base = Math.floor((newTot/n)*100)/100;
+      const last = Math.round((newTot - base*(n-1))*100)/100;
+      linked.insts.forEach((inst, i) => {
+        inst.val = i === n-1 ? last : base;
+        if (inst.status === 'paid') inst.paidAmt = inst.val;
+      });
+      DB.set('entries', entries);
+    }
+  }
   closeModal('mod-meas-new');
-  renderMeas(); renderDash();
+  renderMeas(); renderFinancial && renderFinancial(); renderDash();
   toast(editId ? 'Medi\u00e7\u00e3o atualizada' : 'Med. '+String(seqNum).padStart(3,'0')+' criada!');
 }
 
