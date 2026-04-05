@@ -5289,6 +5289,7 @@ function renderBudget() {
 
       // ── item rows (hidden when collapsed) ─────────────────────────
       if (!isCollapsed) {
+        const _entries = DB.get('entries') || [];
         items.forEach(i => {
           const real = realPerBI(i.id, i.disc, i.phase);
           const saldo = i.tot - real;
@@ -5317,7 +5318,7 @@ function renderBudget() {
             '<td style="display:flex;gap:3px;flex-wrap:wrap;min-width:90px">'+
             (!isC?'<button class="btn btn-e btn-sm" onclick="openBudgetModal(\''+i.id+'\')">Editar</button>':'')+
             (!isC&&i.type!=='contracted'?'<button class="btn btn-p btn-sm" onclick="contractarBI(\''+i.id+'\')">Contratar</button>':'')+
-            (!isC&&(!i.supplierId||(i.supRemun==='direct'))?'<button class="btn btn-sm" style="background:var(--info);color:#fff" onclick="lancarBI(\''+i.id+'\')">Lançar</button>':'')+
+            (!isC&&(!i.supplierId||(i.supRemun==='direct'))?(_entries.some(e=>e.budId===i.id)?'<span style="font-size:10px;font-weight:700;color:var(--ok)">Lançado</span>':'<button class="btn btn-sm" style="background:var(--info);color:#fff" onclick="lancarBI(\''+i.id+'\')">Lançar</button>'):'')+
             (!isC?'<button class="btn btn-d" onclick="delBI(\''+i.id+'\')">&#10005;</button>':'')+
             '</td></tr>';
         });
