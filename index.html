@@ -4352,6 +4352,7 @@ function markGerencPaid(id) {
   genFeeInst();
   window._pendingGerencPaidId = id;
   openModal('mod-fee-entry');
+}
 function delGerenc(id) {
   const g = (DB.get('gerenc')||[]).find(x=>x.id===id);
   const label = g ? 'Ger. '+String(g.seqNum||'?').padStart(3,'0') : 'esta medição';
@@ -4364,6 +4365,7 @@ function delGerenc(id) {
     }
   );
 }
+function openBoletim(measId) {
   const m = (DB.get('meas2')||[]).find(x=>x.id===measId);
   if (!m) return;
   const sup  = (DB.get('suppliers')||[]).find(s=>s.id===m.supplierId);
