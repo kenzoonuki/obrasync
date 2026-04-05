@@ -1080,6 +1080,12 @@ tfoot td{padding:10px 0;border-top:2px solid var(--black);font-weight:800;font-s
           <input type="file" id="db-import-file" accept=".json" style="display:none" onchange="loadImportedDB(this)"/>
         </div>
       </div>
+      <div id="cat-orphans-sec" style="display:none;margin-bottom:28px;padding:16px;background:#fff8e1;border:1px solid #ffe082;border-radius:6px">
+        <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px;color:#b45309">&#9888; Referências não encontradas nas categorias atuais</div>
+        <p class="muted sm" style="margin-bottom:12px">Os itens abaixo existem no orçamento/lançamentos mas não correspondem a nenhuma categoria atual. Remapeie para o nome correto.</p>
+        <div id="cat-orphans-rows"></div>
+        <button class="btn btn-p btn-sm" style="margin-top:12px" onclick="applyOrphanRemap()">Aplicar remapeamento</button>
+      </div>
       <div class="cat-sec"><h3>Disciplinas</h3><div class="cat-list" id="cat-disciplines"></div>
         <div class="cat-add"><div><label style="font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--g500);font-weight:700;display:block;margin-bottom:4px">Nova Disciplina</label><input type="text" id="new-discipline" placeholder="Ex: Paisagismo" style="width:220px"/></div><button class="btn btn-p btn-sm" onclick="addCat('disciplines','new-discipline')">Adicionar</button></div></div>
       <div class="cat-sec"><h3>Fases de Obra</h3><div class="cat-list" id="cat-phases"></div>
@@ -2103,6 +2109,83 @@ function renderPsCats() {
   });
   html += '</div>';
   el.innerHTML = html;
+  renderOrphans();
+}
+
+function renderOrphans() {
+  const sec = document.getElementById('cat-orphans-sec');
+  const rowsEl = document.getElementById('cat-orphans-rows');
+  if (!sec || !rowsEl) return;
+  const c2 = cats();
+  // Map of catKey → {store, field} pairs to scan
+  const checks = [
+    { catKey:'disciplines', stores:[{s:'budget',f:'disc'},{s:'budgetEstimative',f:'disc'},{s:'entries',f:'disc'}] },
+    { catKey:'phases',      stores:[{s:'budget',f:'phase'},{s:'budgetEstimative',f:'phase'},{s:'entries',f:'phase'}] },
+    { catKey:'costcenters', stores:[{s:'entries',f:'cc'}] },
+    { catKey:'servicetypes',stores:[{s:'entries',f:'st'}] },
+    { catKey:'units',       stores:[{s:'budget',f:'unit'},{s:'budgetEstimative',f:'unit'}] },
+  ];
+  const orphans = []; // [{catKey, orphanVal, count, label}]
+  checks.forEach(({catKey, stores}) => {
+    const valid = new Set((c2[catKey]||[]).map(x=>x.toLowerCase()));
+    const found = {};
+    stores.forEach(({s,f}) => {
+      (DB.get(s)||[]).forEach(item => {
+        const v = item[f];
+        if (v && !valid.has(v.toLowerCase())) found[v] = (found[v]||0) + 1;
+      });
+    });
+    const labels = {disciplines:'Disciplina',phases:'Fase',costcenters:'Centro de Custo',servicetypes:'Tipo de Serviço',units:'Unidade'};
+    Object.entries(found).forEach(([val,cnt]) => orphans.push({catKey, orphanVal:val, count:cnt, label:labels[catKey]}));
+  });
+  if (!orphans.length) { sec.style.display = 'none'; return; }
+  sec.style.display = '';
+  rowsEl.innerHTML = orphans.map((o,idx) => {
+    const opts = (c2[o.catKey]||[]).map(v => '<option value="'+esc(v)+'">'+esc(v)+'</option>').join('');
+    return '<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap">' +
+      '<span style="font-size:11px;color:#92400e;min-width:80px"><strong>'+esc(o.label)+'</strong></span>' +
+      '<span style="font-size:12px;background:#fef3c7;padding:2px 8px;border-radius:4px;font-weight:700">'+esc(o.orphanVal)+'</span>' +
+      '<span class="muted sm">('+o.count+' item'+(o.count>1?'s':'')+')</span>' +
+      '<span class="muted sm">→</span>' +
+      '<select id="orphan-sel-'+idx+'" style="font-size:12px;padding:4px 8px;border:1px solid #e8e8e8;border-radius:4px"><option value="">— manter como está —</option>'+opts+'</select>' +
+      '<input type="hidden" id="orphan-key-'+idx+'" value="'+esc(o.catKey)+'"/>' +
+      '<input type="hidden" id="orphan-old-'+idx+'" value="'+esc(o.orphanVal)+'"/>' +
+    '</div>';
+  }).join('');
+  rowsEl.dataset.count = orphans.length;
+}
+
+function applyOrphanRemap() {
+  const n = parseInt(document.getElementById('cat-orphans-rows').dataset.count||'0');
+  const fieldMap = {
+    disciplines:[{s:'budget',f:'disc'},{s:'budgetEstimative',f:'disc'},{s:'entries',f:'disc'},{s:'photos',f:'disc'}],
+    phases:[{s:'budget',f:'phase'},{s:'budgetEstimative',f:'phase'},{s:'entries',f:'phase'},{s:'photos',f:'phase'}],
+    costcenters:[{s:'entries',f:'cc'}],
+    servicetypes:[{s:'entries',f:'st'}],
+    units:[{s:'budget',f:'unit'},{s:'budgetEstimative',f:'unit'}],
+  };
+  let applied = 0;
+  for (let i = 0; i < n; i++) {
+    const newVal = document.getElementById('orphan-sel-'+i)?.value;
+    if (!newVal) continue;
+    const catKey = document.getElementById('orphan-key-'+i)?.value;
+    const oldVal = document.getElementById('orphan-old-'+i)?.value;
+    (fieldMap[catKey]||[]).forEach(({s,f}) => {
+      const arr = DB.get(s);
+      if (!Array.isArray(arr)) return;
+      let changed = false;
+      arr.forEach(item => { if (item[f] === oldVal) { item[f] = newVal; changed = true; } });
+      if (changed) DB.set(s, arr);
+    });
+    applied++;
+  }
+  if (applied) {
+    renderPsCats();
+    renderBudget && renderBudget();
+    toast(applied + ' referência'+(applied>1?'s':'')+' remapeada'+(applied>1?'s':'')+' ✓');
+  } else {
+    toast('Nenhum remapeamento selecionado');
+  }
 }
 
 function addCatItemPs(key) {
