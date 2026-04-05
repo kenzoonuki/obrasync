@@ -6220,7 +6220,7 @@ function openPayModal(eid, iid) {
   document.getElementById('pay-iid').value = iid;
   document.getElementById('pay-sup').value = e.sup;
   document.getElementById('pay-val').value = R(p.val);
-  document.getElementById('pay-date').value = todayStr();
+  document.getElementById('pay-date').value = p.due || todayStr();
   setBRLInput('pay-amt', p.val);
   document.getElementById('pay-proof').value = '';
   openModal('mod-pay');
