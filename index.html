@@ -116,6 +116,7 @@ tfoot td{padding:10px 0;border-top:2px solid var(--black);font-weight:800;font-s
 .eblock{border:1px solid var(--g200);border-radius:6px;margin-bottom:8px;overflow:hidden}
 .eblock.nb{border-left:3px solid var(--info)}
 .eblock.fee-entry{border-left:3px solid var(--fee)}
+.eblock.split-entry{border-left:3px solid var(--info)}
 .entry-selected{border-color:var(--info)!important;background:rgba(79,70,229,.03)}
 .ehdr{display:flex;align-items:center;gap:10px;padding:10px 14px;background:#fff}
 .ehdr-info{flex:1;min-width:0}
@@ -693,40 +694,60 @@ tfoot td{padding:10px 0;border-top:2px solid var(--black);font-weight:800;font-s
 
 <!-- MODAL: LANÇAMENTO COM RATEIO (NF múltiplos itens) -->
 <div class="modal-ov" id="mod-rateio">
-  <div class="modal" style="max-width:700px">
+  <div class="modal" style="max-width:820px">
     <button class="modal-x" onclick="closeModal('mod-rateio')">&#10005;</button>
-    <h3>Lançamento com Rateio</h3>
-    <p class="muted sm" style="margin:-6px 0 14px">Uma NF rateada entre múltiplos itens do orçamento. O valor de cada item deve somar o total da NF.</p>
+    <h3>NF com Split de Itens</h3>
+    <p class="muted sm" style="margin:-6px 0 14px">Uma nota fiscal dividida entre múltiplas disciplinas. Cada item pode vincular a um item existente do orçamento ou criar um novo automaticamente.</p>
     <input type="hidden" id="rat-id"/>
     <div class="fgrid w">
+      <div class="ff"><label>Fornecedor *</label><select id="rat-sup-sel"></select></div>
+      <div class="ff"><label>Nº da Nota Fiscal</label><input type="text" id="rat-nf" placeholder="Ex: 001234"/></div>
+      <div class="ff"><label>Data *</label><input type="date" id="rat-date"/></div>
       <div class="ff"><label>Competência</label><input type="month" id="rat-comp"/></div>
-      <div class="ff"><label>Data</label><input type="date" id="rat-date"/></div>
-      <div class="ff"><label>Fornecedor / Loja *</label><input type="text" id="rat-sup" placeholder="Ex: Leroy Merlin, Sodimac…"/></div>
-      <div class="ff"><label>Descrição *</label><input type="text" id="rat-desc" placeholder="Ex: NF 1234 – Materiais mistos"/></div>
+      <div class="ff"><label>Descrição</label><input type="text" id="rat-desc" placeholder="Ex: Materiais mistos — obra"/></div>
       <div class="ff"><label>Tipo de Documento</label><select id="rat-dt"></select></div>
       <div class="ff"><label>Forma de Pagamento</label><select id="rat-pm"></select></div>
-      <div class="ff"><label>Valor Total da NF (R$) *</label><input type="text" id="rat-tot" placeholder="0,00" oninput="formatBRLInput(this);calcRateioBalance()"/></div>
-      <div class="ff"><label>1º Vencimento</label><input type="date" id="rat-fd"/></div>
-      <div class="ff"><label>Nº de Parcelas</label><input type="number" id="rat-np" min="1" max="60" value="1"/></div>
+      <div class="ff"><label>Valor Total da NF (R$) *</label><input type="text" id="rat-tot" placeholder="0,00" oninput="formatBRLInput(this);calcRateioBalance();genRatInst()"/></div>
+      <div class="ff"><label>Nº de Parcelas</label><input type="number" id="rat-np" min="1" max="60" value="1" oninput="genRatInst()"/></div>
+      <div class="ff"><label>1º Vencimento</label><input type="date" id="rat-fd" oninput="genRatInst()"/></div>
     </div>
+
+    <!-- Split items -->
     <div style="border-top:1px solid var(--g200);margin:14px 0 10px;padding-top:14px">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-        <span style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em">Rateio por Item do Orçamento</span>
-        <button class="btn btn-g btn-sm" onclick="addRateioRow()">+ Adicionar Item</button>
+        <span style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em">Itens da Nota Fiscal</span>
+        <button class="btn btn-g btn-sm" onclick="addSplitRow()">+ Adicionar Item</button>
+      </div>
+      <!-- column headers -->
+      <div style="display:grid;grid-template-columns:110px 110px 1fr 100px 110px 160px 28px;gap:4px;margin-bottom:4px;padding:0 2px">
+        <span style="font-size:9px;font-weight:700;text-transform:uppercase;color:var(--g500)">Disciplina</span>
+        <span style="font-size:9px;font-weight:700;text-transform:uppercase;color:var(--g500)">Fase</span>
+        <span style="font-size:9px;font-weight:700;text-transform:uppercase;color:var(--g500)">Descrição</span>
+        <span style="font-size:9px;font-weight:700;text-transform:uppercase;color:var(--g500)">Categoria</span>
+        <span style="font-size:9px;font-weight:700;text-transform:uppercase;color:var(--g500);text-align:right">Valor (R$)</span>
+        <span style="font-size:9px;font-weight:700;text-transform:uppercase;color:var(--g500)">Vincular a item do orç.</span>
+        <span></span>
       </div>
       <div id="rat-rows"></div>
       <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-top:2px solid var(--black);margin-top:4px">
-        <span style="font-weight:800;font-size:12px">Total rateado:</span>
-        <span id="rat-balance" style="font-size:13px;font-weight:900">R$ 0,00 / R$ 0,00</span>
+        <span style="font-weight:800;font-size:12px">Distribuído:</span>
+        <div style="display:flex;gap:16px;align-items:center">
+          <span id="rat-residual" style="font-size:11px;color:var(--g500)"></span>
+          <span id="rat-balance" style="font-size:13px;font-weight:900">R$ 0,00 / R$ 0,00</span>
+        </div>
       </div>
-      <div id="rat-balance-warn" style="font-size:11px;color:var(--danger);display:none">⚠ O total rateado não bate com o valor da NF.</div>
+      <div id="rat-balance-warn" style="font-size:11px;color:var(--danger);display:none">&#9888; O total distribuído não bate com o valor da NF.</div>
     </div>
-    <div class="chk" style="margin:8px 0">
+
+    <!-- Parcelas -->
+    <div class="isec"><h4>Parcelas</h4><div id="rat-inst-rows"></div></div>
+
+    <div class="chk" style="margin:12px 0 8px">
       <input type="checkbox" id="rat-base" checked/>
-      <div><label for="rat-base">Compõe base de cálculo dos honorários</label></div>
+      <div><label for="rat-base" style="font-weight:700">Compõe base de cálculo dos honorários</label></div>
     </div>
     <div class="factions mt8">
-      <button class="btn btn-p" onclick="saveRateioEntry()">Salvar Lançamento Rateado</button>
+      <button class="btn btn-p" onclick="saveSplitEntry()">Salvar NF com Split</button>
       <button class="btn btn-g" onclick="closeModal('mod-rateio')">Cancelar</button>
       <span class="ftot" id="rat-tot-preview"></span>
     </div>
@@ -3078,7 +3099,8 @@ function renderFinancial() {
     if (!fi.length) return;
     hasEntries = true;
 
-    const blockCls = isFee ? 'eblock fee-entry' : nb ? 'eblock nb' : 'eblock';
+    const isSplit = !!e.isSplit;
+    const blockCls = isFee ? 'eblock fee-entry' : nb ? 'eblock nb' : isSplit ? 'eblock split-entry' : 'eblock';
     const isCollapsed = !!_ec[e.id];
     const paidCount = ins.filter(p=>p.status==='paid').length;
     const openCount = ins.filter(p=>p.status!=='paid').length;
@@ -3099,26 +3121,37 @@ function renderFinancial() {
     html += '<div class="'+blockCls+(isSelected?' entry-selected':'')+'">';
     // ── Header ──────────────────────────────────────────────────────
     html += '<div class="ehdr">';
-    // Checkbox
     if (!isC) html += '<input type="checkbox" class="entry-cb" data-id="'+e.id+'" '+(isSelected?'checked':'')+' onclick="event.stopPropagation();toggleEntrySelect(\''+e.id+'\',this,event)" style="flex-shrink:0;margin-right:2px"/>';
-    // Date
     html += '<div style="min-width:48px;flex-shrink:0"><span class="sm muted">'+fmtP(e.comp)+'</span></div>';
-    // Info block
     html += '<div class="ehdr-info">';
     html += '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">';
     html += '<span class="fw7" style="font-size:13px">'+esc(e.sup)+'</span>';
-    html += instSummary;
-    html += collapseBtn;
+    if (isSplit) html += '<span style="font-size:10px;font-weight:800;background:var(--info);color:#fff;padding:1px 6px;border-radius:3px">SPLIT</span>';
+    if (isSplit && e.nf) html += '<span style="font-size:10px;color:var(--g500)">NF '+esc(e.nf)+'</span>';
+    html += instSummary + collapseBtn;
     html += '</div>';
     html += '<div class="muted sm" style="margin-top:2px">'+esc(e.desc)+'</div>';
-    html += '<div style="margin-top:4px;display:flex;gap:4px;flex-wrap:wrap">';
-    html += '<span class="tag">'+esc(e.disc)+'</span><span class="tag">'+esc(e.phase)+'</span>';
-    html += (isFee ? '<span class="fee-flag">&#36; honorários</span>' : nb ? '<span class="nobase-flag">fora da base</span>' : '');
-    html += '</div></div>';
-    // Value
+    if (isSplit && !isCollapsed) {
+      // show split items inline
+      html += '<div style="margin-top:6px;display:flex;flex-direction:column;gap:3px">';
+      (e.splits||[]).forEach(sp => {
+        html += '<div style="display:flex;align-items:center;gap:6px;font-size:11px;padding:3px 6px;background:var(--g50);border-radius:3px">' +
+          '<span class="tag" style="font-size:9px">'+esc(sp.disc||'—')+'</span>' +
+          '<span class="tag" style="font-size:9px">'+esc(sp.phase||'—')+'</span>' +
+          '<span style="flex:1;color:var(--g700)">'+esc(sp.desc||'—')+'</span>' +
+          '<span style="font-weight:700;white-space:nowrap">'+R(sp.val)+'</span>' +
+        '</div>';
+      });
+      html += '</div>';
+    } else if (!isSplit) {
+      html += '<div style="margin-top:4px;display:flex;gap:4px;flex-wrap:wrap">';
+      html += '<span class="tag">'+esc(e.disc)+'</span><span class="tag">'+esc(e.phase)+'</span>';
+      html += (isFee ? '<span class="fee-flag">&#36; honorários</span>' : nb ? '<span class="nobase-flag">fora da base</span>' : '');
+      html += '</div>';
+    }
+    html += '</div>';
     html += '<div class="ehdr-val"><span class="fw7" style="font-size:14px">'+R(e.tot)+'</span></div>';
-    // Actions
-    if (!isC) html += '<div class="ehdr-acts"><button class="btn btn-e btn-sm" onclick="openEntryModal(\''+e.id+'\')" title="Editar">&#9998;</button><button class="btn btn-d" onclick="delEntry(\''+e.id+'\')" title="Excluir">&#10005;</button></div>';
+    if (!isC) html += '<div class="ehdr-acts"><button class="btn btn-e btn-sm" onclick="'+(isSplit?'openSplitEditModal':'openEntryModal')+'(\''+e.id+'\')" title="Editar">&#9998;</button><button class="btn btn-d" onclick="delEntry(\''+e.id+'\')" title="Excluir">&#10005;</button></div>';
     html += '</div>';
 
     // ── Parcelas ─────────────────────────────────────────────────────
@@ -5376,10 +5409,12 @@ function renderBudget() {
       // ── item rows (hidden when collapsed) ─────────────────────────
       if (!isCollapsed) {
         const _entries = DB.get('entries') || [];
+        const _splitEntries = _entries.filter(e=>e.isSplit);
         items.forEach(i => {
           const real = realPerBI(i.id, i.disc, i.phase);
           const saldo = i.tot - real;
           const sup = i.supplierId ? sups.find(s=>s.id===i.supplierId) : null;
+          const splitParent = i.splitEntryId ? _splitEntries.find(e=>e.id===i.splitEntryId) : null;
           const pctFis = ((i.supRemun || 'meas')==='meas')
             ? Math.min(100, (DB.get('meas2')||[]).filter(m=>m.status!=='draft').flatMap(m=>m.items).filter(it=>it.biId===i.id).reduce((s,it)=>s+it.pctPer,0))
             : (i.pctFis || 0);
@@ -5391,7 +5426,9 @@ function renderBudget() {
             '<td><input type="checkbox" class="bi-cb bi-row-cb" data-id="'+i.id+'"'+chk+' onclick="onBIRowCbClick(this,event)"/></td>' +
             '<td class="muted sm">'+esc(i.phase)+'</td>' +
             '<td class="muted sm">'+esc(i.disc)+'</td>' +
-            '<td>'+esc(i.desc)+(sup?'<div style="font-size:8px;color:var(--g400);margin-top:2px;font-weight:400">'+esc(sup.name)+'</div>':'')+'</td>' +
+            '<td>'+esc(i.desc)+
+              (splitParent ? '<span style="font-size:8px;font-weight:800;background:var(--info);color:#fff;padding:1px 4px;border-radius:2px;margin-left:5px;vertical-align:middle">NF '+(splitParent.nf||'SPLIT')+'</span>' : '')+
+              (sup?'<div style="font-size:8px;color:var(--g400);margin-top:2px;font-weight:400">'+esc(sup.name)+'</div>':'')+'</td>' +
             '<td class="muted sm">'+esc(i.unit)+'</td>' +
             '<td style="text-align:right">'+i.qty+'</td>' +
             '<td style="text-align:right">'+R(i.pmo||0)+'</td>' +
@@ -5632,107 +5669,185 @@ function toggleBITypeFields() {
 // =====================================================================
 // LANÇAMENTO COM RATEIO (NF multi-item)
 // =====================================================================
-let _rateioRows = []; // [{biId, val}]
+let _splitRows = []; // [{id, disc, phase, desc, catClass, val, budId}]
 
 function openRateioModal() {
   const c = cats();
   pop('rat-dt', c.doctypes||[]);
   pop('rat-pm', c.paymethods||[]);
+  const _sups = DB.get('suppliers') || [];
+  const supSel = document.getElementById('rat-sup-sel');
+  supSel.innerHTML = '<option value="">— Selecionar fornecedor —</option>' +
+    [..._sups].sort((a,b)=>a.name.localeCompare(b.name,'pt-BR')).map(s=>'<option value="'+s.id+'">'+esc(s.name)+'</option>').join('');
   const now = new Date();
   document.getElementById('rat-id').value = '';
   document.getElementById('rat-comp').value = now.toISOString().slice(0,7);
   document.getElementById('rat-date').value = todayStr();
   document.getElementById('rat-fd').value = todayStr();
-  document.getElementById('rat-sup').value = '';
+  document.getElementById('rat-nf').value = '';
   document.getElementById('rat-desc').value = '';
   document.getElementById('rat-tot').value = '';
   document.getElementById('rat-np').value = 1;
   document.getElementById('rat-base').checked = true;
-  _rateioRows = [{biId:'', val:0}];
-  renderRateioRows();
+  _splitRows = [{id:uid(), disc:'', phase:'', desc:'', catClass:'mat', val:0, budId:''}];
+  renderSplitRows();
+  genRatInst();
   openModal('mod-rateio');
 }
 
-function renderRateioRows() {
+function renderSplitRows() {
+  const c = cats();
   const bud = DB.get('budget') || [];
   const el = document.getElementById('rat-rows');
   if (!el) return;
+  const inp = 'font-size:11px;border:1px solid var(--g200);padding:4px 6px;border-radius:3px;width:100%';
   let html = '';
-  _rateioRows.forEach((row, idx) => {
-    html += '<div style="display:grid;grid-template-columns:1fr 140px 36px;gap:6px;margin-bottom:6px;align-items:center">' +
-      '<select onchange="_rateioRows['+idx+'].biId=this.value" style="font-size:11px;border:1px solid var(--g200);padding:4px 6px;border-radius:3px">' +
-        '<option value="">— Selecionar item do orçamento —</option>' +
-        bud.map(i => '<option value="'+i.id+'"'+(row.biId===i.id?' selected':'')+'>'+i.phase+' / '+i.disc+' — '+i.desc+' ('+R(i.tot)+')</option>').join('') +
+  _splitRows.forEach((row, idx) => {
+    const discOpts = ['', ...(c.disciplines||[]).slice().sort((a,b)=>a.localeCompare(b,'pt-BR'))].map(d=>'<option value="'+d+'"'+(d===row.disc?' selected':'')+'>'+esc(d||'— Disc —')+'</option>').join('');
+    const phaseOpts = ['', ...(c.phases||[]).slice().sort((a,b)=>a.localeCompare(b,'pt-BR'))].map(p=>'<option value="'+p+'"'+(p===row.phase?' selected':'')+'>'+esc(p||'— Fase —')+'</option>').join('');
+    const budOpts = '<option value="">— Vincular (opcional) —</option>' +
+      bud.map(i=>'<option value="'+i.id+'"'+(i.id===row.budId?' selected':'')+'>'+esc(i.disc+' · '+i.phase+' — '+i.desc)+'</option>').join('');
+    const fmtVal = row.val ? row.val.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) : '';
+    html += '<div style="display:grid;grid-template-columns:110px 110px 1fr 100px 110px 160px 28px;gap:4px;margin-bottom:5px;align-items:center">' +
+      '<select style="'+inp+'" onchange="_splitRows['+idx+'].disc=this.value">'+discOpts+'</select>' +
+      '<select style="'+inp+'" onchange="_splitRows['+idx+'].phase=this.value">'+phaseOpts+'</select>' +
+      '<input type="text" style="'+inp+'" placeholder="Descrição do item" value="'+esc(row.desc)+'" oninput="_splitRows['+idx+'].desc=this.value"/>' +
+      '<select style="'+inp+'" onchange="_splitRows['+idx+'].catClass=this.value">' +
+        '<option value="mat"'+(row.catClass==='mat'?' selected':'')+'>Material</option>' +
+        '<option value="mo"'+(row.catClass==='mo'?' selected':'')+'>Mão de Obra</option>' +
+        '<option value="srv"'+(row.catClass==='srv'?' selected':'')+'>Serviço</option>' +
+        '<option value="acab"'+(row.catClass==='acab'?' selected':'')+'>Acabamento</option>' +
       '</select>' +
-      '<input type="text" value="'+(row.val ? row.val.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) : '')+'" placeholder="0,00" oninput="formatBRLInput(this);_rateioRows['+idx+'].val=parseFloat(this.value.replace(/\\./g,\'\').replace(\',\',\'.\'))||0;calcRateioBalance()" style="font-size:11px;border:1px solid var(--g200);padding:4px 6px;border-radius:3px;text-align:right"/>' +
-      '<button onclick="_rateioRows.splice('+idx+',1);renderRateioRows();calcRateioBalance()" style="background:none;border:none;cursor:pointer;color:var(--danger);font-size:16px;line-height:1;padding:0">&#215;</button>' +
+      '<input type="text" style="'+inp+';text-align:right" placeholder="0,00" value="'+fmtVal+'" oninput="formatBRLInput(this);_splitRows['+idx+'].val=parseFloat(this.value.replace(/\\./g,\'\').replace(\',\',\'.\'))||0;calcRateioBalance()"/>' +
+      '<select style="'+inp+'" onchange="_splitRows['+idx+'].budId=this.value">'+budOpts+'</select>' +
+      '<button onclick="_splitRows.splice('+idx+',1);renderSplitRows();calcRateioBalance()" style="background:none;border:none;cursor:pointer;color:var(--danger);font-size:18px;line-height:1;padding:0">&#215;</button>' +
     '</div>';
   });
   el.innerHTML = html;
   calcRateioBalance();
 }
 
-function addRateioRow() {
-  _rateioRows.push({biId:'', val:0});
-  renderRateioRows();
-  // focus last select
-  const sels = document.querySelectorAll('#rat-rows select');
-  if (sels.length) setTimeout(() => sels[sels.length-1].focus(), 50);
+function addSplitRow() {
+  _splitRows.push({id:uid(), disc:'', phase:'', desc:'', catClass:'mat', val:0, budId:''});
+  renderSplitRows();
+  setTimeout(() => {
+    const inputs = document.querySelectorAll('#rat-rows input[placeholder="Descrição do item"]');
+    if (inputs.length) inputs[inputs.length-1].focus();
+  }, 50);
 }
 
 function calcRateioBalance() {
   const tot = parseBRLInput('rat-tot');
-  const ratTotal = _rateioRows.reduce((s,r) => s+(r.val||0), 0);
+  const dist = _splitRows.reduce((s,r)=>s+(r.val||0), 0);
+  const residual = Math.round((tot - dist)*100)/100;
   const el = document.getElementById('rat-balance');
+  const res = document.getElementById('rat-residual');
   const warn = document.getElementById('rat-balance-warn');
-  if (el) el.textContent = R(ratTotal) + ' / ' + R(tot);
-  const diff = Math.abs(ratTotal - tot);
-  const ok = diff < 0.01;
-  if (el) el.style.color = ok ? 'var(--ok)' : 'var(--danger)';
-  if (warn) warn.style.display = (!ok && tot > 0 && ratTotal > 0) ? '' : 'none';
-  return ok;
+  if (el) { el.textContent = R(dist)+' / '+R(tot); el.style.color = Math.abs(residual)<0.01?'var(--ok)':'var(--danger)'; }
+  if (res) res.textContent = residual > 0.005 ? 'Residual: '+R(residual) : '';
+  if (warn) warn.style.display = (Math.abs(residual)>=0.01 && tot>0 && dist>0) ? '' : 'none';
+  return Math.abs(residual) < 0.01;
 }
 
-function saveRateioEntry() {
-  const sup = document.getElementById('rat-sup').value.trim();
-  const desc = document.getElementById('rat-desc').value.trim();
+function genRatInst() {
   const tot = parseBRLInput('rat-tot');
-  if (!sup || !desc || tot <= 0) { alert('Preencha fornecedor, descrição e valor total.'); return; }
-  if (_rateioRows.filter(r=>r.biId&&r.val>0).length === 0) { alert('Adicione ao menos um item de rateio com valor.'); return; }
-  if (!calcRateioBalance()) {
-    if (!confirm('O total rateado não bate com o valor da NF. Salvar mesmo assim?')) return;
+  const n = Math.max(1, parseInt(document.getElementById('rat-np').value)||1);
+  const fd = document.getElementById('rat-fd').value || todayStr();
+  document.getElementById('rat-tot-preview').textContent = tot > 0 ? 'Total: '+R(tot) : '';
+  const base2 = Math.floor((tot/n)*100)/100;
+  const last = Math.round((tot-base2*(n-1))*100)/100;
+  let html = '';
+  for (let i = 1; i <= n; i++) {
+    const d = new Date(fd+'T12:00:00'); d.setMonth(d.getMonth()+(i-1));
+    const due = d.toISOString().slice(0,10);
+    const val = i===n ? last : base2;
+    const fmtVal = val.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+    html += '<div class="irow"><div><label>Nº</label><input type="text" value="'+i+'/'+n+'" readonly style="background:var(--g50);text-align:center"/></div>' +
+      '<div><label>Vencimento</label><input type="date" id="rat-due-'+i+'" value="'+due+'"/></div>' +
+      '<div><label>Valor (R$)</label><input type="text" id="rat-val-'+i+'" value="'+fmtVal+'" placeholder="0,00" oninput="formatBRLInput(this);redistRatInst('+i+','+n+')"/></div></div>';
   }
-  const entries = DB.get('entries') || [];
+  document.getElementById('rat-inst-rows').innerHTML = html;
+}
+
+function redistRatInst(idx, n) {
+  const tot = parseBRLInput('rat-tot');
+  let sumBefore = 0;
+  for (let i = 1; i <= idx; i++) {
+    const el = document.getElementById('rat-val-'+i);
+    sumBefore += el ? (parseFloat(el.value.replace(/\./g,'').replace(',','.')) || 0) : 0;
+  }
+  const remaining = Math.round((tot - sumBefore)*100)/100;
+  const rest = n - idx;
+  if (rest <= 0) return;
+  const base2 = Math.floor((remaining/rest)*100)/100;
+  const last = Math.round((remaining - base2*(rest-1))*100)/100;
+  for (let i = idx+1; i <= n; i++) {
+    const el = document.getElementById('rat-val-'+i);
+    if (!el) continue;
+    el.value = (i===n ? last : base2).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+  }
+}
+
+function saveSplitEntry() {
+  const supSel = document.getElementById('rat-sup-sel');
+  const supplierId = supSel.value;
+  const sup = supSel.options[supSel.selectedIndex]?.text?.trim() || '';
+  const nf   = document.getElementById('rat-nf').value.trim();
+  const desc = document.getElementById('rat-desc').value.trim() || (nf ? 'NF '+nf : 'NF Split');
+  const tot  = parseBRLInput('rat-tot');
+  if (!supplierId || tot <= 0) { alert('Preencha fornecedor e valor total.'); return; }
+  const validSplits = _splitRows.filter(r => r.val > 0);
+  if (!validSplits.length) { alert('Adicione ao menos um item com valor.'); return; }
+  if (!calcRateioBalance()) {
+    if (!confirm('O total distribuído não bate com o valor da NF. Salvar mesmo assim?')) return;
+  }
+  const comp = document.getElementById('rat-comp').value;
+  const date = document.getElementById('rat-date').value;
+  const dt   = document.getElementById('rat-dt').value;
+  const pm   = document.getElementById('rat-pm').value;
+  const base = document.getElementById('rat-base').checked;
+  const n    = Math.max(1, parseInt(document.getElementById('rat-np').value)||1);
+  const insts = [];
+  for (let i = 1; i <= n; i++) {
+    const dueEl = document.getElementById('rat-due-'+i);
+    const valEl = document.getElementById('rat-val-'+i);
+    const val = valEl ? (parseFloat(valEl.value.replace(/\./g,'').replace(',','.')) || 0) : 0;
+    insts.push({id:uid(), n:i, due:dueEl?.value||'', val, status:'open', paidAt:null, paidAmt:0, proof:''});
+  }
+  // Auto-create or link budget items per split
   const bud = DB.get('budget') || [];
-  const comp  = document.getElementById('rat-comp').value;
-  const date  = document.getElementById('rat-date').value;
-  const dt    = document.getElementById('rat-dt').value;
-  const pm    = document.getElementById('rat-pm').value;
-  const np    = Math.max(1, parseInt(document.getElementById('rat-np').value)||1);
-  const fd    = document.getElementById('rat-fd').value || todayStr();
-  const base  = document.getElementById('rat-base').checked;
-  // Create one entry per rateio row (same NF split into items)
-  const validRows = _rateioRows.filter(r => r.biId && r.val > 0);
-  validRows.forEach((row, idx) => {
-    const bi = bud.find(x => x.id === row.biId);
-    const disc  = bi ? bi.disc  : '';
-    const phase = bi ? bi.phase : '';
-    const parVal = +(row.val / np).toFixed(2);
-    const insts = Array.from({length:np}, (_,k) => {
-      const due = new Date(new Date(fd).getFullYear(), new Date(fd).getMonth()+k, new Date(fd).getDate());
-      return {id:uid(), n:k+1, val:parVal, due:due.toISOString().slice(0,10), status:'open', paidAt:null, paidAmt:0};
-    });
-    const entry = {
-      id: uid(), comp, date, sup, desc: desc + (validRows.length>1?' ['+String(idx+1)+'/'+validRows.length+']':''),
-      disc, phase, cc:'', st:'Material', dt, pm, tot:row.val, notes:'Rateio NF',
-      base, budId: row.biId, catClass: 'mat', isFee: false, insts
-    };
-    entries.push(entry);
+  const entryId = uid();
+  const splits = validSplits.map(row => {
+    let budId = row.budId;
+    if (!budId) {
+      // auto-create budget item
+      const newItem = {
+        id: uid(), phase: row.phase, disc: row.disc, desc: row.desc||desc,
+        unit:'vb', qty:1,
+        pmo:   row.catClass==='mo'   ? row.val : 0,
+        pmat:  row.catClass==='mat'  ? row.val : 0,
+        pacab: row.catClass==='acab' ? row.val : 0,
+        psrv:  row.catClass==='srv'  ? row.val : 0,
+        price: row.val, tot: row.val,
+        type:'contracted', supplierId, supCols:null, pctFis:0,
+        compoeBase: base, splitEntryId: entryId, splitId: row.id
+      };
+      bud.push(newItem);
+      budId = newItem.id;
+    }
+    return {...row, budId};
   });
+  DB.set('budget', bud);
+  const entry = {
+    id: entryId, isSplit: true, nf, comp, date, sup, supplierId,
+    desc, dt, pm, tot, notes:'', base, insts, splits, isFee:false
+  };
+  const entries = DB.get('entries') || [];
+  entries.push(entry);
   DB.set('entries', entries);
   closeModal('mod-rateio');
-  renderFinancial(); renderDash();
-  toast('Lançamento rateado salvo (' + validRows.length + ' itens)');
+  renderFinancial(); renderBudget(); renderDash();
+  toast('NF com split salva ('+splits.length+' ite'+(splits.length>1?'ns':'m')+')');
 }
 
 // BUDGET MULTI-SELECT + SHIFT-CLICK + BULK EDIT
@@ -6140,9 +6255,29 @@ function saveEntry() {
   toast(editId ? 'Lançamento atualizado' : 'Lançamento criado');
 }
 function delEntry(id) {
-  if (!confirm('Excluir este lançamento?')) return;
-  DB.set('entries', (DB.get('entries')||[]).filter(e=>e.id!==id));
+  const entries = DB.get('entries') || [];
+  const entry = entries.find(e => e.id === id);
+  if (!entry) return;
+  if (entry.isSplit) {
+    // Find auto-created budget items for this split entry
+    const bud = DB.get('budget') || [];
+    const autoItems = bud.filter(i => i.splitEntryId === id);
+    const msg = autoItems.length
+      ? 'Excluir este lançamento?\n\nAtenção: '+autoItems.length+' item(ns) do orçamento foram criados automaticamente por esta NF.\nDeseja excluí-los também?'
+      : 'Excluir este lançamento?';
+    if (!confirm(msg)) return;
+    if (autoItems.length) DB.set('budget', bud.filter(i => i.splitEntryId !== id));
+  } else {
+    if (!confirm('Excluir este lançamento?')) return;
+  }
+  DB.set('entries', entries.filter(e => e.id !== id));
   renderFinancial(); renderBudget(); renderDash(); toast('Excluído');
+}
+function openSplitEditModal(id) {
+  // Edit not implemented yet — open read-only view
+  const e = (DB.get('entries')||[]).find(x=>x.id===id);
+  if (!e) return;
+  alert('NF '+( e.nf||'—')+' · '+e.sup+'\n\nItens:\n'+(e.splits||[]).map(s=>s.disc+'/'+s.phase+' — '+s.desc+': '+R(s.val)).join('\n')+'\n\nTotal: '+R(e.tot)+'\n\n(Edição de NF Split em desenvolvimento)');
 }
 
 // =====================================================================
