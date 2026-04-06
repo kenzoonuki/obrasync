@@ -719,11 +719,13 @@ tfoot td{padding:10px 0;border-top:2px solid var(--black);font-weight:800;font-s
         <button class="btn btn-g btn-sm" onclick="addSplitRow()">+ Adicionar Item</button>
       </div>
       <!-- column headers -->
-      <div style="display:grid;grid-template-columns:110px 110px 1fr 100px 110px 160px 28px;gap:4px;margin-bottom:4px;padding:0 2px">
+      <div style="display:grid;grid-template-columns:100px 100px 1fr 90px 55px 95px 95px 150px 28px;gap:4px;margin-bottom:4px;padding:0 2px">
         <span style="font-size:9px;font-weight:700;text-transform:uppercase;color:var(--g500)">Disciplina</span>
         <span style="font-size:9px;font-weight:700;text-transform:uppercase;color:var(--g500)">Fase</span>
         <span style="font-size:9px;font-weight:700;text-transform:uppercase;color:var(--g500)">Descrição</span>
         <span style="font-size:9px;font-weight:700;text-transform:uppercase;color:var(--g500)">Categoria</span>
+        <span style="font-size:9px;font-weight:700;text-transform:uppercase;color:var(--g500);text-align:right">Qtd</span>
+        <span style="font-size:9px;font-weight:700;text-transform:uppercase;color:var(--g500);text-align:right">P. Unit.</span>
         <span style="font-size:9px;font-weight:700;text-transform:uppercase;color:var(--g500);text-align:right">Valor (R$)</span>
         <span style="font-size:9px;font-weight:700;text-transform:uppercase;color:var(--g500)">Vincular a item do orç.</span>
         <span></span>
@@ -5790,8 +5792,10 @@ function renderSplitRows() {
     const phaseOpts = ['', ...(c.phases||[]).slice().sort((a,b)=>a.localeCompare(b,'pt-BR'))].map(p=>'<option value="'+p+'"'+(p===row.phase?' selected':'')+'>'+esc(p||'— Fase —')+'</option>').join('');
     const budOpts = '<option value="">— Vincular (opcional) —</option>' +
       bud.map(i=>'<option value="'+i.id+'"'+(i.id===row.budId?' selected':'')+'>'+esc(i.disc+' · '+i.phase+' — '+i.desc)+'</option>').join('');
-    const fmtVal = row.val ? row.val.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) : '';
-    html += '<div style="display:grid;grid-template-columns:110px 110px 1fr 100px 110px 160px 28px;gap:4px;margin-bottom:5px;align-items:center">' +
+    const fmtVal   = row.val   ? row.val.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) : '';
+    const fmtPunit = row.punit ? row.punit.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) : '';
+    const calcSplit = 'calcSplitRowVal('+idx+')';
+    html += '<div style="display:grid;grid-template-columns:100px 100px 1fr 90px 55px 95px 95px 150px 28px;gap:4px;margin-bottom:5px;align-items:center">' +
       '<select style="'+inp+'" onchange="_splitRows['+idx+'].disc=this.value">'+discOpts+'</select>' +
       '<select style="'+inp+'" onchange="_splitRows['+idx+'].phase=this.value">'+phaseOpts+'</select>' +
       '<input type="text" style="'+inp+'" placeholder="Descrição do item" value="'+esc(row.desc)+'" oninput="_splitRows['+idx+'].desc=this.value"/>' +
@@ -5801,7 +5805,9 @@ function renderSplitRows() {
         '<option value="srv"'+(row.catClass==='srv'?' selected':'')+'>Serviço</option>' +
         '<option value="acab"'+(row.catClass==='acab'?' selected':'')+'>Acabamento</option>' +
       '</select>' +
-      '<input type="text" style="'+inp+';text-align:right" placeholder="0,00" value="'+fmtVal+'" oninput="formatBRLInput(this);_splitRows['+idx+'].val=parseFloat(this.value.replace(/\\./g,\'\').replace(\',\',\'.\'))||0;calcRateioBalance()"/>' +
+      '<input type="number" id="sr-qty-'+idx+'" style="'+inp+';text-align:right" placeholder="1" min="0" step="any" value="'+(row.qty||'')+'" oninput="_splitRows['+idx+'].qty=parseFloat(this.value)||null;'+calcSplit+'"/>' +
+      '<input type="text" id="sr-punit-'+idx+'" style="'+inp+';text-align:right" placeholder="0,00" value="'+fmtPunit+'" oninput="formatBRLInput(this);_splitRows['+idx+'].punit=parseFloat(this.value.replace(/\\./g,\'\').replace(\',\',\'.\'))||null;'+calcSplit+'"/>' +
+      '<input type="text" id="sr-val-'+idx+'" style="'+inp+';text-align:right" placeholder="0,00" value="'+fmtVal+'" oninput="formatBRLInput(this);_splitRows['+idx+'].val=parseFloat(this.value.replace(/\\./g,\'\').replace(\',\',\'.\'))||0;calcRateioBalance()"/>' +
       '<select style="'+inp+'" onchange="_splitRows['+idx+'].budId=this.value">'+budOpts+'</select>' +
       '<button onclick="_splitRows.splice('+idx+',1);renderSplitRows();calcRateioBalance()" style="background:none;border:none;cursor:pointer;color:var(--danger);font-size:18px;line-height:1;padding:0">&#215;</button>' +
     '</div>';
@@ -5819,6 +5825,19 @@ function addSplitRow() {
   }, 50);
 }
 
+function calcSplitRowVal(idx) {
+  const row = _splitRows[idx];
+  if (!row) return;
+  const qty   = parseFloat(document.getElementById('sr-qty-'+idx)?.value)  || 0;
+  const punit = parseFloat(document.getElementById('sr-punit-'+idx)?.value?.replace(/\./g,'').replace(',','.')) || 0;
+  if (qty > 0 && punit > 0) {
+    const val = +(qty * punit).toFixed(2);
+    row.val = val;
+    const el = document.getElementById('sr-val-'+idx);
+    if (el) el.value = val.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+    calcRateioBalance();
+  }
+}
 function calcRateioBalance() {
   const tot = parseBRLInput('rat-tot');
   const dist = _splitRows.reduce((s,r)=>s+(r.val||0), 0);
@@ -5904,14 +5923,16 @@ function saveSplitEntry() {
     let budId = row.budId;
     if (!budId) {
       // auto-create budget item
+      const biQty   = row.qty   || 1;
+      const biPrice = row.punit || row.val;
       const newItem = {
         id: uid(), phase: row.phase, disc: row.disc, desc: row.desc||desc,
-        unit:'vb', qty:1,
-        pmo:   row.catClass==='mo'   ? row.val : 0,
-        pmat:  row.catClass==='mat'  ? row.val : 0,
-        pacab: row.catClass==='acab' ? row.val : 0,
-        psrv:  row.catClass==='srv'  ? row.val : 0,
-        price: row.val, tot: row.val,
+        unit:'vb', qty: biQty,
+        pmo:   row.catClass==='mo'   ? biPrice : 0,
+        pmat:  row.catClass==='mat'  ? biPrice : 0,
+        pacab: row.catClass==='acab' ? biPrice : 0,
+        psrv:  row.catClass==='srv'  ? biPrice : 0,
+        price: biPrice, tot: +(biQty * biPrice).toFixed(2),
         type:'contracted', supplierId, supCols:null, pctFis:0,
         compoeBase: base, splitEntryId: entryId, splitId: row.id
       };
