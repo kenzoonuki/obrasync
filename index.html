@@ -974,7 +974,6 @@ tfoot td{padding:10px 0;border-top:2px solid var(--black);font-weight:800;font-s
       <div class="sec-hd">
         <h2>Reembolsos</h2>
         <div class="acts">
-          <button class="btn btn-g" onclick="openReembolsoModal(null)">&#128181; + Novo Reembolso</button>
           <button class="btn btn-p" onclick="abrirFecharRelatorio()">&#128196; Fechar Relatório</button>
         </div>
       </div>
@@ -1185,6 +1184,8 @@ tfoot td{padding:10px 0;border-top:2px solid var(--black);font-weight:800;font-s
       <div class="ff"><label>Tipo de Serviço</label><select id="e-st"></select></div>
       <div class="ff"><label>Tipo de Documento</label><select id="e-dt"></select></div>
       <div class="ff"><label>Forma de Pagamento</label><select id="e-pm"></select></div>
+      <div class="ff"><label>Quantidade</label><input type="number" id="e-qty" placeholder="1" min="0" step="any" oninput="calcEntryTot()"/></div>
+      <div class="ff"><label>Preço Unitário (R$)</label><input type="text" id="e-punit" placeholder="0,00" oninput="formatBRLInput(this);calcEntryTot()"/></div>
       <div class="ff"><label>Valor Total (R$) *</label><input type="text" id="e-tot" placeholder="0,00" oninput="formatBRLInput(this);genInst()"/></div>
       <div class="ff"><label>Nº de Parcelas</label><input type="number" id="e-np" min="1" max="60" value="1" oninput="genInst()"/></div>
       <div class="ff"><label>1º Vencimento</label><input type="date" id="e-fd" oninput="genInst()"/></div>
@@ -6227,6 +6228,8 @@ function openEntryModal(editId) {
       document.getElementById('e-base').checked = e.base !== false;
       document.getElementById('e-budid').value = e.budId||'';
       document.getElementById('e-catclass').value = e.catClass||'';
+      if (document.getElementById('e-qty'))   document.getElementById('e-qty').value   = e.qty  || '';
+      if (document.getElementById('e-punit')) setBRLInput('e-punit', e.punit || 0);
       const hasReemb = !!(e.reemb && e.reemb.for);
       document.getElementById('e-reemb').checked = hasReemb;
       document.getElementById('e-reemb-for-row').style.display = hasReemb ? '' : 'none';
@@ -6252,11 +6255,22 @@ function openEntryModal(editId) {
     if (last.st) document.getElementById('e-st').value = last.st;
     if (last.dt) document.getElementById('e-dt').value = last.dt;
     if (last.pm) document.getElementById('e-pm').value = last.pm;
+    if (document.getElementById('e-qty'))   document.getElementById('e-qty').value   = '';
+    if (document.getElementById('e-punit')) document.getElementById('e-punit').value = '';
     document.getElementById('e-reemb').checked = false;
     document.getElementById('e-reemb-for-row').style.display = 'none';
     document.getElementById('e-reemb-for').value = '_gerenc';
   }
   genInst(); openModal('mod-entry');
+}
+function calcEntryTot() {
+  const qty   = parseFloat(document.getElementById('e-qty')?.value) || 0;
+  const punit = parseBRLInput('e-punit');
+  if (qty > 0 && punit > 0) {
+    const tot = +(qty * punit).toFixed(2);
+    setBRLInput('e-tot', tot);
+    genInst();
+  }
 }
 function genInst() {
   const tot = parseBRLInput('e-tot');
@@ -6327,6 +6341,8 @@ function saveEntry() {
     base:document.getElementById('e-base').checked,
     budId:document.getElementById('e-budid').value||null,
     catClass:document.getElementById('e-catclass').value||'',
+    qty:   parseFloat(document.getElementById('e-qty')?.value)  || null,
+    punit: parseBRLInput('e-punit') || null,
     isFee:false,
     reemb: document.getElementById('e-reemb').checked
       ? { for: document.getElementById('e-reemb-for').value, relatorioId: null }
