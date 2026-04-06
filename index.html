@@ -1169,7 +1169,7 @@ tfoot td{padding:10px 0;border-top:2px solid var(--black);font-weight:800;font-s
 
 
 <div class="modal-ov" id="mod-entry">
-  <div class="modal">
+  <div class="modal" style="max-width:900px">
     <button class="modal-x" onclick="closeModal('mod-entry')">&#10005;</button>
     <h3 id="mod-entry-title">Novo Lançamento</h3>
     <input type="hidden" id="e-id"/>
@@ -1177,27 +1177,46 @@ tfoot td{padding:10px 0;border-top:2px solid var(--black);font-weight:800;font-s
       <div class="ff"><label>Competência</label><input type="month" id="e-comp"/></div>
       <div class="ff"><label>Data</label><input type="date" id="e-date"/></div>
       <div class="ff"><label>Fornecedor *</label><select id="e-sup"><option value="">— Selecionar —</option></select></div>
-      <div class="ff"><label>Descrição *</label><input type="text" id="e-desc" placeholder="Ex: Medição #3"/></div>
-      <div class="ff"><label>Disciplina</label><select id="e-disc"></select></div>
-      <div class="ff"><label>Fase</label><select id="e-phase"></select></div>
       <div class="ff"><label>Centro de Custo</label><select id="e-cc"></select></div>
       <div class="ff"><label>Tipo de Serviço</label><select id="e-st"></select></div>
       <div class="ff"><label>Tipo de Documento</label><select id="e-dt"></select></div>
       <div class="ff"><label>Forma de Pagamento</label><select id="e-pm"></select></div>
-      <div class="ff"><label>Quantidade</label><input type="number" id="e-qty" placeholder="1" min="0" step="any" oninput="calcEntryTot()"/></div>
-      <div class="ff"><label>Preço Unitário (R$)</label><input type="text" id="e-punit" placeholder="0,00" oninput="formatBRLInput(this);calcEntryTot()"/></div>
-      <div class="ff"><label>Valor Total (R$) *</label><input type="text" id="e-tot" placeholder="0,00" oninput="formatBRLInput(this);genInst()"/></div>
       <div class="ff"><label>Nº de Parcelas</label><input type="number" id="e-np" min="1" max="60" value="1" oninput="genInst()"/></div>
       <div class="ff"><label>1º Vencimento</label><input type="date" id="e-fd" oninput="genInst()"/></div>
       <div class="ff"><label>Observações</label><input type="text" id="e-notes" placeholder="Opcional"/></div>
-      <div class="ff"><label>Vincular ao item do orçamento (opcional)</label><select id="e-budid"><option value="">&#8212; Nenhum</option></select></div>
-      <div class="ff"><label>Categoria do lançamento</label>
-        <select id="e-catclass">
-          <option value="">— Geral (não classificado) —</option>
+    </div>
+
+    <!-- Item da nota fiscal -->
+    <div style="border-top:1px solid var(--g200);margin:14px 0 10px;padding-top:14px">
+      <div style="margin-bottom:8px">
+        <span style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em">Item da Nota Fiscal</span>
+      </div>
+      <div style="display:grid;grid-template-columns:110px 110px 1fr 100px 55px 95px 95px 160px;gap:4px;margin-bottom:4px;padding:0 2px">
+        <span style="font-size:9px;font-weight:700;text-transform:uppercase;color:var(--g500)">Disciplina</span>
+        <span style="font-size:9px;font-weight:700;text-transform:uppercase;color:var(--g500)">Fase</span>
+        <span style="font-size:9px;font-weight:700;text-transform:uppercase;color:var(--g500)">Descrição</span>
+        <span style="font-size:9px;font-weight:700;text-transform:uppercase;color:var(--g500)">Categoria</span>
+        <span style="font-size:9px;font-weight:700;text-transform:uppercase;color:var(--g500);text-align:right">Qtd</span>
+        <span style="font-size:9px;font-weight:700;text-transform:uppercase;color:var(--g500);text-align:right">P. Unit.</span>
+        <span style="font-size:9px;font-weight:700;text-transform:uppercase;color:var(--g500);text-align:right">Valor (R$)</span>
+        <span style="font-size:9px;font-weight:700;text-transform:uppercase;color:var(--g500)">Vincular a item do orç.</span>
+      </div>
+      <div style="display:grid;grid-template-columns:110px 110px 1fr 100px 55px 95px 95px 160px;gap:4px;align-items:center">
+        <select id="e-disc" style="font-size:11px;border:1px solid var(--g200);padding:4px 6px;border-radius:3px;width:100%"></select>
+        <select id="e-phase" style="font-size:11px;border:1px solid var(--g200);padding:4px 6px;border-radius:3px;width:100%"></select>
+        <input type="text" id="e-desc" style="font-size:11px;border:1px solid var(--g200);padding:4px 6px;border-radius:3px;width:100%;box-sizing:border-box" placeholder="Descrição do item"/>
+        <select id="e-catclass" style="font-size:11px;border:1px solid var(--g200);padding:4px 6px;border-radius:3px;width:100%">
+          <option value="">— Geral —</option>
           <option value="mat">Material</option>
           <option value="mo">Mão de Obra</option>
+          <option value="srv">Serviço</option>
+          <option value="acab">Acabamento</option>
           <option value="eq">Equipamento</option>
         </select>
+        <input type="number" id="e-qty" style="font-size:11px;border:1px solid var(--g200);padding:4px 6px;border-radius:3px;width:100%;text-align:right;box-sizing:border-box" placeholder="1" min="0" step="any" oninput="calcEntryTot()"/>
+        <input type="text" id="e-punit" style="font-size:11px;border:1px solid var(--g200);padding:4px 6px;border-radius:3px;width:100%;text-align:right;box-sizing:border-box" placeholder="0,00" oninput="formatBRLInput(this);calcEntryTot()"/>
+        <input type="text" id="e-tot" style="font-size:11px;border:1px solid var(--g200);padding:4px 6px;border-radius:3px;width:100%;text-align:right;box-sizing:border-box" placeholder="0,00" oninput="formatBRLInput(this);genInst()"/>
+        <select id="e-budid" style="font-size:11px;border:1px solid var(--g200);padding:4px 6px;border-radius:3px;width:100%"><option value="">— Vincular (opcional) —</option></select>
       </div>
     </div>
     <div class="chk">
