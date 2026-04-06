@@ -1416,7 +1416,7 @@ tfoot td{padding:10px 0;border-top:2px solid var(--black);font-weight:800;font-s
     <!-- CUSTO UNITÁRIO DECOMPOSTO -->
     <div style="border-top:1px solid var(--g200);margin-top:12px;padding-top:12px">
       <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px">Custo Unitário Decomposto</div>
-      <div class="fgrid">
+      <div class="fgrid" style="grid-template-columns:repeat(4,1fr)">
         <div class="ff"><label>Mão de Obra (R$/un)</label><input type="text" id="bi-pmo" placeholder="0,00" oninput="formatBRLInput(this);calcBI()"/></div>
         <div class="ff"><label>Material Bruto (R$/un)</label><input type="text" id="bi-pmat" placeholder="0,00" oninput="formatBRLInput(this);calcBI()"/></div>
         <div class="ff"><label>Acabamento (R$/un)</label><input type="text" id="bi-pacab" placeholder="0,00" oninput="formatBRLInput(this);calcBI()"/></div>
@@ -5363,11 +5363,11 @@ function renderBudget() {
           (isCollapsed ? ' <span style="margin-left:10px;font-size:11px;font-weight:400;text-transform:none;letter-spacing:0;color:var(--g600)">'+items.length+' ite'+(items.length>1?'ns':'m')+'</span>' : '') +
         '</td>' +
         (isCollapsed
-          ? '<td colspan="5" style="border-top:2px solid var(--black)"></td>' +
+          ? '<td colspan="6" style="border-top:2px solid var(--black)"></td>' +
             '<td style="border-top:2px solid var(--black);font-weight:800;text-align:right">'+R(dOrc)+'</td>' +
             '<td style="border-top:2px solid var(--black);font-weight:800;color:'+(dPctFis>=100?'var(--ok)':dPctFis>0?'var(--info)':'var(--g400)')+'">'+dPctFis.toFixed(1)+'%</td>' +
             '<td style="border-top:2px solid var(--black)" colspan="2"></td>'
-          : '<td colspan="5" style="border-top:2px solid var(--black)"></td>' +
+          : '<td colspan="6" style="border-top:2px solid var(--black)"></td>' +
             '<td style="border-top:2px solid var(--black);font-weight:800;text-align:right">'+R(dOrc)+'</td>' +
             '<td style="border-top:2px solid var(--black)" colspan="3"></td>'
         ) +
