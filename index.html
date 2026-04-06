@@ -742,9 +742,20 @@ tfoot td{padding:10px 0;border-top:2px solid var(--black);font-weight:800;font-s
     <!-- Parcelas -->
     <div class="isec"><h4>Parcelas</h4><div id="rat-inst-rows"></div></div>
 
-    <div class="chk" style="margin:12px 0 8px">
+    <div class="chk" style="margin:12px 0 4px">
       <input type="checkbox" id="rat-base" checked/>
       <div><label for="rat-base" style="font-weight:700">Compõe base de cálculo dos honorários</label></div>
+    </div>
+    <div class="chk" style="margin:8px 0 4px">
+      <input type="checkbox" id="rat-reemb" onchange="document.getElementById('rat-reemb-for-row').style.display=this.checked?'':'none'"/>
+      <div><label for="rat-reemb" style="font-weight:700">Reembolsável</label>
+      <small>Incluir nas cobranças de reembolso ao cliente</small></div>
+    </div>
+    <div id="rat-reemb-for-row" style="display:none;margin:6px 0 0 22px">
+      <label style="font-size:11px;font-weight:700;color:var(--g600)">Reembolso para:</label>
+      <select id="rat-reemb-for" style="margin-top:4px;width:100%;max-width:340px;padding:5px 8px;border:1px solid var(--g300);border-radius:4px;font-size:13px">
+        <option value="_gerenc">Gerenciador de Obra</option>
+      </select>
     </div>
     <div class="factions mt8">
       <button class="btn btn-p" onclick="saveSplitEntry()">Salvar NF com Split</button>
@@ -1192,6 +1203,17 @@ tfoot td{padding:10px 0;border-top:2px solid var(--black);font-weight:800;font-s
       <input type="checkbox" id="e-base" checked/>
       <div><label for="e-base">Compõe base de cálculo dos honorários</label>
       <small>Desmarque para gastos fora da obra gerenciada (ex: impostos)</small></div>
+    </div>
+    <div class="chk" style="margin-top:8px">
+      <input type="checkbox" id="e-reemb" onchange="document.getElementById('e-reemb-for-row').style.display=this.checked?'':'none'"/>
+      <div><label for="e-reemb" style="font-weight:700">Reembolsável</label>
+      <small>Incluir nas cobranças de reembolso ao cliente</small></div>
+    </div>
+    <div id="e-reemb-for-row" style="display:none;margin:6px 0 0 22px">
+      <label style="font-size:11px;font-weight:700;color:var(--g600)">Reembolso para:</label>
+      <select id="e-reemb-for" style="margin-top:4px;width:100%;max-width:340px;padding:5px 8px;border:1px solid var(--g300);border-radius:4px;font-size:13px">
+        <option value="_gerenc">Gerenciador de Obra</option>
+      </select>
     </div>
     <div class="isec"><h4>Parcelas</h4><div id="inst-rows"></div></div>
     <div class="factions mt16">
@@ -2005,6 +2027,16 @@ function renderConfigPanel() {
       '<span style="font-size:16px;font-weight:900;letter-spacing:-.02em">'+(cfg.name||'ObraSync')+'</span>' +
     '</div>' +
 
+    // ── Dados Bancários do Gerenciador ────────────────────────────────────
+    '<div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#888;margin-top:28px;margin-bottom:12px">Dados Bancários do Gerenciador</div>' +
+    '<div style="font-size:12px;color:#888;margin-bottom:16px">Usados nos relatórios de reembolso quando o beneficiário é o Gerenciador de Obra</div>' +
+    '<div class="fgrid">' +
+      '<div class="ff"><label>Banco</label><input type="text" id="cfg-bank" value="'+esc(cfg.bank||'')+'" placeholder="Ex: Itaú, Bradesco"/></div>' +
+      '<div class="ff"><label>Agência</label><input type="text" id="cfg-agency" value="'+esc(cfg.agency||'')+'" placeholder="Ex: 0001"/></div>' +
+      '<div class="ff"><label>Conta</label><input type="text" id="cfg-account" value="'+esc(cfg.account||'')+'" placeholder="Ex: 12345-6"/></div>' +
+      '<div class="ff"><label>Chave PIX</label><input type="text" id="cfg-pix" value="'+esc(cfg.pix||'')+'" placeholder="CPF, CNPJ, e-mail ou chave aleatória"/></div>' +
+    '</div>' +
+
     '<button class="btn btn-p" onclick="saveAppConfig()" style="width:100%;padding:10px;font-size:14px">Salvar Configurações</button>' +
     '</div>';
 }
@@ -2036,7 +2068,11 @@ function removeAppLogo() {
 
 function saveAppConfig() {
   const cfg = DB.get('appConfig') || {};
-  cfg.name = document.getElementById('cfg-name').value.trim();
+  cfg.name    = document.getElementById('cfg-name').value.trim();
+  cfg.bank    = document.getElementById('cfg-bank')?.value.trim()    || '';
+  cfg.agency  = document.getElementById('cfg-agency')?.value.trim()  || '';
+  cfg.account = document.getElementById('cfg-account')?.value.trim() || '';
+  cfg.pix     = document.getElementById('cfg-pix')?.value.trim()     || '';
   DB.set('appConfig', cfg);
   applyAppConfig(cfg);
   toast('Configurações salvas ✓');
@@ -3128,6 +3164,7 @@ function renderFinancial() {
     html += '<span class="fw7" style="font-size:13px">'+esc(e.sup)+'</span>';
     if (isSplit) html += '<span style="font-size:10px;font-weight:800;background:var(--info);color:#fff;padding:1px 6px;border-radius:3px">SPLIT</span>';
     if (isSplit && e.nf) html += '<span style="font-size:10px;color:var(--g500)">NF '+esc(e.nf)+'</span>';
+    if (e.reemb?.for && isSplit) { const _rs2 = e.reemb.relatorioId ? 'color:var(--ok)' : 'color:var(--warn)'; html += '<span style="font-size:10px;font-weight:700;'+_rs2+'">&#128181; Reembolso</span>'; }
     html += instSummary + collapseBtn;
     html += '</div>';
     html += '<div class="muted sm" style="margin-top:2px">'+esc(e.desc)+'</div>';
@@ -3147,6 +3184,7 @@ function renderFinancial() {
       html += '<div style="margin-top:4px;display:flex;gap:4px;flex-wrap:wrap">';
       html += '<span class="tag">'+esc(e.disc)+'</span><span class="tag">'+esc(e.phase)+'</span>';
       html += (isFee ? '<span class="fee-flag">&#36; honorários</span>' : nb ? '<span class="nobase-flag">fora da base</span>' : '');
+      if (e.reemb?.for) { const _rs = e.reemb.relatorioId ? 'color:var(--ok)' : 'color:var(--warn)'; html += '<span style="font-size:10px;font-weight:700;'+_rs+'" title="Reembolsável">&#128181; Reembolso</span>'; }
       html += '</div>';
     }
     html += '</div>';
@@ -3285,6 +3323,26 @@ function renderSuppliers() {
 // =====================================================================
 // REEMBOLSOS
 // =====================================================================
+// Returns a unified list of reembolso items from both sources:
+// 1. Financial entries with reemb set (normal + split)
+// 2. Legacy reembolsos store
+function getReembItems() {
+  const entries = DB.get('entries') || [];
+  const legacy  = DB.get('reembolsos') || [];
+  const fromEntries = entries
+    .filter(e => e.reemb && e.reemb.for)
+    .map(e => ({
+      id: e.id, _fromEntry: true,
+      supId: e.reemb.for,
+      date: e.date || '',
+      desc: e.desc || '',
+      nf: e.nf || '',
+      val: e.tot || 0,
+      notes: e.notes || '',
+      relatorioId: e.reemb.relatorioId || null
+    }));
+  return [...fromEntries, ...legacy];
+}
 let rbTab = 'pendentes';
 
 function setRbTab(tab) {
@@ -3298,7 +3356,7 @@ function setRbTab(tab) {
 }
 
 function renderReembolsos() {
-  const reembs = (DB.get('reembolsos')||[]).filter(r => !r.relatorioId);
+  const reembs = getReembItems().filter(r => !r.relatorioId);
   const sups   = DB.get('suppliers') || [];
   const total  = reembs.reduce((s,r)=>s+r.val,0);
 
@@ -3328,7 +3386,7 @@ function renderReembolsos() {
     html += '<span class="mcard-sup">'+esc(supName)+'</span>';
     html += ' <span style="font-size:11px;color:var(--warn);font-weight:700;margin-left:8px">'+items.length+' item'+(items.length!==1?'s':'')+' · '+R(tot)+'</span>';
     html += '</div>';
-    html += '<button class="btn btn-p btn-sm" onclick="openReembolsoModal(\''+supId+'\')">' + '+ Reembolso</button>';
+    html += '<span style="font-size:10px;color:var(--g400)">Lançamentos financeiros marcados como reembolsável</span>';
     html += '</div>';
     html += '<table style="width:100%;border-collapse:collapse;font-size:11px">';
     html += '<thead><tr style="border-bottom:2px solid var(--black)"><th style="padding:5px 0;text-align:left">Data</th><th style="padding:5px 8px;text-align:left">Descrição</th><th style="padding:5px 8px;text-align:left">NF</th><th style="padding:5px 8px;text-align:right">Valor</th><th style="padding:5px 8px"></th></tr></thead><tbody>';
@@ -3339,8 +3397,12 @@ function renderReembolsos() {
       html += '<td style="padding:6px 8px;color:var(--g500)">'+esc(r.nf||'—')+'</td>';
       html += '<td style="padding:6px 8px;text-align:right;font-weight:700">'+R(r.val)+'</td>';
       html += '<td style="padding:6px 8px;white-space:nowrap">';
-    html += '<button class="btn btn-e btn-sm" onclick="editReembolso(\'' + r.id + '\')">&#9998;</button> ';
-    html += '<button class="btn btn-d btn-sm" onclick="delReembolso(\'' + r.id + '\')">&#10005;</button>';
+      if (!r._fromEntry) {
+        html += '<button class="btn btn-e btn-sm" onclick="editReembolso(\'' + r.id + '\')">&#9998;</button> ';
+        html += '<button class="btn btn-d btn-sm" onclick="delReembolso(\'' + r.id + '\')">&#10005;</button>';
+      } else {
+        html += '<span style="font-size:10px;color:var(--info)" title="Editar no tab Lançamentos">&#8594; Financeiro</span>';
+      }
       html += '</td></tr>';
     });
     html += '</tbody></table></div>';
@@ -3393,7 +3455,7 @@ function renderRelatoriosReembolso() {
 }
 
 function abrirFecharRelatorio() {
-  const pending = (DB.get('reembolsos')||[]).filter(r=>!r.relatorioId);
+  const pending = getReembItems().filter(r=>!r.relatorioId);
   if (!pending.length) { toast('Nenhuma compra pendente para fechar em relatório'); return; }
   document.getElementById('rc-per').value = new Date().toISOString().slice(0,7);
   document.getElementById('rc-date').value = todayStr();
@@ -3421,24 +3483,36 @@ function fecharRelatorioReembolso() {
   const date  = document.getElementById('rc-date').value;
   const notes = document.getElementById('rc-notes').value;
   if (!per || !date) { alert('Período e data são obrigatórios.'); return; }
-  const pending = (DB.get('reembolsos')||[]).filter(r=>!r.relatorioId);
+  const pending = getReembItems().filter(r => !r.relatorioId);
   if (!pending.length) { toast('Nenhuma compra pendente'); return; }
   const sups = DB.get('suppliers') || [];
+  const cfg  = DB.get('appConfig') || {};
   // Snapshot items with supplier bank data
   const items = pending.map(r => {
-    const sup = r.supId==='_gerenc' ? null : sups.find(s=>s.id===r.supId);
-    return { ...r, bank:sup?sup.bank:'', agency:sup?sup.agency:'', account:sup?sup.account:'', pix:sup?sup.pix:'' };
+    const isGerenc = r.supId === '_gerenc';
+    const sup = isGerenc ? null : sups.find(s=>s.id===r.supId);
+    return { ...r,
+      bank:    isGerenc ? (cfg.bank    ||'') : (sup?.bank    ||''),
+      agency:  isGerenc ? (cfg.agency  ||'') : (sup?.agency  ||''),
+      account: isGerenc ? (cfg.account ||'') : (sup?.account ||''),
+      pix:     isGerenc ? (cfg.pix     ||'') : (sup?.pix     ||'')
+    };
   });
   const relatorios = DB.get('reembolsosRelatorios') || [];
   const seqNum = relatorios.length + 1;
   const rel = { id:uid(), seqNum, per, date, notes, status:'emitted', items, total:items.reduce((s,r)=>s+r.val,0) };
   relatorios.push(rel);
   DB.set('reembolsosRelatorios', relatorios);
-  // Mark reembolsos as filed
+  // Mark legacy reembolsos store items
+  const legacyIds = new Set(pending.filter(r=>!r._fromEntry).map(r=>r.id));
   const allReembs = DB.get('reembolsos') || [];
-  const pendIds = new Set(pending.map(r=>r.id));
-  allReembs.forEach(r => { if (pendIds.has(r.id)) r.relatorioId = rel.id; });
+  allReembs.forEach(r => { if (legacyIds.has(r.id)) r.relatorioId = rel.id; });
   DB.set('reembolsos', allReembs);
+  // Mark financial entries
+  const entryIds = new Set(pending.filter(r=>r._fromEntry).map(r=>r.id));
+  const allEntries = DB.get('entries') || [];
+  allEntries.forEach(e => { if (entryIds.has(e.id) && e.reemb) e.reemb.relatorioId = rel.id; });
+  DB.set('entries', allEntries);
   closeModal('mod-reimb-close');
   setRbTab('relatorios');
   toast('Reimb. '+String(seqNum).padStart(3,'0')+' fechado — '+items.length+' compras ✓');
@@ -3459,10 +3533,14 @@ function delRelatorioReembolso(id) {
   const rels = DB.get('reembolsosRelatorios') || [];
   const rel = rels.find(r=>r.id===id);
   DB.set('reembolsosRelatorios', rels.filter(r=>r.id!==id));
-  // Unfile the reembolsos
+  // Unfile legacy reembolsos store
   const reembs = DB.get('reembolsos') || [];
   reembs.forEach(r => { if (r.relatorioId===id) delete r.relatorioId; });
   DB.set('reembolsos', reembs);
+  // Unfile financial entries
+  const entries = DB.get('entries') || [];
+  entries.forEach(e => { if (e.reemb?.relatorioId===id) e.reemb.relatorioId = null; });
+  DB.set('entries', entries);
   renderRelatoriosReembolso();
   toast('Relatório excluído — compras voltaram para pendentes');
 }
@@ -5689,6 +5767,10 @@ function openRateioModal() {
   document.getElementById('rat-tot').value = '';
   document.getElementById('rat-np').value = 1;
   document.getElementById('rat-base').checked = true;
+  document.getElementById('rat-reemb').checked = false;
+  document.getElementById('rat-reemb-for-row').style.display = 'none';
+  _popReembFor('rat-reemb-for');
+  document.getElementById('rat-reemb-for').value = '_gerenc';
   _splitRows = [{id:uid(), disc:'', phase:'', desc:'', catClass:'mat', val:0, budId:''}];
   renderSplitRows();
   genRatInst();
@@ -5838,9 +5920,11 @@ function saveSplitEntry() {
     return {...row, budId};
   });
   DB.set('budget', bud);
+  const ratReemb = document.getElementById('rat-reemb').checked;
   const entry = {
     id: entryId, isSplit: true, nf, comp, date, sup, supplierId,
-    desc, dt, pm, tot, notes:'', base, insts, splits, isFee:false
+    desc, dt, pm, tot, notes:'', base, insts, splits, isFee:false,
+    reemb: ratReemb ? { for: document.getElementById('rat-reemb-for').value, relatorioId: null } : null
   };
   const entries = DB.get('entries') || [];
   entries.push(entry);
@@ -6097,11 +6181,18 @@ function renderClient() {
 // =====================================================================
 // MODAL: LANÇAMENTO
 // =====================================================================
+function _popReembFor(selId) {
+  const _sups = DB.get('suppliers') || [];
+  const sel = document.getElementById(selId); if (!sel) return;
+  sel.innerHTML = '<option value="_gerenc">Gerenciador de Obra</option>' +
+    [..._sups].sort((a,b)=>a.name.localeCompare(b.name,'pt-BR')).map(s=>'<option value="'+s.id+'">'+esc(s.name)+'</option>').join('');
+}
 function openEntryModal(editId) {
   const c = cats();
   pop('e-disc',c.disciplines||[]); pop('e-phase',c.phases||[]);
   pop('e-cc',c.costcenters||[]); pop('e-st',c.servicetypes||[]);
   pop('e-dt',c.doctypes||[]); pop('e-pm',c.paymethods||[]);
+  _popReembFor('e-reemb-for');
   // Populate suppliers from global list
   const _sups = DB.get('suppliers') || [];
   const supSel = document.getElementById('e-sup');
@@ -6136,6 +6227,10 @@ function openEntryModal(editId) {
       document.getElementById('e-base').checked = e.base !== false;
       document.getElementById('e-budid').value = e.budId||'';
       document.getElementById('e-catclass').value = e.catClass||'';
+      const hasReemb = !!(e.reemb && e.reemb.for);
+      document.getElementById('e-reemb').checked = hasReemb;
+      document.getElementById('e-reemb-for-row').style.display = hasReemb ? '' : 'none';
+      if (hasReemb) document.getElementById('e-reemb-for').value = e.reemb.for;
     }
   } else {
     const iso = todayStr();
@@ -6157,6 +6252,9 @@ function openEntryModal(editId) {
     if (last.st) document.getElementById('e-st').value = last.st;
     if (last.dt) document.getElementById('e-dt').value = last.dt;
     if (last.pm) document.getElementById('e-pm').value = last.pm;
+    document.getElementById('e-reemb').checked = false;
+    document.getElementById('e-reemb-for-row').style.display = 'none';
+    document.getElementById('e-reemb-for').value = '_gerenc';
   }
   genInst(); openModal('mod-entry');
 }
@@ -6229,10 +6327,16 @@ function saveEntry() {
     base:document.getElementById('e-base').checked,
     budId:document.getElementById('e-budid').value||null,
     catClass:document.getElementById('e-catclass').value||'',
-    isFee:false};
+    isFee:false,
+    reemb: document.getElementById('e-reemb').checked
+      ? { for: document.getElementById('e-reemb-for').value, relatorioId: null }
+      : null};
   if (editId) {
     const old = entries.find(x=>x.id===editId);
-    if (old) { entry.insts = entry.insts.map((p,i) => { const op=old.insts[i]; return op&&op.status==='paid'?{...p,status:'paid',paidAt:op.paidAt,paidAmt:op.paidAmt,proof:op.proof}:p; }); }
+    if (old) {
+      entry.insts = entry.insts.map((p,i) => { const op=old.insts[i]; return op&&op.status==='paid'?{...p,status:'paid',paidAt:op.paidAt,paidAmt:op.paidAmt,proof:op.proof}:p; });
+      if (entry.reemb && old.reemb?.relatorioId) entry.reemb.relatorioId = old.reemb.relatorioId;
+    }
     const idx = entries.findIndex(e=>e.id===editId);
     if (idx>-1) entries[idx]=entry; else entries.push(entry);
   } else entries.push(entry);
