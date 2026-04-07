@@ -771,7 +771,6 @@ tfoot td{padding:10px 0;border-top:2px solid var(--black);font-weight:800;font-s
         <h2>Lançamentos Financeiros</h2>
         <div class="acts" id="fin-acts">
           <button class="btn btn-p" onclick="openEntryModal()">+ Novo Lançamento</button>
-          <button class="btn btn-g" onclick="openRateioModal()">&#11034; NF Rateada</button>
           <button class="btn btn-fee" onclick="openFeeEntryModal()">&#36; Lançar Honorários</button>
           <button class="btn btn-g" onclick="exportCSV()">Exportar CSV</button>
         </div>
@@ -1173,10 +1172,12 @@ tfoot td{padding:10px 0;border-top:2px solid var(--black);font-weight:800;font-s
     <button class="modal-x" onclick="closeModal('mod-entry')">&#10005;</button>
     <h3 id="mod-entry-title">Novo Lançamento</h3>
     <input type="hidden" id="e-id"/>
+    <input type="hidden" id="e-tot"/>
     <div class="fgrid w">
       <div class="ff"><label>Competência</label><input type="month" id="e-comp"/></div>
       <div class="ff"><label>Data</label><input type="date" id="e-date"/></div>
       <div class="ff"><label>Fornecedor *</label><select id="e-sup"><option value="">— Selecionar —</option></select></div>
+      <div class="ff"><label>Nº da NF</label><input type="text" id="e-nf" placeholder="Ex: 001234"/></div>
       <div class="ff"><label>Centro de Custo</label><select id="e-cc"></select></div>
       <div class="ff"><label>Tipo de Serviço</label><select id="e-st"></select></div>
       <div class="ff"><label>Tipo de Documento</label><select id="e-dt"></select></div>
@@ -1186,36 +1187,24 @@ tfoot td{padding:10px 0;border-top:2px solid var(--black);font-weight:800;font-s
       <div class="ff"><label>Observações</label><input type="text" id="e-notes" placeholder="Opcional"/></div>
     </div>
 
-    <!-- Item da nota fiscal -->
+    <!-- Itens da nota fiscal (split-capable) -->
     <div style="border-top:1px solid var(--g200);margin:14px 0 10px;padding-top:14px">
-      <div style="margin-bottom:8px">
-        <span style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em">Item da Nota Fiscal</span>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <span style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em">Itens da Nota Fiscal</span>
+        <button class="btn btn-g btn-sm" onclick="addEntryItem()">+ Adicionar Item</button>
       </div>
-      <div style="display:grid;grid-template-columns:110px 110px 1fr 100px 55px 95px 95px 160px;gap:4px;margin-bottom:4px;padding:0 2px">
+      <div style="display:grid;grid-template-columns:110px 110px 1fr 100px 110px 160px;gap:4px;margin-bottom:4px;padding:0 2px">
         <span style="font-size:9px;font-weight:700;text-transform:uppercase;color:var(--g500)">Disciplina</span>
         <span style="font-size:9px;font-weight:700;text-transform:uppercase;color:var(--g500)">Fase</span>
         <span style="font-size:9px;font-weight:700;text-transform:uppercase;color:var(--g500)">Descrição</span>
         <span style="font-size:9px;font-weight:700;text-transform:uppercase;color:var(--g500)">Categoria</span>
-        <span style="font-size:9px;font-weight:700;text-transform:uppercase;color:var(--g500);text-align:right">Qtd</span>
-        <span style="font-size:9px;font-weight:700;text-transform:uppercase;color:var(--g500);text-align:right">P. Unit.</span>
         <span style="font-size:9px;font-weight:700;text-transform:uppercase;color:var(--g500);text-align:right">Valor (R$)</span>
-        <span style="font-size:9px;font-weight:700;text-transform:uppercase;color:var(--g500)">Vincular a item do orç.</span>
+        <span style="font-size:9px;font-weight:700;text-transform:uppercase;color:var(--g500)">Vincular ao orç.</span>
       </div>
-      <div style="display:grid;grid-template-columns:110px 110px 1fr 100px 55px 95px 95px 160px;gap:4px;align-items:center">
-        <select id="e-disc" style="font-size:11px;border:1px solid var(--g200);padding:4px 6px;border-radius:3px;width:100%"></select>
-        <select id="e-phase" style="font-size:11px;border:1px solid var(--g200);padding:4px 6px;border-radius:3px;width:100%"></select>
-        <input type="text" id="e-desc" style="font-size:11px;border:1px solid var(--g200);padding:4px 6px;border-radius:3px;width:100%;box-sizing:border-box" placeholder="Descrição do item"/>
-        <select id="e-catclass" style="font-size:11px;border:1px solid var(--g200);padding:4px 6px;border-radius:3px;width:100%">
-          <option value="">— Geral —</option>
-          <option value="mat">Material</option>
-          <option value="mo">Mão de Obra</option>
-          <option value="srv">Serviço</option>
-          <option value="acab">Acabamento</option>
-        </select>
-        <input type="number" id="e-qty" style="font-size:11px;border:1px solid var(--g200);padding:4px 6px;border-radius:3px;width:100%;text-align:right;box-sizing:border-box" placeholder="1" min="0" step="any" oninput="calcEntryTot()"/>
-        <input type="text" id="e-punit" style="font-size:11px;border:1px solid var(--g200);padding:4px 6px;border-radius:3px;width:100%;text-align:right;box-sizing:border-box" placeholder="0,00" oninput="formatBRLInput(this);calcEntryTot()"/>
-        <input type="text" id="e-tot" style="font-size:11px;border:1px solid var(--g200);padding:4px 6px;border-radius:3px;width:100%;text-align:right;box-sizing:border-box" placeholder="0,00" oninput="formatBRLInput(this);genInst()"/>
-        <select id="e-budid" style="font-size:11px;border:1px solid var(--g200);padding:4px 6px;border-radius:3px;width:100%"><option value="">— Vincular (opcional) —</option></select>
+      <div id="e-split-rows"></div>
+      <div id="e-balance-bar" style="display:none;justify-content:space-between;align-items:center;padding:8px 0;border-top:2px solid var(--black);margin-top:4px">
+        <span style="font-weight:800;font-size:12px">Total:</span>
+        <span id="e-balance" style="font-size:13px;font-weight:900">R$ 0,00</span>
       </div>
     </div>
     <div class="chk">
@@ -3208,7 +3197,7 @@ function renderFinancial() {
     }
     html += '</div>';
     html += '<div class="ehdr-val"><span class="fw7" style="font-size:14px">'+R(e.tot)+'</span></div>';
-    if (!isC) html += '<div class="ehdr-acts"><button class="btn btn-e btn-sm" onclick="'+(isSplit?'openSplitEditModal':'openEntryModal')+'(\''+e.id+'\')" title="Editar">&#9998;</button><button class="btn btn-d" onclick="delEntry(\''+e.id+'\')" title="Excluir">&#10005;</button></div>';
+    if (!isC) html += '<div class="ehdr-acts"><button class="btn btn-e btn-sm" onclick="openEntryModal(\''+e.id+'\')" title="Editar">&#9998;</button><button class="btn btn-d" onclick="delEntry(\''+e.id+'\')" title="Excluir">&#10005;</button></div>';
     html += '</div>';
 
     // ── Parcelas ─────────────────────────────────────────────────────
@@ -4055,8 +4044,6 @@ function markMeasPaid(id) {
   const sup = _measSups.find(s=>s.id===m.supplierId);
   // Pre-fill entry modal
   const c = cats();
-  pop('e-disc', c.disciplines||[]);
-  pop('e-phase', c.phases||[]);
   pop('e-cc', c.costcenters||[]);
   pop('e-st', c.servicetypes||[]);
   pop('e-dt', c.doctypes||[]);
@@ -4079,15 +4066,13 @@ function markMeasPaid(id) {
   document.getElementById('e-comp').value = m.per;
   document.getElementById('e-date').value = todayStr();
   _mSupSel.value = sup ? sup.id : '';
-  document.getElementById('e-desc').value = 'Med. '+String(m.seqNum).padStart(3,'0')+' — '+(sup?sup.name:'');
-  setBRLInput('e-tot', m.total);
+  document.getElementById('e-nf').value = '';
   document.getElementById('e-np').value = 1;
   document.getElementById('e-fd').value = todayStr();
   document.getElementById('e-notes').value = 'Medi\u00e7\u00e3o de obra per\u00edodo '+fmtP(m.per);
   document.getElementById('e-base').checked = true;
-  if (_measDiscs.length === 1) document.getElementById('e-disc').value = _measDiscs[0];
-  if (_measPhases.length === 1) document.getElementById('e-phase').value = _measPhases[0];
-  document.getElementById('e-catclass').value = _measCatClass;
+  _entrySplitRows = [{id:uid(), disc:_measDiscs[0]||'', phase:_measPhases[0]||'', desc:'Med. '+String(m.seqNum).padStart(3,'0')+' — '+(sup?sup.name:''), catClass:_measCatClass, val:m.total||0, budId:''}];
+  renderEntrySplitRows();
   genInst();
   // store reference so we can mark meas paid after saving
   window._pendingMeasPaidId = id;
@@ -6206,9 +6191,73 @@ function _popReembFor(selId) {
   sel.innerHTML = '<option value="_gerenc">Gerenciador de Obra</option>' +
     [..._sups].sort((a,b)=>a.name.localeCompare(b.name,'pt-BR')).map(s=>'<option value="'+s.id+'">'+esc(s.name)+'</option>').join('');
 }
+// ── Entry split rows ────────────────────────────────────────────────────
+let _entrySplitRows = [];
+
+function renderEntrySplitRows() {
+  const c = cats();
+  const bud = DB.get('budget') || [];
+  const el = document.getElementById('e-split-rows');
+  if (!el) return;
+  const inp = 'font-size:11px;border:1px solid var(--g200);padding:4px 6px;border-radius:3px;width:100%;box-sizing:border-box';
+  const multi = _entrySplitRows.length > 1;
+  const cols = multi ? '110px 110px 1fr 100px 110px 160px 28px' : '110px 110px 1fr 100px 110px 160px';
+  let html = '';
+  _entrySplitRows.forEach((row, idx) => {
+    const discOpts = ['', ...(c.disciplines||[]).slice().sort((a,b)=>String(a).localeCompare(String(b),'pt-BR'))].map(d=>'<option value="'+esc(d)+'"'+(d===row.disc?' selected':'')+'>'+esc(d||'— Disc —')+'</option>').join('');
+    const phaseOpts = ['', ...(c.phases||[]).slice().sort((a,b)=>String(a).localeCompare(String(b),'pt-BR'))].map(p=>'<option value="'+esc(p)+'"'+(p===row.phase?' selected':'')+'>'+esc(p||'— Fase —')+'</option>').join('');
+    const budOpts = '<option value="">— Vincular (opcional) —</option>' + bud.map(i=>'<option value="'+i.id+'"'+(i.id===row.budId?' selected':'')+'>'+esc(i.disc+' · '+i.phase+' — '+i.desc)+'</option>').join('');
+    const fmtVal = row.val ? row.val.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) : '';
+    html += '<div style="display:grid;grid-template-columns:'+cols+';gap:4px;margin-bottom:5px;align-items:center">' +
+      '<select style="'+inp+'" onchange="_entrySplitRows['+idx+'].disc=this.value">'+discOpts+'</select>' +
+      '<select style="'+inp+'" onchange="_entrySplitRows['+idx+'].phase=this.value">'+phaseOpts+'</select>' +
+      '<input type="text" style="'+inp+'" placeholder="Descrição do item" value="'+esc(row.desc)+'" oninput="_entrySplitRows['+idx+'].desc=this.value"/>' +
+      '<select style="'+inp+'" onchange="_entrySplitRows['+idx+'].catClass=this.value">' +
+        '<option value=""'+(row.catClass===''?' selected':'')+'>— Geral —</option>' +
+        '<option value="mat"'+(row.catClass==='mat'?' selected':'')+'>Material</option>' +
+        '<option value="mo"'+(row.catClass==='mo'?' selected':'')+'>Mão de Obra</option>' +
+        '<option value="srv"'+(row.catClass==='srv'?' selected':'')+'>Serviço</option>' +
+        '<option value="acab"'+(row.catClass==='acab'?' selected':'')+'>Acabamento</option>' +
+      '</select>' +
+      '<input type="text" style="'+inp+';text-align:right" placeholder="0,00" value="'+fmtVal+'" oninput="formatBRLInput(this);_entrySplitRows['+idx+'].val=parseFloat(this.value.replace(/\\./g,\'\').replace(\',\',\'.\'))||0;syncEntryTot()"/>' +
+      '<select style="'+inp+'" onchange="_entrySplitRows['+idx+'].budId=this.value">'+budOpts+'</select>' +
+      (multi ? '<button onclick="_entrySplitRows.splice('+idx+',1);renderEntrySplitRows()" style="background:none;border:none;cursor:pointer;color:var(--danger);font-size:18px;line-height:1;padding:0">&#215;</button>' : '') +
+    '</div>';
+  });
+  el.innerHTML = html;
+  const bar = document.getElementById('e-balance-bar');
+  if (bar) bar.style.display = multi ? 'flex' : 'none';
+  syncEntryTot();
+}
+
+function addEntryItem() {
+  _entrySplitRows.push({id:uid(), disc:'', phase:'', desc:'', catClass:'', val:0, budId:''});
+  renderEntrySplitRows();
+  setTimeout(() => {
+    const inputs = document.querySelectorAll('#e-split-rows input[placeholder="Descrição do item"]');
+    if (inputs.length) inputs[inputs.length-1].focus();
+  }, 50);
+}
+
+function syncEntryTot() {
+  const sum = _entrySplitRows.reduce((s,r)=>s+(r.val||0), 0);
+  const hidEl = document.getElementById('e-tot');
+  if (hidEl) hidEl.value = sum ? sum.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) : '';
+  const bal = document.getElementById('e-balance');
+  if (bal) bal.textContent = R(sum);
+  genInst();
+}
+
+// Helper to set first split row from external code (lancarBI, measurement pre-fill)
+function setEntryRow0(disc, phase, desc, catClass, val, budId) {
+  if (!_entrySplitRows.length) _entrySplitRows = [{id:uid(), disc:'', phase:'', desc:'', catClass:'', val:0, budId:''}];
+  _entrySplitRows[0] = {id: _entrySplitRows[0].id || uid(), disc:disc||'', phase:phase||'', desc:desc||'', catClass:catClass||'', val:val||0, budId:budId||''};
+  renderEntrySplitRows();
+}
+// ────────────────────────────────────────────────────────────────────────
+
 function openEntryModal(editId) {
   const c = cats();
-  pop('e-disc',c.disciplines||[]); pop('e-phase',c.phases||[]);
   pop('e-cc',c.costcenters||[]); pop('e-st',c.servicetypes||[]);
   pop('e-dt',c.doctypes||[]); pop('e-pm',c.paymethods||[]);
   _popReembFor('e-reemb-for');
@@ -6217,10 +6266,6 @@ function openEntryModal(editId) {
   const supSel = document.getElementById('e-sup');
   supSel.innerHTML = '<option value="">— Selecionar —</option>' +
     _sups.map(s => '<option value="'+s.id+'">'+esc(s.name)+'</option>').join('');
-  const bud = DB.get('budget') || [];
-  const budSel = document.getElementById('e-budid');
-  budSel.innerHTML = '<option value="">— Nenhum</option>' +
-    bud.map(i => '<option value="'+i.id+'">'+i.disc+' · '+i.phase+' — '+i.desc+'</option>').join('');
   document.getElementById('e-id').value = editId || '';
   document.getElementById('mod-entry-title').textContent = editId ? 'Editar Lançamento' : 'Novo Lançamento';
   if (editId) {
@@ -6228,57 +6273,50 @@ function openEntryModal(editId) {
     if (e) {
       document.getElementById('e-comp').value = e.comp;
       document.getElementById('e-date').value = e.date;
-      // Try to match supplier by id or by name (legacy entries store name as string)
-      { const _sel = document.getElementById('e-sup');
-        const _byId = _sups.find(s=>s.id===e.sup||s.name===e.sup);
-        _sel.value = _byId ? _byId.id : ''; }
-      document.getElementById('e-desc').value = e.desc;
-      document.getElementById('e-disc').value = e.disc;
-      document.getElementById('e-phase').value = e.phase;
+      { const _byId = _sups.find(s=>s.id===e.sup||s.name===e.sup);
+        supSel.value = _byId ? _byId.id : ''; }
+      document.getElementById('e-nf').value = e.nf||'';
       document.getElementById('e-cc').value = e.cc||'';
       document.getElementById('e-st').value = e.st||'';
       document.getElementById('e-dt').value = e.dt||'';
       document.getElementById('e-pm').value = e.pm||'';
-      setBRLInput('e-tot', e.tot);
       document.getElementById('e-np').value = e.insts.length;
       document.getElementById('e-fd').value = e.insts[0] ? e.insts[0].due : '';
       document.getElementById('e-notes').value = e.notes||'';
       document.getElementById('e-base').checked = e.base !== false;
-      document.getElementById('e-budid').value = e.budId||'';
-      document.getElementById('e-catclass').value = e.catClass||'';
-      if (document.getElementById('e-qty'))   document.getElementById('e-qty').value   = e.qty  || '';
-      if (document.getElementById('e-punit')) setBRLInput('e-punit', e.punit || 0);
       const hasReemb = !!(e.reemb && e.reemb.for);
       document.getElementById('e-reemb').checked = hasReemb;
       document.getElementById('e-reemb-for-row').style.display = hasReemb ? '' : 'none';
       if (hasReemb) document.getElementById('e-reemb-for').value = e.reemb.for;
+      // Load split rows
+      if (e.isSplit && e.splits && e.splits.length) {
+        _entrySplitRows = e.splits.map(s=>({id:s.id||uid(), disc:s.disc||'', phase:s.phase||'', desc:s.desc||'', catClass:s.catClass||'', val:s.val||0, budId:s.budId||''}));
+      } else {
+        _entrySplitRows = [{id:uid(), disc:e.disc||'', phase:e.phase||'', desc:e.desc||'', catClass:e.catClass||'', val:e.tot||0, budId:e.budId||''}];
+      }
     }
   } else {
     const iso = todayStr();
     const last = DB.get('lastEntry') || {};
     document.getElementById('e-comp').value = iso.slice(0,7);
     document.getElementById('e-date').value = iso;
-    { const _sel = document.getElementById('e-sup'); const _lsup = _sups.find(s=>s.id===last.sup||s.name===last.sup); _sel.value = _lsup ? _lsup.id : ''; }
-    document.getElementById('e-desc').value = '';
-    document.getElementById('e-tot').value = '';
+    { const _lsup = _sups.find(s=>s.id===last.sup||s.name===last.sup); supSel.value = _lsup ? _lsup.id : ''; }
+    document.getElementById('e-nf').value = '';
     document.getElementById('e-np').value = 1;
     document.getElementById('e-fd').value = iso;
     document.getElementById('e-notes').value = '';
     document.getElementById('e-base').checked = last.base !== undefined ? last.base : true;
-    document.getElementById('e-budid').value = last.budId || '';
-    // Pre-select dropdowns from last entry
-    if (last.disc) document.getElementById('e-disc').value = last.disc;
-    if (last.phase) document.getElementById('e-phase').value = last.phase;
     if (last.cc) document.getElementById('e-cc').value = last.cc;
     if (last.st) document.getElementById('e-st').value = last.st;
     if (last.dt) document.getElementById('e-dt').value = last.dt;
     if (last.pm) document.getElementById('e-pm').value = last.pm;
-    if (document.getElementById('e-qty'))   document.getElementById('e-qty').value   = '';
-    if (document.getElementById('e-punit')) document.getElementById('e-punit').value = '';
     document.getElementById('e-reemb').checked = false;
     document.getElementById('e-reemb-for-row').style.display = 'none';
     document.getElementById('e-reemb-for').value = '_gerenc';
+    // Default split row (pre-fill from last entry if available)
+    _entrySplitRows = [{id:uid(), disc:last.disc||'', phase:last.phase||'', desc:'', catClass:'', val:0, budId:last.budId||''}];
   }
+  renderEntrySplitRows();
   genInst(); openModal('mod-entry');
 }
 function calcEntryTot() {
@@ -6330,10 +6368,13 @@ function redistInst(idx, n) {
 }
 function saveEntry() {
   const supEl = document.getElementById('e-sup');
-  const sup = supEl.options[supEl.selectedIndex]?.text?.trim() || supEl.value.trim();
-  const desc = document.getElementById('e-desc').value.trim();
-  const tot = parseBRLInput('e-tot');
-  if (!sup || !desc || !tot) { alert('Preencha: Fornecedor, Descrição e Valor Total.'); return; }
+  const supplierId = supEl.value;
+  const sup = supEl.options[supEl.selectedIndex]?.text?.trim() || supplierId;
+  const rows = _entrySplitRows.filter(r => r.desc || r.val > 0);
+  const tot = rows.reduce((s,r)=>s+(r.val||0), 0);
+  if (!supplierId) { alert('Selecione o Fornecedor.'); return; }
+  if (!rows.length || !tot) { alert('Adicione ao menos um item com valor.'); return; }
+  const nf = document.getElementById('e-nf').value.trim();
   const n = Math.max(1, parseInt(document.getElementById('e-np').value)||1);
   const insts = [];
   const _isMeasLaunch = !!window._pendingMeasPaidId;
@@ -6350,21 +6391,22 @@ function saveEntry() {
   }
   const entries = DB.get('entries') || [];
   const editId = document.getElementById('e-id').value;
-  const entry = {id:editId||uid(), comp:document.getElementById('e-comp').value,
-    date:document.getElementById('e-date').value, sup, desc,
-    disc:document.getElementById('e-disc').value, phase:document.getElementById('e-phase').value,
+  const isSplit = rows.length > 1;
+  // For single-row entries keep flat structure for backward compat
+  const r0 = rows[0] || {};
+  const baseEntry = {id:editId||uid(), comp:document.getElementById('e-comp').value,
+    date:document.getElementById('e-date').value, sup, supplierId, nf,
     cc:document.getElementById('e-cc').value, st:document.getElementById('e-st').value,
     dt:document.getElementById('e-dt').value, pm:document.getElementById('e-pm').value,
     tot, insts, notes:document.getElementById('e-notes').value,
     base:document.getElementById('e-base').checked,
-    budId:document.getElementById('e-budid').value||null,
-    catClass:document.getElementById('e-catclass').value||'',
-    qty:   parseFloat(document.getElementById('e-qty')?.value)  || null,
-    punit: parseBRLInput('e-punit') || null,
     isFee:false,
     reemb: document.getElementById('e-reemb').checked
       ? { for: document.getElementById('e-reemb-for').value, relatorioId: null }
       : null};
+  const entry = isSplit
+    ? {...baseEntry, isSplit:true, desc: nf ? 'NF '+nf : rows.map(r=>r.desc).filter(Boolean).join(' / ') || 'NF Split', splits: rows}
+    : {...baseEntry, isSplit:false, desc:r0.desc||'', disc:r0.disc||'', phase:r0.phase||'', catClass:r0.catClass||'', budId:r0.budId||null};
   if (editId) {
     const old = entries.find(x=>x.id===editId);
     if (old) {
@@ -6376,11 +6418,11 @@ function saveEntry() {
   } else entries.push(entry);
   DB.set('entries', entries);
   // Save template for next new entry (exclude fields that should reset)
-  if (!editId) DB.set('lastEntry', {
-    comp:entry.comp, sup:entry.sup, disc:entry.disc, phase:entry.phase,
+  if (!editId) { const _r0 = (_entrySplitRows||[])[0]||{}; DB.set('lastEntry', {
+    comp:entry.comp, sup:entry.supplierId, disc:_r0.disc||'', phase:_r0.phase||'',
     cc:entry.cc, st:entry.st, dt:entry.dt, pm:entry.pm,
-    base:entry.base, budId:entry.budId
-  });
+    base:entry.base, budId:_r0.budId||''
+  }); }
   closeModal('mod-entry'); renderFinancial(); renderBudget(); renderDash();
   // If opened from "Marcar Paga" on a measurement, now mark it paid
   if (window._pendingMeasPaidId) {
@@ -6761,15 +6803,8 @@ function lancarBI(id) {
     : item.pmo > 0 || item.pmat > 0 || item.pacab > 0 ? 'mo' : '';
   openEntryModal();
   setTimeout(() => {
-    document.getElementById('e-desc').value = item.desc || '';
-    document.getElementById('e-disc').value = item.disc || '';
-    document.getElementById('e-phase').value = item.phase || '';
-    setBRLInput('e-tot', item.tot || 0);
-    document.getElementById('e-budid').value = item.id;
-    document.getElementById('e-catclass').value = _catClass;
-    if (item.supplierId) {
-      document.getElementById('e-sup').value = item.supplierId;
-    }
+    if (item.supplierId) document.getElementById('e-sup').value = item.supplierId;
+    setEntryRow0(item.disc||'', item.phase||'', item.desc||'', _catClass, item.tot||0, item.id);
     genInst();
   }, 50);
 }
