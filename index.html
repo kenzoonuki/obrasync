@@ -1177,10 +1177,10 @@ tfoot td{padding:10px 0;border-top:2px solid var(--black);font-weight:800;font-s
       <div class="ff"><label>Competência</label><input type="month" id="e-comp"/></div>
       <div class="ff"><label>Data</label><input type="date" id="e-date"/></div>
       <div class="ff"><label>Fornecedor *</label><select id="e-sup"><option value="">— Selecionar —</option></select></div>
-      <div class="ff"><label>Nº da NF</label><input type="text" id="e-nf" placeholder="Ex: 001234"/></div>
+      <div class="ff"><label>Tipo de Documento</label><select id="e-dt" onchange="updateNFLabel()"></select></div>
+      <div class="ff"><label id="e-nf-label">Número</label><input type="text" id="e-nf" placeholder="Ex: 001234"/></div>
       <div class="ff"><label>Centro de Custo</label><select id="e-cc"></select></div>
       <div class="ff"><label>Tipo de Serviço</label><select id="e-st"></select></div>
-      <div class="ff"><label>Tipo de Documento</label><select id="e-dt"></select></div>
       <div class="ff"><label>Forma de Pagamento</label><select id="e-pm"></select></div>
       <div class="ff"><label>Nº de Parcelas</label><input type="number" id="e-np" min="1" max="60" value="1" oninput="genInst()"/></div>
       <div class="ff"><label>1º Vencimento</label><input type="date" id="e-fd" oninput="genInst()"/></div>
@@ -1193,12 +1193,15 @@ tfoot td{padding:10px 0;border-top:2px solid var(--black);font-weight:800;font-s
         <span style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em">Itens da Nota Fiscal</span>
         <button class="btn btn-g btn-sm" onclick="addEntryItem()">+ Adicionar Item</button>
       </div>
-      <div style="display:grid;grid-template-columns:110px 110px 1fr 100px 110px 160px;gap:4px;margin-bottom:4px;padding:0 2px">
-        <span style="font-size:9px;font-weight:700;text-transform:uppercase;color:var(--g500)">Disciplina</span>
+      <div id="e-split-hdr" style="display:grid;grid-template-columns:90px 90px 1fr 50px 50px 90px 80px 80px 140px;gap:4px;margin-bottom:4px;padding:0 2px">
         <span style="font-size:9px;font-weight:700;text-transform:uppercase;color:var(--g500)">Fase</span>
+        <span style="font-size:9px;font-weight:700;text-transform:uppercase;color:var(--g500)">Disciplina</span>
         <span style="font-size:9px;font-weight:700;text-transform:uppercase;color:var(--g500)">Descrição</span>
+        <span style="font-size:9px;font-weight:700;text-transform:uppercase;color:var(--g500)">Un.</span>
+        <span style="font-size:9px;font-weight:700;text-transform:uppercase;color:var(--g500);text-align:right">Qtd</span>
         <span style="font-size:9px;font-weight:700;text-transform:uppercase;color:var(--g500)">Categoria</span>
-        <span style="font-size:9px;font-weight:700;text-transform:uppercase;color:var(--g500);text-align:right">Valor (R$)</span>
+        <span style="font-size:9px;font-weight:700;text-transform:uppercase;color:var(--g500);text-align:right">P. Unit.</span>
+        <span style="font-size:9px;font-weight:700;text-transform:uppercase;color:var(--g500);text-align:right">Total</span>
         <span style="font-size:9px;font-weight:700;text-transform:uppercase;color:var(--g500)">Vincular ao orç.</span>
       </div>
       <div id="e-split-rows"></div>
@@ -6194,6 +6197,14 @@ function _popReembFor(selId) {
 // ── Entry split rows ────────────────────────────────────────────────────
 let _entrySplitRows = [];
 
+function updateNFLabel() {
+  const dt = document.getElementById('e-dt');
+  const lbl = document.getElementById('e-nf-label');
+  if (!lbl || !dt) return;
+  const val = dt.options[dt.selectedIndex]?.text?.trim() || '';
+  lbl.textContent = val ? 'Nº — ' + val : 'Número';
+}
+
 function renderEntrySplitRows() {
   const c = cats();
   const bud = DB.get('budget') || [];
@@ -6201,17 +6212,26 @@ function renderEntrySplitRows() {
   if (!el) return;
   const inp = 'font-size:11px;border:1px solid var(--g200);padding:4px 6px;border-radius:3px;width:100%;box-sizing:border-box';
   const multi = _entrySplitRows.length > 1;
-  const cols = multi ? '110px 110px 1fr 100px 110px 160px 28px' : '110px 110px 1fr 100px 110px 160px';
+  const baseCols = '90px 90px 1fr 50px 50px 90px 80px 80px 140px';
+  const cols = multi ? baseCols + ' 28px' : baseCols;
+  const units = c.units && c.units.length ? c.units : ['vb','m²','m','un','gl','kg','hrs'];
+  const hdr = document.getElementById('e-split-hdr');
+  if (hdr) hdr.style.gridTemplateColumns = cols;
   let html = '';
   _entrySplitRows.forEach((row, idx) => {
-    const discOpts = ['', ...(c.disciplines||[]).slice().sort((a,b)=>String(a).localeCompare(String(b),'pt-BR'))].map(d=>'<option value="'+esc(d)+'"'+(d===row.disc?' selected':'')+'>'+esc(d||'— Disc —')+'</option>').join('');
     const phaseOpts = ['', ...(c.phases||[]).slice().sort((a,b)=>String(a).localeCompare(String(b),'pt-BR'))].map(p=>'<option value="'+esc(p)+'"'+(p===row.phase?' selected':'')+'>'+esc(p||'— Fase —')+'</option>').join('');
-    const budOpts = '<option value="">— Vincular (opcional) —</option>' + bud.map(i=>'<option value="'+i.id+'"'+(i.id===row.budId?' selected':'')+'>'+esc(i.disc+' · '+i.phase+' — '+i.desc)+'</option>').join('');
-    const fmtVal = row.val ? row.val.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) : '';
+    const discOpts  = ['', ...(c.disciplines||[]).slice().sort((a,b)=>String(a).localeCompare(String(b),'pt-BR'))].map(d=>'<option value="'+esc(d)+'"'+(d===row.disc?' selected':'')+'>'+esc(d||'— Disc —')+'</option>').join('');
+    const unitOpts  = units.map(u=>'<option value="'+esc(u)+'"'+(u===(row.unit||'vb')?' selected':'')+'>'+esc(u)+'</option>').join('');
+    const budOpts   = '<option value="">— Vincular (opcional) —</option>' + bud.map(i=>'<option value="'+i.id+'"'+(i.id===row.budId?' selected':'')+'>'+esc(i.phase+' · '+i.disc+' — '+i.desc)+'</option>').join('');
+    const fmtPunit  = (row.punit||0) > 0 ? (row.punit).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) : '';
+    const fmtQty    = row.qty != null ? String(row.qty) : '1';
+    const fmtTot    = (row.val||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
     html += '<div style="display:grid;grid-template-columns:'+cols+';gap:4px;margin-bottom:5px;align-items:center">' +
-      '<select style="'+inp+'" onchange="_entrySplitRows['+idx+'].disc=this.value">'+discOpts+'</select>' +
       '<select style="'+inp+'" onchange="_entrySplitRows['+idx+'].phase=this.value">'+phaseOpts+'</select>' +
+      '<select style="'+inp+'" onchange="_entrySplitRows['+idx+'].disc=this.value">'+discOpts+'</select>' +
       '<input type="text" style="'+inp+'" placeholder="Descrição do item" value="'+esc(row.desc)+'" oninput="_entrySplitRows['+idx+'].desc=this.value"/>' +
+      '<select style="'+inp+'" onchange="_entrySplitRows['+idx+'].unit=this.value">'+unitOpts+'</select>' +
+      '<input type="number" style="'+inp+';text-align:right" placeholder="1" min="0" step="any" value="'+fmtQty+'" oninput="_entrySplitRows['+idx+'].qty=parseFloat(this.value)||0;calcEntryRowVal('+idx+')"/>' +
       '<select style="'+inp+'" onchange="_entrySplitRows['+idx+'].catClass=this.value">' +
         '<option value=""'+(row.catClass===''?' selected':'')+'>— Geral —</option>' +
         '<option value="mat"'+(row.catClass==='mat'?' selected':'')+'>Material</option>' +
@@ -6219,7 +6239,8 @@ function renderEntrySplitRows() {
         '<option value="srv"'+(row.catClass==='srv'?' selected':'')+'>Serviço</option>' +
         '<option value="acab"'+(row.catClass==='acab'?' selected':'')+'>Acabamento</option>' +
       '</select>' +
-      '<input type="text" style="'+inp+';text-align:right" placeholder="0,00" value="'+fmtVal+'" oninput="formatBRLInput(this);_entrySplitRows['+idx+'].val=parseFloat(this.value.replace(/\\./g,\'\').replace(\',\',\'.\'))||0;syncEntryTot()"/>' +
+      '<input type="text" style="'+inp+';text-align:right" placeholder="0,00" value="'+fmtPunit+'" oninput="formatBRLInput(this);_entrySplitRows['+idx+'].punit=parseFloat(this.value.replace(/\\./g,\'\').replace(\',\',\'.\'))||0;calcEntryRowVal('+idx+')"/>' +
+      '<span id="e-row-tot-'+idx+'" style="font-size:11px;font-weight:700;text-align:right;padding:4px 6px">'+fmtTot+'</span>' +
       '<select style="'+inp+'" onchange="_entrySplitRows['+idx+'].budId=this.value">'+budOpts+'</select>' +
       (multi ? '<button onclick="_entrySplitRows.splice('+idx+',1);renderEntrySplitRows()" style="background:none;border:none;cursor:pointer;color:var(--danger);font-size:18px;line-height:1;padding:0">&#215;</button>' : '') +
     '</div>';
@@ -6230,8 +6251,18 @@ function renderEntrySplitRows() {
   syncEntryTot();
 }
 
+function calcEntryRowVal(idx) {
+  const row = _entrySplitRows[idx];
+  if (!row) return;
+  row.val = Math.round((parseFloat(row.qty)||1) * (parseFloat(row.punit)||0) * 100) / 100;
+  const totEl = document.getElementById('e-row-tot-'+idx);
+  if (totEl) totEl.textContent = row.val.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+  syncEntryTot();
+}
+
 function addEntryItem() {
-  _entrySplitRows.push({id:uid(), disc:'', phase:'', desc:'', catClass:'', val:0, budId:''});
+  const last = _entrySplitRows[_entrySplitRows.length-1] || {};
+  _entrySplitRows.push({id:uid(), phase:last.phase||'', disc:last.disc||'', desc:'', unit:last.unit||'vb', qty:1, punit:0, catClass:last.catClass||'', val:0, budId:''});
   renderEntrySplitRows();
   setTimeout(() => {
     const inputs = document.querySelectorAll('#e-split-rows input[placeholder="Descrição do item"]');
@@ -6249,9 +6280,11 @@ function syncEntryTot() {
 }
 
 // Helper to set first split row from external code (lancarBI, measurement pre-fill)
-function setEntryRow0(disc, phase, desc, catClass, val, budId) {
-  if (!_entrySplitRows.length) _entrySplitRows = [{id:uid(), disc:'', phase:'', desc:'', catClass:'', val:0, budId:''}];
-  _entrySplitRows[0] = {id: _entrySplitRows[0].id || uid(), disc:disc||'', phase:phase||'', desc:desc||'', catClass:catClass||'', val:val||0, budId:budId||''};
+function setEntryRow0(phase, disc, desc, catClass, val, budId, unit, qty) {
+  if (!_entrySplitRows.length) _entrySplitRows = [{id:uid(), phase:'', disc:'', desc:'', unit:'vb', qty:1, punit:0, catClass:'', val:0, budId:''}];
+  const _qty = qty || 1;
+  const _punit = _qty > 0 ? Math.round((val||0) / _qty * 100) / 100 : (val||0);
+  _entrySplitRows[0] = {id:_entrySplitRows[0].id||uid(), phase:phase||'', disc:disc||'', desc:desc||'', unit:unit||'vb', qty:_qty, punit:_punit, catClass:catClass||'', val:val||0, budId:budId||''};
   renderEntrySplitRows();
 }
 // ────────────────────────────────────────────────────────────────────────
@@ -6290,10 +6323,11 @@ function openEntryModal(editId) {
       if (hasReemb) document.getElementById('e-reemb-for').value = e.reemb.for;
       // Load split rows
       if (e.isSplit && e.splits && e.splits.length) {
-        _entrySplitRows = e.splits.map(s=>({id:s.id||uid(), disc:s.disc||'', phase:s.phase||'', desc:s.desc||'', catClass:s.catClass||'', val:s.val||0, budId:s.budId||''}));
+        _entrySplitRows = e.splits.map(s=>{ const _v=s.val||0,_q=s.qty||1; return {id:s.id||uid(), phase:s.phase||'', disc:s.disc||'', desc:s.desc||'', unit:s.unit||'vb', qty:_q, punit:s.punit||Math.round(_v/_q*100)/100, catClass:s.catClass||'', val:_v, budId:s.budId||''}; });
       } else {
-        _entrySplitRows = [{id:uid(), disc:e.disc||'', phase:e.phase||'', desc:e.desc||'', catClass:e.catClass||'', val:e.tot||0, budId:e.budId||''}];
+        const _v=e.tot||0,_q=e.qty||1; _entrySplitRows = [{id:uid(), phase:e.phase||'', disc:e.disc||'', desc:e.desc||'', unit:e.unit||'vb', qty:_q, punit:e.punit||Math.round(_v/_q*100)/100, catClass:e.catClass||'', val:_v, budId:e.budId||''}];
       }
+      updateNFLabel();
     }
   } else {
     const iso = todayStr();
@@ -6314,7 +6348,8 @@ function openEntryModal(editId) {
     document.getElementById('e-reemb-for-row').style.display = 'none';
     document.getElementById('e-reemb-for').value = '_gerenc';
     // Default split row (pre-fill from last entry if available)
-    _entrySplitRows = [{id:uid(), disc:last.disc||'', phase:last.phase||'', desc:'', catClass:'', val:0, budId:last.budId||''}];
+    _entrySplitRows = [{id:uid(), phase:last.phase||'', disc:last.disc||'', desc:'', unit:'vb', qty:1, punit:0, catClass:'', val:0, budId:last.budId||''}];
+    updateNFLabel();
   }
   renderEntrySplitRows();
   genInst(); openModal('mod-entry');
@@ -6404,9 +6439,23 @@ function saveEntry() {
     reemb: document.getElementById('e-reemb').checked
       ? { for: document.getElementById('e-reemb-for').value, relatorioId: null }
       : null};
+  // Auto-create budget items for split rows that have no budId
+  const entryId = editId || uid();
+  if (isSplit) {
+    const bud = DB.get('budget') || [];
+    rows.forEach(row => {
+      if (!row.budId) {
+        const newBI = {id:uid(), phase:row.phase||'', disc:row.disc||'', desc:row.desc||'', unit:row.unit||'vb', qty:row.qty||1,
+          pmo:row.catClass==='mo'?row.val:0, pmat:row.catClass==='mat'?row.val:0, pacab:row.catClass==='acab'?row.val:0, psrv:row.catClass==='srv'?row.val:0,
+          price:row.punit||row.val, tot:row.val, type:'contracted', supplierId, supCols:null, pctFis:0, compoeBase:baseEntry.base, splitEntryId:entryId, splitId:row.id};
+        bud.push(newBI); row.budId = newBI.id;
+      }
+    });
+    DB.set('budget', bud);
+  }
   const entry = isSplit
-    ? {...baseEntry, isSplit:true, desc: nf ? 'NF '+nf : rows.map(r=>r.desc).filter(Boolean).join(' / ') || 'NF Split', splits: rows}
-    : {...baseEntry, isSplit:false, desc:r0.desc||'', disc:r0.disc||'', phase:r0.phase||'', catClass:r0.catClass||'', budId:r0.budId||null};
+    ? {...baseEntry, id:entryId, isSplit:true, desc: nf ? 'NF '+nf : rows.map(r=>r.desc).filter(Boolean).join(' / ') || 'NF Split', splits: rows}
+    : {...baseEntry, id:entryId, isSplit:false, desc:r0.desc||'', disc:r0.disc||'', phase:r0.phase||'', catClass:r0.catClass||'', budId:r0.budId||null, unit:r0.unit||'vb', qty:r0.qty||1, punit:r0.punit||0};
   if (editId) {
     const old = entries.find(x=>x.id===editId);
     if (old) {
@@ -6804,7 +6853,7 @@ function lancarBI(id) {
   openEntryModal();
   setTimeout(() => {
     if (item.supplierId) document.getElementById('e-sup').value = item.supplierId;
-    setEntryRow0(item.disc||'', item.phase||'', item.desc||'', _catClass, item.tot||0, item.id);
+    setEntryRow0(item.phase||'', item.disc||'', item.desc||'', _catClass, item.tot||0, item.id, item.unit||'vb', item.qty||1);
     genInst();
   }, 50);
 }
