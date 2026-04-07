@@ -6244,7 +6244,6 @@ function renderEntrySplitRows() {
       '<select style="'+inp+'" onchange="_entrySplitRows['+idx+'].unit=this.value">'+unitOpts+'</select>' +
       '<input type="number" style="'+inp+';text-align:right" placeholder="1" min="0" step="any" value="'+fmtQty+'" oninput="_entrySplitRows['+idx+'].qty=parseFloat(this.value)||0;calcEntryRowVal('+idx+')"/>' +
       '<select style="'+inp+'" onchange="_entrySplitRows['+idx+'].catClass=this.value">' +
-        '<option value=""'+(row.catClass===''?' selected':'')+'>— Geral —</option>' +
         '<option value="mat"'+(row.catClass==='mat'?' selected':'')+'>Material</option>' +
         '<option value="mo"'+(row.catClass==='mo'?' selected':'')+'>Mão de Obra</option>' +
         '<option value="srv"'+(row.catClass==='srv'?' selected':'')+'>Serviço</option>' +
@@ -6273,7 +6272,7 @@ function calcEntryRowVal(idx) {
 
 function addEntryItem() {
   const last = _entrySplitRows[_entrySplitRows.length-1] || {};
-  _entrySplitRows.push({id:uid(), phase:last.phase||'', disc:last.disc||'', desc:'', unit:last.unit||'vb', qty:1, punit:0, catClass:last.catClass||'', val:0, budId:''});
+  _entrySplitRows.push({id:uid(), phase:last.phase||'', disc:last.disc||'', desc:'', unit:last.unit||'vb', qty:1, punit:0, catClass:last.catClass||'mat', val:0, budId:''});
   renderEntrySplitRows();
   setTimeout(() => {
     const inputs = document.querySelectorAll('#e-split-rows input[placeholder="Descrição do item"]');
@@ -6359,7 +6358,7 @@ function openEntryModal(editId) {
     document.getElementById('e-reemb-for-row').style.display = 'none';
     document.getElementById('e-reemb-for').value = '_gerenc';
     // Default split row (pre-fill from last entry if available)
-    _entrySplitRows = [{id:uid(), phase:last.phase||'', disc:last.disc||'', desc:'', unit:'vb', qty:1, punit:0, catClass:'', val:0, budId:''}];
+    _entrySplitRows = [{id:uid(), phase:last.phase||'', disc:last.disc||'', desc:'', unit:'vb', qty:1, punit:0, catClass:'mat', val:0, budId:''}];
     updateNFLabel();
   }
   renderEntrySplitRows();
