@@ -6439,19 +6439,21 @@ function saveEntry() {
     reemb: document.getElementById('e-reemb').checked
       ? { for: document.getElementById('e-reemb-for').value, relatorioId: null }
       : null};
-  // Auto-create budget items for split rows that have no budId
+  // Auto-create budget items for any rows without budId (single or split)
   const entryId = editId || uid();
-  if (isSplit) {
+  {
     const bud = DB.get('budget') || [];
+    let budChanged = false;
     rows.forEach(row => {
       if (!row.budId) {
         const newBI = {id:uid(), phase:row.phase||'', disc:row.disc||'', desc:row.desc||'', unit:row.unit||'vb', qty:row.qty||1,
           pmo:row.catClass==='mo'?row.val:0, pmat:row.catClass==='mat'?row.val:0, pacab:row.catClass==='acab'?row.val:0, psrv:row.catClass==='srv'?row.val:0,
-          price:row.punit||row.val, tot:row.val, type:'contracted', supplierId, supCols:null, pctFis:0, compoeBase:baseEntry.base, splitEntryId:entryId, splitId:row.id};
-        bud.push(newBI); row.budId = newBI.id;
+          price:row.punit||row.val, tot:row.val, type:'contracted', supplierId, supCols:null, pctFis:0, compoeBase:baseEntry.base,
+          ...(isSplit ? {splitEntryId:entryId, splitId:row.id} : {})};
+        bud.push(newBI); row.budId = newBI.id; budChanged = true;
       }
     });
-    DB.set('budget', bud);
+    if (budChanged) DB.set('budget', bud);
   }
   const entry = isSplit
     ? {...baseEntry, id:entryId, isSplit:true, desc: nf ? 'NF '+nf : rows.map(r=>r.desc).filter(Boolean).join(' / ') || 'NF Split', splits: rows}
