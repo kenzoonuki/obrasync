@@ -6359,7 +6359,7 @@ function openEntryModal(editId) {
     document.getElementById('e-reemb-for-row').style.display = 'none';
     document.getElementById('e-reemb-for').value = '_gerenc';
     // Default split row (pre-fill from last entry if available)
-    _entrySplitRows = [{id:uid(), phase:last.phase||'', disc:last.disc||'', desc:'', unit:'vb', qty:1, punit:0, catClass:'', val:0, budId:last.budId||''}];
+    _entrySplitRows = [{id:uid(), phase:last.phase||'', disc:last.disc||'', desc:'', unit:'vb', qty:1, punit:0, catClass:'', val:0, budId:''}];
     updateNFLabel();
   }
   renderEntrySplitRows();
@@ -6498,7 +6498,7 @@ function saveEntry() {
   if (!editId) { const _r0 = (_entrySplitRows||[])[0]||{}; DB.set('lastEntry', {
     comp:entry.comp, sup:entry.supplierId, disc:_r0.disc||'', phase:_r0.phase||'',
     cc:entry.cc, st:entry.st, dt:entry.dt, pm:entry.pm,
-    base:entry.base, budId:_r0.budId||''
+    base:entry.base
   }); }
   closeModal('mod-entry'); renderFinancial(); renderBudget(); renderDash();
   // If opened from "Marcar Paga" on a measurement, now mark it paid
