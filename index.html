@@ -6012,10 +6012,21 @@ function delSelectedBI() {
   );
 }
 function delBI(id) {
-  if (!confirm('Excluir item?')) return;
+  const entries = DB.get('entries') || [];
+  const linked = entries.filter(e => e.budId === id || (e.splits||[]).some(s=>s.budId===id));
+  let msg = 'Excluir item do orçamento?';
+  if (linked.length) msg += '\n\n'+linked.length+' lançamento(s) vinculado(s) a este item. O vínculo será removido, mas os lançamentos são mantidos.';
+  if (!confirm(msg)) return;
+  if (linked.length) {
+    entries.forEach(e => {
+      if (e.budId === id) e.budId = null;
+      if (e.splits) e.splits.forEach(s => { if (s.budId === id) s.budId = ''; });
+    });
+    DB.set('entries', entries);
+  }
   if (window._biSelected) window._biSelected.delete(id);
   DB.set('budget', (DB.get('budget') || []).filter(i => i.id !== id));
-  renderBudget(); renderDash(); toast('Excluído');
+  renderBudget(); renderFinancial(); renderDash(); toast('Excluído');
 }
 
 // =====================================================================
@@ -6451,6 +6462,7 @@ function saveEntry() {
         const newBI = {id:uid(), phase:row.phase||'', disc:row.disc||'', desc:row.desc||'', unit:row.unit||'vb', qty:_qty,
           pmo:row.catClass==='mo'?_punit:0, pmat:row.catClass==='mat'?_punit:0, pacab:row.catClass==='acab'?_punit:0, psrv:row.catClass==='srv'?_punit:0,
           price:_punit, tot:row.val, type:'contracted', supplierId, supCols:null, pctFis:0, compoeBase:baseEntry.base,
+          entryId: entryId,
           ...(isSplit ? {splitEntryId:entryId, splitId:row.id} : {})};
         bud.push(newBI); row.budId = newBI.id; budChanged = true;
       }
@@ -6465,6 +6477,18 @@ function saveEntry() {
     if (old) {
       entry.insts = entry.insts.map((p,i) => { const op=old.insts[i]; return op&&op.status==='paid'?{...p,status:'paid',paidAt:op.paidAt,paidAmt:op.paidAmt,proof:op.proof}:p; });
       if (entry.reemb && old.reemb?.relatorioId) entry.reemb.relatorioId = old.reemb.relatorioId;
+    }
+    // Update auto-created budget item if exists
+    { const _bud = DB.get('budget') || [];
+      const _autoBI = _bud.find(i => i.entryId === editId || i.splitEntryId === editId);
+      if (_autoBI) {
+        const _r = !isSplit ? (rows[0]||{}) : (rows.find(r=>r.id===_autoBI.splitId)||rows[0]||{});
+        const _q = _r.qty||1, _pu = _r.punit||(_r.val/_q)||0;
+        Object.assign(_autoBI, {phase:_r.phase||'', disc:_r.disc||'', desc:_r.desc||'', unit:_r.unit||'vb', qty:_q,
+          pmo:_r.catClass==='mo'?_pu:0, pmat:_r.catClass==='mat'?_pu:0, pacab:_r.catClass==='acab'?_pu:0, psrv:_r.catClass==='srv'?_pu:0,
+          price:_pu, tot:_r.val, supplierId});
+        DB.set('budget', _bud);
+      }
     }
     const idx = entries.findIndex(e=>e.id===editId);
     if (idx>-1) entries[idx]=entry; else entries.push(entry);
@@ -6491,18 +6515,12 @@ function delEntry(id) {
   const entries = DB.get('entries') || [];
   const entry = entries.find(e => e.id === id);
   if (!entry) return;
-  if (entry.isSplit) {
-    // Find auto-created budget items for this split entry
-    const bud = DB.get('budget') || [];
-    const autoItems = bud.filter(i => i.splitEntryId === id);
-    const msg = autoItems.length
-      ? 'Excluir este lançamento?\n\nAtenção: '+autoItems.length+' item(ns) do orçamento foram criados automaticamente por esta NF.\nDeseja excluí-los também?'
-      : 'Excluir este lançamento?';
-    if (!confirm(msg)) return;
-    if (autoItems.length) DB.set('budget', bud.filter(i => i.splitEntryId !== id));
-  } else {
-    if (!confirm('Excluir este lançamento?')) return;
-  }
+  const bud = DB.get('budget') || [];
+  const autoItems = bud.filter(i => i.entryId === id || i.splitEntryId === id);
+  let msg = 'Excluir este lançamento?';
+  if (autoItems.length) msg += '\n\n' + autoItems.length + ' item(ns) do orçamento vinculado(s) a este lançamento também será(ão) excluído(s).';
+  if (!confirm(msg)) return;
+  if (autoItems.length) DB.set('budget', bud.filter(i => i.entryId !== id && i.splitEntryId !== id));
   DB.set('entries', entries.filter(e => e.id !== id));
   renderFinancial(); renderBudget(); renderDash(); toast('Excluído');
 }
