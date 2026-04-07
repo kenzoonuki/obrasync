@@ -6222,7 +6222,7 @@ function renderEntrySplitRows() {
     const phaseOpts = ['', ...(c.phases||[]).slice().sort((a,b)=>String(a).localeCompare(String(b),'pt-BR'))].map(p=>'<option value="'+esc(p)+'"'+(p===row.phase?' selected':'')+'>'+esc(p||'— Fase —')+'</option>').join('');
     const discOpts  = ['', ...(c.disciplines||[]).slice().sort((a,b)=>String(a).localeCompare(String(b),'pt-BR'))].map(d=>'<option value="'+esc(d)+'"'+(d===row.disc?' selected':'')+'>'+esc(d||'— Disc —')+'</option>').join('');
     const unitOpts  = units.map(u=>'<option value="'+esc(u)+'"'+(u===(row.unit||'vb')?' selected':'')+'>'+esc(u)+'</option>').join('');
-    const budOpts   = '<option value="">— Vincular (opcional) —</option>' + bud.map(i=>'<option value="'+i.id+'"'+(i.id===row.budId?' selected':'')+'>'+esc(i.phase+' · '+i.disc+' — '+i.desc)+'</option>').join('');
+    const budOpts   = '<option value="">+ Novo Item no Orçamento</option>' + bud.map(i=>'<option value="'+i.id+'"'+(i.id===row.budId?' selected':'')+'>'+esc(i.phase+' · '+i.disc+' — '+i.desc)+'</option>').join('');
     const fmtPunit  = (row.punit||0) > 0 ? (row.punit).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) : '';
     const fmtQty    = row.qty != null ? String(row.qty) : '1';
     const fmtTot    = (row.val||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
@@ -6446,9 +6446,11 @@ function saveEntry() {
     let budChanged = false;
     rows.forEach(row => {
       if (!row.budId) {
-        const newBI = {id:uid(), phase:row.phase||'', disc:row.disc||'', desc:row.desc||'', unit:row.unit||'vb', qty:row.qty||1,
-          pmo:row.catClass==='mo'?row.val:0, pmat:row.catClass==='mat'?row.val:0, pacab:row.catClass==='acab'?row.val:0, psrv:row.catClass==='srv'?row.val:0,
-          price:row.punit||row.val, tot:row.val, type:'contracted', supplierId, supCols:null, pctFis:0, compoeBase:baseEntry.base,
+        const _qty   = row.qty  || 1;
+        const _punit = row.punit || (row.val / _qty);
+        const newBI = {id:uid(), phase:row.phase||'', disc:row.disc||'', desc:row.desc||'', unit:row.unit||'vb', qty:_qty,
+          pmo:row.catClass==='mo'?_punit:0, pmat:row.catClass==='mat'?_punit:0, pacab:row.catClass==='acab'?_punit:0, psrv:row.catClass==='srv'?_punit:0,
+          price:_punit, tot:row.val, type:'contracted', supplierId, supCols:null, pctFis:0, compoeBase:baseEntry.base,
           ...(isSplit ? {splitEntryId:entryId, splitId:row.id} : {})};
         bud.push(newBI); row.budId = newBI.id; budChanged = true;
       }
