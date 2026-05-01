@@ -787,15 +787,15 @@ tfoot td{padding:10px 0;border-top:2px solid var(--black);font-weight:800;font-s
           <button class="btn btn-g btn-sm" onclick="toggleAllEntryCollapse(true)" style="font-size:11px">&#8722; Recolher todos</button>
         </div>
       </div>
-      <div class="fg mb16" style="gap:12px;flex-wrap:wrap">
-        <div style="display:flex;align-items:center;gap:6px">
-          <span class="flbl">Fornecedor:</span>
+      <div class="fg mb16" style="gap:16px;flex-wrap:wrap;align-items:flex-end">
+        <div style="display:flex;flex-direction:column;gap:3px">
+          <span class="flbl">Fornecedor</span>
           <select id="fin-sup-sel" onchange="setFinSup(this.value)" style="font-size:12px;padding:4px 8px;border:1px solid var(--g300);border-radius:4px;background:var(--white)">
             <option value="all">Todos</option>
           </select>
         </div>
-        <div style="display:flex;align-items:center;gap:6px">
-          <span class="flbl">Status:</span>
+        <div style="display:flex;flex-direction:column;gap:3px">
+          <span class="flbl">Status</span>
           <select id="fin-status-sel" onchange="setFF(null,this.value)" style="font-size:12px;padding:4px 8px;border:1px solid var(--g300);border-radius:4px;background:var(--white)">
             <option value="all">Todos</option>
             <option value="open">Em aberto</option>
@@ -804,8 +804,8 @@ tfoot td{padding:10px 0;border-top:2px solid var(--black);font-weight:800;font-s
             <option value="fee">Honorários</option>
           </select>
         </div>
-        <div style="display:flex;align-items:center;gap:6px">
-          <span class="flbl">Ordenar:</span>
+        <div style="display:flex;flex-direction:column;gap:3px">
+          <span class="flbl">Ordenar</span>
           <select id="fin-sort-sel" onchange="setSortFF(null,this.value)" style="font-size:12px;padding:4px 8px;border:1px solid var(--g300);border-radius:4px;background:var(--white)">
             <option value="comp">Competência</option>
             <option value="date">Lançamento</option>
@@ -1049,22 +1049,22 @@ tfoot td{padding:10px 0;border-top:2px solid var(--black);font-weight:800;font-s
             <button class="btn btn-g" onclick="exportBudgetPDF()">&#128196; PDF A4</button>
           </div>
         </div>
-        <div class="fg mb16 bud-screen-only" style="gap:12px;flex-wrap:wrap">
-          <div style="display:flex;align-items:center;gap:6px">
-            <span class="flbl">Visão:</span>
+        <div class="fg mb16 bud-screen-only" style="gap:16px;flex-wrap:wrap;align-items:flex-end">
+          <div style="display:flex;flex-direction:column;gap:3px">
+            <span class="flbl">Visão</span>
             <select id="bud-tab-sel" onchange="setBudTab(this.value,null)" style="font-size:12px;padding:4px 8px;border:1px solid var(--g300);border-radius:4px;background:var(--white)">
               <option value="all">Global</option>
               <option value="disc">Por Disciplina</option>
             </select>
           </div>
-          <div style="display:flex;align-items:center;gap:6px">
-            <span class="flbl">Fornecedor:</span>
+          <div style="display:flex;flex-direction:column;gap:3px">
+            <span class="flbl">Fornecedor</span>
             <select id="bud-sup-sel" onchange="setBudSup(null,this.value)" style="font-size:12px;padding:4px 8px;border:1px solid var(--g300);border-radius:4px;background:var(--white)">
               <option value="all">Todos</option>
             </select>
           </div>
-          <div style="display:flex;align-items:center;gap:6px">
-            <span class="flbl">Fase:</span>
+          <div style="display:flex;flex-direction:column;gap:3px">
+            <span class="flbl">Fase</span>
             <select id="bud-phase-sel" onchange="setBudPhase(null,this.value)" style="font-size:12px;padding:4px 8px;border:1px solid var(--g300);border-radius:4px;background:var(--white)">
               <option value="all">Todas</option>
             </select>
