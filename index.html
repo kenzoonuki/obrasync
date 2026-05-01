@@ -787,6 +787,10 @@ tfoot td{padding:10px 0;border-top:2px solid var(--black);font-weight:800;font-s
           <button class="btn btn-g btn-sm" onclick="toggleAllEntryCollapse(true)" style="font-size:11px">&#8722; Recolher todos</button>
         </div>
       </div>
+      <div class="fg mb16" id="fin-sup-pills">
+        <span class="flbl">Fornecedor:</span>
+        <button class="pill active" onclick="setFinSup('all')">Todos</button>
+      </div>
       <div class="fg mb16" id="fin-filter-pills">
         <span class="flbl">Status:</span>
         <button class="pill active" onclick="setFF(this,'all')">Todos</button>
@@ -1191,7 +1195,7 @@ tfoot td{padding:10px 0;border-top:2px solid var(--black);font-weight:800;font-s
     <div style="border-top:1px solid var(--g200);margin:14px 0 10px;padding-top:14px">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
         <span style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em">Itens da Nota Fiscal</span>
-        <button class="btn btn-g btn-sm" onclick="addEntryItem()">+ Adicionar Item</button>
+        <button id="e-add-item-btn" class="btn btn-g btn-sm" onclick="addEntryItem()">+ Adicionar Item</button>
       </div>
       <div id="e-split-hdr" style="display:grid;grid-template-columns:90px 90px 1fr 50px 50px 90px 80px 80px 140px;gap:4px;margin-bottom:4px;padding:0 2px">
         <span style="font-size:9px;font-weight:700;text-transform:uppercase;color:var(--g500)">Fase</span>
@@ -1216,7 +1220,7 @@ tfoot td{padding:10px 0;border-top:2px solid var(--black);font-weight:800;font-s
       <small>Desmarque para gastos fora da obra gerenciada (ex: impostos)</small></div>
     </div>
     <div class="chk" style="margin-top:8px">
-      <input type="checkbox" id="e-reemb" onchange="document.getElementById('e-reemb-for-row').style.display=this.checked?'':'none'"/>
+      <input type="checkbox" id="e-reemb" onchange="document.getElementById('e-reemb-for-row').style.display=this.checked?'':'none';if(this.checked){const _supSel=document.getElementById('e-sup');const _sid=_supSel?.value;if(_sid)document.getElementById('e-reemb-for').value=_sid;}"/>
       <div><label for="e-reemb" style="font-weight:700">Reembolsável</label>
       <small>Incluir nas cobranças de reembolso ao cliente</small></div>
     </div>
@@ -3003,6 +3007,7 @@ function buildPies() {
 // =====================================================================
 let finFilter = 'all';
 let finSort   = 'comp';
+let finSupFilter = 'all';
 function setFF(btn, f) {
   finFilter = f;
   document.querySelectorAll('#fin-filter-pills .pill').forEach(p => p.classList.remove('active'));
@@ -3013,6 +3018,10 @@ function setSortFF(btn, s) {
   finSort = s;
   document.querySelectorAll('#fin-sort-pills .pill').forEach(p => p.classList.remove('active'));
   btn.classList.add('active');
+  renderFinancial();
+}
+function setFinSup(supId) {
+  finSupFilter = supId;
   renderFinancial();
 }
 // Track selected entries for bulk actions
@@ -3119,6 +3128,21 @@ function renderFinancial() {
   document.getElementById('fin-acts').style.display = isC ? 'none' : 'flex';
   document.getElementById('fin-note').style.display = isC ? 'none' : 'block';
 
+  // ── Supplier pills ────────────────────────────────────────────────
+  const _sups = DB.get('suppliers') || [];
+  const _supIdsInEntries = [...new Set(entries.map(e => {
+    const sup = _sups.find(s => s.name === e.sup || s.id === e.sup);
+    return sup ? sup.id : null;
+  }).filter(Boolean))];
+  const _supPills = _supIdsInEntries.map(sid => {
+    const s = _sups.find(x => x.id === sid);
+    return s ? '<button class="pill'+(finSupFilter===sid?' active':'')+'" onclick="setFinSup(\''+sid+'\')">'+esc(s.name)+'</button>' : '';
+  }).join('');
+  const _supPillsEl = document.getElementById('fin-sup-pills');
+  if (_supPillsEl) {
+    _supPillsEl.innerHTML = '<button class="pill'+(finSupFilter==='all'?' active':'')+'" onclick="setFinSup(\'all\')">Todos</button>' + _supPills;
+  }
+
   const _ec = DB.get('entryCollapsed') || {};
   let html = '';
   let hasEntries = false;
@@ -3136,6 +3160,10 @@ function renderFinancial() {
   sorted.forEach(e => {
     const nb = e.base === false;
     const isFee = !!e.isFee;
+    if (finSupFilter !== 'all') {
+      const _sup = _sups.find(s => s.name === e.sup || s.id === e.sup);
+      if (!_sup || _sup.id !== finSupFilter) return;
+    }
     if (finFilter === 'nobase' && (!nb || isFee)) return;
     if (finFilter === 'fee' && !isFee) return;
     if (finFilter === 'open' && !e.insts.some(p => p.status !== 'paid')) return;
@@ -3340,18 +3368,33 @@ function renderSuppliers() {
 function getReembItems() {
   const entries = DB.get('entries') || [];
   const legacy  = DB.get('reembolsos') || [];
+  const _allSups = DB.get('suppliers') || [];
   const fromEntries = entries
     .filter(e => e.reemb && e.reemb.for)
-    .map(e => ({
-      id: e.id, _fromEntry: true,
-      supId: e.reemb.for,
-      date: e.date || '',
-      desc: e.desc || '',
-      nf: e.nf || '',
-      val: e.tot || 0,
-      notes: e.notes || '',
-      relatorioId: e.reemb.relatorioId || null
-    }));
+    .map(e => {
+      // If reemb.for is _gerenc or a valid supplier ID, use it.
+      // Otherwise try to match by supplier name (e.sup) to get the ID.
+      let supId = e.reemb.for;
+      if (supId !== '_gerenc') {
+        const byId = _allSups.find(s => s.id === supId);
+        if (!byId) {
+          // fallback: try to find by name (e.sup)
+          const byName = _allSups.find(s => s.name === e.sup || s.id === e.sup);
+          if (byName) supId = byName.id;
+        }
+      }
+      return {
+        id: e.id, _fromEntry: true,
+        supId,
+        date: e.date || '',
+        desc: e.desc || '',
+        nf: e.nf || '',
+        val: e.tot || 0,
+        notes: e.notes || '',
+        relatorioId: e.reemb.relatorioId || null,
+        _supName: e.sup || ''
+      };
+    });
   return [...fromEntries, ...legacy];
 }
 let rbTab = 'pendentes';
@@ -3390,7 +3433,7 @@ function renderReembolsos() {
   let html = '';
   Object.entries(grouped).forEach(([supId, items]) => {
     const sup = supId==='_gerenc' ? {name:'Gerenciador de Obra',bank:'',agency:'',account:'',pix:''} : sups.find(s=>s.id===supId);
-    const supName = sup ? sup.name : 'Desconhecido';
+    const supName = sup ? sup.name : (items[0]?._supName || 'Desconhecido');
     const tot = items.reduce((s,r)=>s+r.val,0);
     html += '<div class="mcard" style="margin-bottom:12px">';
     html += '<div class="mcard-hdr"><div>';
@@ -3878,8 +3921,9 @@ function renderMeas() {
   if (!fil.length) html = '<div class="inote" style="margin-bottom:16px">Nenhuma medição encontrada.</div>';
   fil.forEach(m => {
     const sup     = sups.find(s => s.id === m.supplierId);
-    const stLabel = {draft:'Rascunho',approved:'Aprovada',paid:'Paga'}[m.status] || m.status;
-    const stCls   = {draft:'b-draft',approved:'b-approved',paid:'badge-ok'}[m.status] || 'b-draft';
+    const _st     = m.status || 'approved';
+    const stLabel = {draft:'Rascunho',approved:'Aprovada',paid:'Paga'}[_st] || _st;
+    const stCls   = {draft:'b-draft',approved:'b-approved',paid:'badge-ok'}[_st] || 'b-approved';
     const itemsHtml = (m.items || []).map(it => {
       const bi = bud.find(b => b.id === it.biId);
       return '<div class="mcard-item">' +
@@ -3903,7 +3947,7 @@ function renderMeas() {
       '<button class="btn btn-g btn-sm" onclick="openBoletim(\''+m.id+'\')">&#128196; Boletim</button>' +
       (m.status==='draft'?'<button class="btn btn-e btn-sm" onclick="openNewMeasWizard(null,\''+m.id+'\')">Editar</button>':'<button class="btn btn-e btn-sm" onclick="openNewMeasWizard(null,\''+m.id+'\',true)">&#9998; Corrigir</button>') +
       (m.status==='draft'?'<button class="btn btn-p btn-sm" onclick="approveMeas2(\''+m.id+'\')">Aprovar</button>':'') +
-      (m.status==='approved'?'<button class="btn btn-p btn-sm" onclick="markMeasPaid(\''+m.id+'\')">Marcar Paga</button>':'') +
+      (m.status!=='draft'&&m.status!=='paid'?'<button class="btn btn-p btn-sm" onclick="markMeasPaid(\''+m.id+'\')">Marcar Paga</button>':'') +
       '<button class="btn btn-d" onclick="delMeas2(\''+m.id+'\')">&#10005;</button>' +
       '</div></div>' +
       '<div class="mcard-items">' +
@@ -4074,9 +4118,15 @@ function markMeasPaid(id) {
   document.getElementById('e-fd').value = todayStr();
   document.getElementById('e-notes').value = 'Medi\u00e7\u00e3o de obra per\u00edodo '+fmtP(m.per);
   document.getElementById('e-base').checked = true;
-  _entrySplitRows = [{id:uid(), disc:_measDiscs[0]||'', phase:_measPhases[0]||'', desc:'Med. '+String(m.seqNum).padStart(3,'0')+' — '+(sup?sup.name:''), catClass:_measCatClass, val:m.total||0, budId:''}];
+  // For measurement payments: pre-fill budId when there's exactly one linked budget item
+  const _preBudId = _measBIs.length === 1 ? _measBIs[0].id : '';
+  _entrySplitRows = [{id:uid(), disc:_measDiscs[0]||'', phase:_measPhases[0]||'', desc:'Med. '+String(m.seqNum).padStart(3,'0')+' — '+(sup?sup.name:''), catClass:_measCatClass, val:m.total||0, budId:_preBudId}];
   renderEntrySplitRows();
   genInst();
+  // Flag: hide "+ Novo Item no Orçamento" option and "+ Adicionar Item" button
+  window._isMeasPayment = true;
+  const _addBtn = document.getElementById('e-add-item-btn');
+  if (_addBtn) _addBtn.style.display = 'none';
   // store reference so we can mark meas paid after saving
   window._pendingMeasPaidId = id;
   openModal('mod-entry');
@@ -6233,7 +6283,8 @@ function renderEntrySplitRows() {
     const phaseOpts = ['', ...(c.phases||[]).slice().sort((a,b)=>String(a).localeCompare(String(b),'pt-BR'))].map(p=>'<option value="'+esc(p)+'"'+(p===row.phase?' selected':'')+'>'+esc(p||'— Fase —')+'</option>').join('');
     const discOpts  = ['', ...(c.disciplines||[]).slice().sort((a,b)=>String(a).localeCompare(String(b),'pt-BR'))].map(d=>'<option value="'+esc(d)+'"'+(d===row.disc?' selected':'')+'>'+esc(d||'— Disc —')+'</option>').join('');
     const unitOpts  = units.map(u=>'<option value="'+esc(u)+'"'+(u===(row.unit||'vb')?' selected':'')+'>'+esc(u)+'</option>').join('');
-    const budOpts   = '<option value="">+ Novo Item no Orçamento</option>' + bud.map(i=>'<option value="'+i.id+'"'+(i.id===row.budId?' selected':'')+'>'+esc(i.phase+' · '+i.disc+' — '+i.desc)+'</option>').join('');
+    const _newOpt   = window._isMeasPayment ? '<option value="">— Vincular (opcional) —</option>' : '<option value="">+ Novo Item no Orçamento</option>';
+    const budOpts   = _newOpt + bud.map(i=>'<option value="'+i.id+'"'+(i.id===row.budId?' selected':'')+'>'+esc(i.phase+' · '+i.disc+' — '+i.desc)+'</option>').join('');
     const fmtPunit  = (row.punit||0) > 0 ? (row.punit).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) : '';
     const fmtQty    = row.qty != null ? String(row.qty) : '1';
     const fmtTot    = (row.val||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
@@ -6300,6 +6351,9 @@ function setEntryRow0(phase, disc, desc, catClass, val, budId, unit, qty) {
 // ────────────────────────────────────────────────────────────────────────
 
 function openEntryModal(editId) {
+  window._isMeasPayment = false;
+  const _addBtn = document.getElementById('e-add-item-btn');
+  if (_addBtn) _addBtn.style.display = '';
   const c = cats();
   pop('e-cc',c.costcenters||[]); pop('e-st',c.servicetypes||[]);
   pop('e-dt',c.doctypes||[]); pop('e-pm',c.paymethods||[]);
@@ -6450,8 +6504,9 @@ function saveEntry() {
       ? { for: document.getElementById('e-reemb-for').value, relatorioId: null }
       : null};
   // Auto-create budget items for any rows without budId (single or split)
+  // Skip when launching payment for a measurement (items already exist in budget)
   const entryId = editId || uid();
-  {
+  if (!window._isMeasPayment) {
     const bud = DB.get('budget') || [];
     let budChanged = false;
     rows.forEach(row => {
@@ -6468,6 +6523,7 @@ function saveEntry() {
     });
     if (budChanged) DB.set('budget', bud);
   }
+  window._isMeasPayment = false;
   const entry = isSplit
     ? {...baseEntry, id:entryId, isSplit:true, desc: nf ? 'NF '+nf : rows.map(r=>r.desc).filter(Boolean).join(' / ') || 'NF Split', splits: rows}
     : {...baseEntry, id:entryId, isSplit:false, desc:r0.desc||'', disc:r0.disc||'', phase:r0.phase||'', catClass:r0.catClass||'', budId:r0.budId||null, unit:r0.unit||'vb', qty:r0.qty||1, punit:r0.punit||0};
