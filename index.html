@@ -6461,8 +6461,9 @@ function saveEntry() {
       ? { for: document.getElementById('e-reemb-for').value, relatorioId: null }
       : null};
   // Auto-create budget items for any rows without budId (single or split)
+  // Skip when launching payment for a measurement (items already exist in budget)
   const entryId = editId || uid();
-  {
+  if (!window._isMeasPayment) {
     const bud = DB.get('budget') || [];
     let budChanged = false;
     rows.forEach(row => {
@@ -6479,6 +6480,7 @@ function saveEntry() {
     });
     if (budChanged) DB.set('budget', bud);
   }
+  window._isMeasPayment = false;
   const entry = isSplit
     ? {...baseEntry, id:entryId, isSplit:true, desc: nf ? 'NF '+nf : rows.map(r=>r.desc).filter(Boolean).join(' / ') || 'NF Split', splits: rows}
     : {...baseEntry, id:entryId, isSplit:false, desc:r0.desc||'', disc:r0.disc||'', phase:r0.phase||'', catClass:r0.catClass||'', budId:r0.budId||null, unit:r0.unit||'vb', qty:r0.qty||1, punit:r0.punit||0};
