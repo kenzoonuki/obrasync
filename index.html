@@ -3894,11 +3894,18 @@ function physBasePerBI(item, meas2, sups) {
 }
 
 // ---- global feeBase recalc ----
+// Source of truth: sum of feeBase from all approved/paid gerenc records.
+// Falls back to physBasePerBI for projects that have no gerenc records yet.
 function calcFeeBase() {
+  const gerenc = DB.get('gerenc') || [];
+  const approved = gerenc.filter(g => g.status !== 'draft');
+  if (approved.length > 0) {
+    return approved.reduce((s, g) => s + (g.feeBase || 0), 0);
+  }
+  // No approved gerenc records yet — estimate from meas2/pctFis
   const bud   = DB.get('budget') || [];
   const meas2 = DB.get('meas2') || [];
   const sups  = DB.get('suppliers') || [];
-  // Only items with compoeBase !== false contribute to fee base
   return bud.filter(i => i.compoeBase !== false).reduce((s, i) => s + physBasePerBI(i, meas2, sups), 0);
 }
 
@@ -4088,8 +4095,12 @@ function renderMeas() {
     '<div class="feecell ok"><div class="fclbl">Pagos</div><div class="fcval">'+R(feePaid)+'</div></div>' +
     '<div class="feecell wn"><div class="fclbl">A Contratar</div><div class="fcval">'+R(feeOpen)+'</div></div>' +
     '<div class="feecell wn"><div class="fclbl">A Receber</div><div class="fcval">'+R(feeToPay)+'</div></div>';
+  const _gerencApproved = (DB.get('gerenc')||[]).filter(g=>g.status!=='draft');
   document.getElementById('fee-detail-note').innerHTML =
-    'Base = \u03a3 valores medidos dos fornecedores (Medi\u00e7\u00e3o) + \u03a3 (or\u00e7ado \u00d7 % f\u00edsico manual) dos fornecedores Direto = <strong>'+R(feeBase)+'</strong> \u00d7 '+FR().toFixed(1)+'% = <strong>'+R(feeMeasured)+'</strong>.';
+    (_gerencApproved.length > 0
+      ? 'Base = \u03a3 base das medi\u00e7\u00f5es de gerenciamento aprovadas ('+_gerencApproved.length+' medi\u00e7\u00f5es)'
+      : 'Base estimada a partir das medi\u00e7\u00f5es de fornecedores (nenhuma medi\u00e7\u00e3o de gerenciamento aprovada)'
+    ) + ' = <strong>'+R(feeBase)+'</strong> \u00d7 '+FR().toFixed(1)+'% = <strong>'+R(feeMeasured)+'</strong>.';
 }
 
 function approveMeas2(id) {
