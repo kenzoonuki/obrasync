@@ -787,23 +787,31 @@ tfoot td{padding:10px 0;border-top:2px solid var(--black);font-weight:800;font-s
           <button class="btn btn-g btn-sm" onclick="toggleAllEntryCollapse(true)" style="font-size:11px">&#8722; Recolher todos</button>
         </div>
       </div>
-      <div class="fg mb16" id="fin-sup-pills">
-        <span class="flbl">Fornecedor:</span>
-        <button class="pill active" onclick="setFinSup('all')">Todos</button>
-      </div>
-      <div class="fg mb16" id="fin-filter-pills">
-        <span class="flbl">Status:</span>
-        <button class="pill active" onclick="setFF(this,'all')">Todos</button>
-        <button class="pill" onclick="setFF(this,'open')">Em aberto</button>
-        <button class="pill" onclick="setFF(this,'paid')">Pagos</button>
-        <button class="pill" onclick="setFF(this,'nobase')">Fora da base</button>
-        <button class="pill" onclick="setFF(this,'fee')">Honorários</button>
-      </div>
-      <div class="fg mb16" id="fin-sort-pills">
-        <span class="flbl">Ordenar:</span>
-        <button class="pill active" onclick="setSortFF(this,'comp')">Competência</button>
-        <button class="pill" onclick="setSortFF(this,'date')">Lançamento</button>
-        <button class="pill" onclick="setSortFF(this,'paidAt')">Pagamento</button>
+      <div class="fg mb16" style="gap:12px;flex-wrap:wrap">
+        <div style="display:flex;align-items:center;gap:6px">
+          <span class="flbl">Fornecedor:</span>
+          <select id="fin-sup-sel" onchange="setFinSup(this.value)" style="font-size:12px;padding:4px 8px;border:1px solid var(--g300);border-radius:4px;background:var(--white)">
+            <option value="all">Todos</option>
+          </select>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px">
+          <span class="flbl">Status:</span>
+          <select id="fin-status-sel" onchange="setFF(null,this.value)" style="font-size:12px;padding:4px 8px;border:1px solid var(--g300);border-radius:4px;background:var(--white)">
+            <option value="all">Todos</option>
+            <option value="open">Em aberto</option>
+            <option value="paid">Pagos</option>
+            <option value="nobase">Fora da base</option>
+            <option value="fee">Honorários</option>
+          </select>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px">
+          <span class="flbl">Ordenar:</span>
+          <select id="fin-sort-sel" onchange="setSortFF(null,this.value)" style="font-size:12px;padding:4px 8px;border:1px solid var(--g300);border-radius:4px;background:var(--white)">
+            <option value="comp">Competência</option>
+            <option value="date">Lançamento</option>
+            <option value="paidAt">Pagamento</option>
+          </select>
+        </div>
       </div>
       <div id="entry-sel-bar" style="display:none;position:sticky;bottom:0;background:#000;color:#fff;padding:10px 16px;border-radius:8px;margin-bottom:8px;align-items:center;gap:12px;z-index:100">
         <span id="entry-sel-count" style="flex:1;font-size:13px;font-weight:700"></span>
@@ -1041,21 +1049,29 @@ tfoot td{padding:10px 0;border-top:2px solid var(--black);font-weight:800;font-s
             <button class="btn btn-g" onclick="exportBudgetPDF()">&#128196; PDF A4</button>
           </div>
         </div>
-        <div class="fg mb16 bud-screen-only">
-          <span class="flbl">Visão:</span>
-          <button class="pill active" id="bud-tab-all" onclick="setBudTab('all',this)">Global</button>
-          <button class="pill" id="bud-tab-disc" onclick="setBudTab('disc',this)">Por Disciplina</button>
+        <div class="fg mb16 bud-screen-only" style="gap:12px;flex-wrap:wrap">
+          <div style="display:flex;align-items:center;gap:6px">
+            <span class="flbl">Visão:</span>
+            <select id="bud-tab-sel" onchange="setBudTab(this.value,null)" style="font-size:12px;padding:4px 8px;border:1px solid var(--g300);border-radius:4px;background:var(--white)">
+              <option value="all">Global</option>
+              <option value="disc">Por Disciplina</option>
+            </select>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px">
+            <span class="flbl">Fornecedor:</span>
+            <select id="bud-sup-sel" onchange="setBudSup(null,this.value)" style="font-size:12px;padding:4px 8px;border:1px solid var(--g300);border-radius:4px;background:var(--white)">
+              <option value="all">Todos</option>
+            </select>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px">
+            <span class="flbl">Fase:</span>
+            <select id="bud-phase-sel" onchange="setBudPhase(null,this.value)" style="font-size:12px;padding:4px 8px;border:1px solid var(--g300);border-radius:4px;background:var(--white)">
+              <option value="all">Todas</option>
+            </select>
+          </div>
         </div>
-        <div class="fg mb16 bud-screen-only">
-          <span class="flbl">Fornecedor:</span>
-          <button class="pill active" id="bud-sup-all" onclick="setBudSup(this,'all')">Todos</button>
-          <div id="bud-sup-pills"></div>
-        </div>
-        <div class="fg mb16 bud-screen-only">
-          <span class="flbl">Fase:</span>
-          <button class="pill active" id="bud-phase-all" onclick="setBudPhase(this,'all')">Todas</button>
-          <div id="bud-phase-pills"></div>
-        </div>
+        <div id="bud-sup-pills" style="display:none"></div>
+        <div id="bud-phase-pills" style="display:none"></div>
         <div class="tw">
           <table id="bud-table">
             <thead><tr>
@@ -3010,14 +3026,14 @@ let finSort   = 'comp';
 let finSupFilter = 'all';
 function setFF(btn, f) {
   finFilter = f;
-  document.querySelectorAll('#fin-filter-pills .pill').forEach(p => p.classList.remove('active'));
-  btn.classList.add('active');
+  const sel = document.getElementById('fin-status-sel');
+  if (sel) sel.value = f;
   renderFinancial();
 }
 function setSortFF(btn, s) {
   finSort = s;
-  document.querySelectorAll('#fin-sort-pills .pill').forEach(p => p.classList.remove('active'));
-  btn.classList.add('active');
+  const sel = document.getElementById('fin-sort-sel');
+  if (sel) sel.value = s;
   renderFinancial();
 }
 function setFinSup(supId) {
@@ -3134,13 +3150,15 @@ function renderFinancial() {
     const sup = _sups.find(s => s.name === e.sup || s.id === e.sup);
     return sup ? sup.id : null;
   }).filter(Boolean))];
-  const _supPills = _supIdsInEntries.map(sid => {
-    const s = _sups.find(x => x.id === sid);
-    return s ? '<button class="pill'+(finSupFilter===sid?' active':'')+'" onclick="setFinSup(\''+sid+'\')">'+esc(s.name)+'</button>' : '';
-  }).join('');
-  const _supPillsEl = document.getElementById('fin-sup-pills');
-  if (_supPillsEl) {
-    _supPillsEl.innerHTML = '<button class="pill'+(finSupFilter==='all'?' active':'')+'" onclick="setFinSup(\'all\')">Todos</button>' + _supPills;
+  const _supSel = document.getElementById('fin-sup-sel');
+  if (_supSel) {
+    const _curVal = _supSel.value || finSupFilter;
+    _supSel.innerHTML = '<option value="all">Todos</option>' +
+      _supIdsInEntries.map(sid => {
+        const s = _sups.find(x => x.id === sid);
+        return s ? '<option value="'+sid+'"'+(finSupFilter===sid?' selected':'')+'>'+esc(s.name)+'</option>' : '';
+      }).join('');
+    _supSel.value = _curVal;
   }
 
   const _ec = DB.get('entryCollapsed') || {};
@@ -5373,8 +5391,8 @@ function setBudCat(val) {
 
 function setBudTab(tab, btn) {
   budTab = tab;
-  document.getElementById('bud-tab-all').classList.toggle('active', tab === 'all');
-  document.getElementById('bud-tab-disc').classList.toggle('active', tab === 'disc');
+  const sel = document.getElementById('bud-tab-sel');
+  if (sel) sel.value = tab;
   document.getElementById('bud-disc-fg').style.display = tab === 'disc' ? 'flex' : 'none';
   renderBudget();
 }
@@ -5384,10 +5402,14 @@ function setBF(btn, f) {
 }
 function setBudSup(btn, val) {
   budSupFilter = val;
+  const sel = document.getElementById('bud-sup-sel');
+  if (sel) sel.value = val;
   renderBudget();
 }
 function setBudPhase(btn, val) {
   budPhaseFilter = val;
+  const sel = document.getElementById('bud-phase-sel');
+  if (sel) sel.value = val;
   renderBudget();
 }
 function savePctFis(id, val) {
@@ -5442,28 +5464,26 @@ function renderBudget() {
   const sups = DB.get('suppliers') || [];
   const isC = currentRole === 'cliente';
 
-  // Sync static "Todos/Todas" buttons with current filter state
-  const supAllBtn = document.getElementById('bud-sup-all');
-  const phaseAllBtn = document.getElementById('bud-phase-all');
-  if (supAllBtn) supAllBtn.classList.toggle('active', budSupFilter === 'all');
-  if (phaseAllBtn) phaseAllBtn.classList.toggle('active', budPhaseFilter === 'all');
-  // Also sync disc "Todas" static button
-  const discAllBtn = document.querySelector('#bud-disc-fg .pill');
-  if (discAllBtn) discAllBtn.classList.toggle('active', budgetFilter === 'all');
-
-  // Supplier filter pills
+  // Supplier filter select
   const supIds = [...new Set(bud.filter(i=>i.supplierId).map(i=>i.supplierId))];
-  document.getElementById('bud-sup-pills').innerHTML = supIds.map(sid => {
-    const s = sups.find(x=>x.id===sid);
-    if (!s) return '';
-    return '<button class="pill'+(budSupFilter===sid?' active':'')+'" onclick="setBudSup(this,\''+sid+'\')">'+s.name+'</button>';
-  }).join('');
+  const supSelEl = document.getElementById('bud-sup-sel');
+  if (supSelEl) {
+    supSelEl.innerHTML = '<option value="all">Todos</option>' + supIds.map(sid => {
+      const s = sups.find(x=>x.id===sid);
+      return s ? '<option value="'+sid+'"'+(budSupFilter===sid?' selected':'')+'>'+esc(s.name)+'</option>' : '';
+    }).join('');
+    if (supSelEl.value !== budSupFilter) supSelEl.value = budSupFilter;
+  }
 
-  // Phase filter pills
-  const phases = [...new Set(bud.map(i=>i.phase))];
-  document.getElementById('bud-phase-pills').innerHTML = phases.map(ph =>
-    '<button class="pill'+(budPhaseFilter===ph?' active':'')+'" onclick="setBudPhase(this,\''+ph+'\')">'+ph+'</button>'
-  ).join('');
+  // Phase filter select
+  const phases = [...new Set(bud.map(i=>i.phase).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt-BR'));
+  const phaseSelEl = document.getElementById('bud-phase-sel');
+  if (phaseSelEl) {
+    phaseSelEl.innerHTML = '<option value="all">Todas</option>' + phases.map(ph =>
+      '<option value="'+esc(ph)+'"'+(budPhaseFilter===ph?' selected':'')+'>'+esc(ph)+'</option>'
+    ).join('');
+    if (phaseSelEl.value !== budPhaseFilter) phaseSelEl.value = budPhaseFilter;
+  }
 
   // Discipline filter pills
   const discs = [...new Set(bud.map(i => i.disc))];
@@ -6143,7 +6163,7 @@ function applyBulkEdit() {
   toast(changed + ' item(ns) atualizados');
 }
 function exportBudgetPDF() {
-  if (budTab !== 'all') setBudTab('all', document.getElementById('bud-tab-all'));
+  if (budTab !== 'all') setBudTab('all', null);
   const bud = DB.get('budget') || [];
   const s = summary();
   document.getElementById('pdf-sub-txt').textContent = 'Reforma Higienópolis · Orçamento · emitido em ' + new Date().toLocaleDateString('pt-BR');
