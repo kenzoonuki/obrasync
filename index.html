@@ -4139,12 +4139,12 @@ function markMeasPaid(id) {
   // For measurement payments: pre-fill budId when there's exactly one linked budget item
   const _preBudId = _measBIs.length === 1 ? _measBIs[0].id : '';
   _entrySplitRows = [{id:uid(), disc:_measDiscs[0]||'', phase:_measPhases[0]||'', desc:'Med. '+String(m.seqNum).padStart(3,'0')+' — '+(sup?sup.name:''), catClass:_measCatClass, val:m.total||0, budId:_preBudId}];
-  renderEntrySplitRows();
-  genInst();
-  // Flag: hide "+ Novo Item no Orçamento" option and "+ Adicionar Item" button
+  // Flag must be set BEFORE renderEntrySplitRows so the select renders without "+ Novo Item"
   window._isMeasPayment = true;
   const _addBtn = document.getElementById('e-add-item-btn');
   if (_addBtn) _addBtn.style.display = 'none';
+  renderEntrySplitRows();
+  genInst();
   // store reference so we can mark meas paid after saving
   window._pendingMeasPaidId = id;
   openModal('mod-entry');
