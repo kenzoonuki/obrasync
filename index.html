@@ -1191,7 +1191,7 @@ tfoot td{padding:10px 0;border-top:2px solid var(--black);font-weight:800;font-s
     <div style="border-top:1px solid var(--g200);margin:14px 0 10px;padding-top:14px">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
         <span style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em">Itens da Nota Fiscal</span>
-        <button class="btn btn-g btn-sm" onclick="addEntryItem()">+ Adicionar Item</button>
+        <button id="e-add-item-btn" class="btn btn-g btn-sm" onclick="addEntryItem()">+ Adicionar Item</button>
       </div>
       <div id="e-split-hdr" style="display:grid;grid-template-columns:90px 90px 1fr 50px 50px 90px 80px 80px 140px;gap:4px;margin-bottom:4px;padding:0 2px">
         <span style="font-size:9px;font-weight:700;text-transform:uppercase;color:var(--g500)">Fase</span>
@@ -4075,9 +4075,15 @@ function markMeasPaid(id) {
   document.getElementById('e-fd').value = todayStr();
   document.getElementById('e-notes').value = 'Medi\u00e7\u00e3o de obra per\u00edodo '+fmtP(m.per);
   document.getElementById('e-base').checked = true;
-  _entrySplitRows = [{id:uid(), disc:_measDiscs[0]||'', phase:_measPhases[0]||'', desc:'Med. '+String(m.seqNum).padStart(3,'0')+' — '+(sup?sup.name:''), catClass:_measCatClass, val:m.total||0, budId:''}];
+  // For measurement payments: pre-fill budId when there's exactly one linked budget item
+  const _preBudId = _measBIs.length === 1 ? _measBIs[0].id : '';
+  _entrySplitRows = [{id:uid(), disc:_measDiscs[0]||'', phase:_measPhases[0]||'', desc:'Med. '+String(m.seqNum).padStart(3,'0')+' — '+(sup?sup.name:''), catClass:_measCatClass, val:m.total||0, budId:_preBudId}];
   renderEntrySplitRows();
   genInst();
+  // Flag: hide "+ Novo Item no Orçamento" option and "+ Adicionar Item" button
+  window._isMeasPayment = true;
+  const _addBtn = document.getElementById('e-add-item-btn');
+  if (_addBtn) _addBtn.style.display = 'none';
   // store reference so we can mark meas paid after saving
   window._pendingMeasPaidId = id;
   openModal('mod-entry');
@@ -6234,7 +6240,8 @@ function renderEntrySplitRows() {
     const phaseOpts = ['', ...(c.phases||[]).slice().sort((a,b)=>String(a).localeCompare(String(b),'pt-BR'))].map(p=>'<option value="'+esc(p)+'"'+(p===row.phase?' selected':'')+'>'+esc(p||'— Fase —')+'</option>').join('');
     const discOpts  = ['', ...(c.disciplines||[]).slice().sort((a,b)=>String(a).localeCompare(String(b),'pt-BR'))].map(d=>'<option value="'+esc(d)+'"'+(d===row.disc?' selected':'')+'>'+esc(d||'— Disc —')+'</option>').join('');
     const unitOpts  = units.map(u=>'<option value="'+esc(u)+'"'+(u===(row.unit||'vb')?' selected':'')+'>'+esc(u)+'</option>').join('');
-    const budOpts   = '<option value="">+ Novo Item no Orçamento</option>' + bud.map(i=>'<option value="'+i.id+'"'+(i.id===row.budId?' selected':'')+'>'+esc(i.phase+' · '+i.disc+' — '+i.desc)+'</option>').join('');
+    const _newOpt   = window._isMeasPayment ? '<option value="">— Vincular (opcional) —</option>' : '<option value="">+ Novo Item no Orçamento</option>';
+    const budOpts   = _newOpt + bud.map(i=>'<option value="'+i.id+'"'+(i.id===row.budId?' selected':'')+'>'+esc(i.phase+' · '+i.disc+' — '+i.desc)+'</option>').join('');
     const fmtPunit  = (row.punit||0) > 0 ? (row.punit).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) : '';
     const fmtQty    = row.qty != null ? String(row.qty) : '1';
     const fmtTot    = (row.val||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
@@ -6301,6 +6308,9 @@ function setEntryRow0(phase, disc, desc, catClass, val, budId, unit, qty) {
 // ────────────────────────────────────────────────────────────────────────
 
 function openEntryModal(editId) {
+  window._isMeasPayment = false;
+  const _addBtn = document.getElementById('e-add-item-btn');
+  if (_addBtn) _addBtn.style.display = '';
   const c = cats();
   pop('e-cc',c.costcenters||[]); pop('e-st',c.servicetypes||[]);
   pop('e-dt',c.doctypes||[]); pop('e-pm',c.paymethods||[]);
