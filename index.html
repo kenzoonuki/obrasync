@@ -4126,6 +4126,7 @@ function markMeasPaid(id) {
   const _allMO  = _measBIs.length && _measBIs.every(bi => (bi.pmo||0) > 0 && !(bi.pmat||0) && !(bi.pacab||0));
   const _allMat = _measBIs.length && _measBIs.every(bi => (bi.pmat||0) > 0 && !(bi.pmo||0) && !(bi.pacab||0));
   const _measCatClass = _allMO ? 'mo' : _allMat ? 'mat' : '';
+  const _lastMeas = DB.get('lastMeasEntry') || {};
   document.getElementById('e-id').value = '';
   document.getElementById('mod-entry-title').textContent = 'Lançamento — Medição Paga';
   document.getElementById('e-comp').value = m.per;
@@ -4136,6 +4137,9 @@ function markMeasPaid(id) {
   document.getElementById('e-fd').value = todayStr();
   document.getElementById('e-notes').value = 'Medi\u00e7\u00e3o de obra per\u00edodo '+fmtP(m.per);
   document.getElementById('e-base').checked = true;
+  if (_lastMeas.cc) document.getElementById('e-cc').value = _lastMeas.cc;
+  if (_lastMeas.dt) document.getElementById('e-dt').value = _lastMeas.dt;
+  if (_lastMeas.pm) document.getElementById('e-pm').value = _lastMeas.pm;
   // For measurement payments: pre-fill budId when there's exactly one linked budget item
   const _preBudId = _measBIs.length === 1 ? _measBIs[0].id : '';
   _entrySplitRows = [{id:uid(), disc:_measDiscs[0]||'', phase:_measPhases[0]||'', desc:'Med. '+String(m.seqNum).padStart(3,'0')+' — '+(sup?sup.name:''), catClass:_measCatClass, val:m.total||0, budId:_preBudId}];
@@ -6432,7 +6436,7 @@ function openEntryModal(editId) {
     document.getElementById('e-reemb-for-row').style.display = 'none';
     document.getElementById('e-reemb-for').value = '_gerenc';
     // Default split row (pre-fill from last entry if available)
-    _entrySplitRows = [{id:uid(), phase:last.phase||'', disc:last.disc||'', desc:'', unit:'vb', qty:1, punit:0, catClass:'mat', val:0, budId:''}];
+    _entrySplitRows = [{id:uid(), phase:last.phase||'', disc:last.disc||'', desc:'', unit:last.unit||'vb', qty:1, punit:0, catClass:last.catClass||'mat', val:0, budId:last.budId||''}];
     updateNFLabel();
   }
   renderEntrySplitRows();
@@ -6573,7 +6577,7 @@ function saveEntry() {
   if (!editId) { const _r0 = (_entrySplitRows||[])[0]||{}; DB.set('lastEntry', {
     comp:entry.comp, sup:entry.supplierId, disc:_r0.disc||'', phase:_r0.phase||'',
     cc:entry.cc, st:entry.st, dt:entry.dt, pm:entry.pm,
-    base:entry.base
+    base:entry.base, catClass:_r0.catClass||'', unit:_r0.unit||'vb', budId:_r0.budId||''
   }); }
   closeModal('mod-entry'); renderFinancial(); renderBudget(); renderDash();
   // If opened from "Marcar Paga" on a measurement, now mark it paid
@@ -6582,6 +6586,8 @@ function saveEntry() {
     const m = ms.find(x=>x.id===window._pendingMeasPaidId);
     if (m) { m.status = 'paid'; DB.set('meas2', ms); }
     window._pendingMeasPaidId = null;
+    // Save last meas entry template (cc, dt, pm)
+    DB.set('lastMeasEntry', {cc:entry.cc, dt:entry.dt, pm:entry.pm});
     renderMeas();
   }
   toast(editId ? 'Lançamento atualizado' : 'Lançamento criado');
@@ -6803,6 +6809,12 @@ function openBudgetModal(modeOrId, editId) {
     if (lastB.unit)  document.getElementById('bi-unit').value  = lastB.unit;
     if (lastB.type)  document.getElementById('bi-type').value  = lastB.type;
     if (lastB.supplierId) supSel.value = lastB.supplierId;
+    if (lastB.qty)   document.getElementById('bi-qty').value   = lastB.qty;
+    if (lastB.pmo)   setBRLInput('bi-pmo',   lastB.pmo);
+    if (lastB.pmat)  setBRLInput('bi-pmat',  lastB.pmat);
+    if (lastB.pacab) setBRLInput('bi-pacab', lastB.pacab);
+    if (lastB.psrv)  setBRLInput('bi-psrv',  lastB.psrv);
+    if (lastB.compoeBase !== undefined) document.getElementById('bi-compoe-base').checked = lastB.compoeBase;
   }
   toggleBITypeFields();
   updateBISupCols();
@@ -6917,7 +6929,7 @@ function saveBudgetItem() {
   const idx = bud.findIndex(x=>x.id===item.id);
   if (idx>-1) bud[idx]=item; else bud.push(item);
   DB.set(_budKey, bud);
-  if (!editId) DB.set('lastBudget', {phase:item.phase, disc:item.disc, unit:item.unit, type:item.type, supplierId:item.supplierId});
+  if (!editId) DB.set('lastBudget', {phase:item.phase, disc:item.disc, unit:item.unit, type:item.type, supplierId:item.supplierId, pmo:item.pmo, pmat:item.pmat, pacab:item.pacab, psrv:item.psrv, qty:item.qty, supCols:item.supCols, supRemun:item.supRemun, compoeBase:item.compoeBase});
   closeModal('mod-bud');
   if (_saveMode === 'estimative') { renderEstimative(); } else { renderBudget(); renderDash(); }
   toast(idx>-1 ? 'Item atualizado' : 'Item adicionado');
