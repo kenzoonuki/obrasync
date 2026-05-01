@@ -3878,8 +3878,9 @@ function renderMeas() {
   if (!fil.length) html = '<div class="inote" style="margin-bottom:16px">Nenhuma medição encontrada.</div>';
   fil.forEach(m => {
     const sup     = sups.find(s => s.id === m.supplierId);
-    const stLabel = {draft:'Rascunho',approved:'Aprovada',paid:'Paga'}[m.status] || m.status;
-    const stCls   = {draft:'b-draft',approved:'b-approved',paid:'badge-ok'}[m.status] || 'b-draft';
+    const _st     = m.status || 'approved';
+    const stLabel = {draft:'Rascunho',approved:'Aprovada',paid:'Paga'}[_st] || _st;
+    const stCls   = {draft:'b-draft',approved:'b-approved',paid:'badge-ok'}[_st] || 'b-approved';
     const itemsHtml = (m.items || []).map(it => {
       const bi = bud.find(b => b.id === it.biId);
       return '<div class="mcard-item">' +
@@ -3903,7 +3904,7 @@ function renderMeas() {
       '<button class="btn btn-g btn-sm" onclick="openBoletim(\''+m.id+'\')">&#128196; Boletim</button>' +
       (m.status==='draft'?'<button class="btn btn-e btn-sm" onclick="openNewMeasWizard(null,\''+m.id+'\')">Editar</button>':'<button class="btn btn-e btn-sm" onclick="openNewMeasWizard(null,\''+m.id+'\',true)">&#9998; Corrigir</button>') +
       (m.status==='draft'?'<button class="btn btn-p btn-sm" onclick="approveMeas2(\''+m.id+'\')">Aprovar</button>':'') +
-      (m.status==='approved'?'<button class="btn btn-p btn-sm" onclick="markMeasPaid(\''+m.id+'\')">Marcar Paga</button>':'') +
+      (m.status!=='draft'&&m.status!=='paid'?'<button class="btn btn-p btn-sm" onclick="markMeasPaid(\''+m.id+'\')">Marcar Paga</button>':'') +
       '<button class="btn btn-d" onclick="delMeas2(\''+m.id+'\')">&#10005;</button>' +
       '</div></div>' +
       '<div class="mcard-items">' +
