@@ -6944,6 +6944,7 @@ function openBudgetModal(modeOrId, editId) {
       setBRLInput('bi-psrv',  item.psrv||0);
       document.getElementById('bi-type').value    = item.type;
       supSel.value = item.supplierId || '';
+      document.getElementById('bi-sup-remun').value  = item.supRemun || 'meas';
       document.getElementById('bi-sup-mo').checked   = item.supCols?.mo   !== false;
       document.getElementById('bi-sup-mat').checked  = item.supCols?.mat  === true;
       document.getElementById('bi-sup-acab').checked = item.supCols?.acab === true;
