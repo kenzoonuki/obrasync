@@ -4008,18 +4008,28 @@ function renderMeas() {
       discMap[d].push(it);
     });
     const discs = Object.keys(discMap);
+    // Card-level totals (for tfoot)
+    const _allItems = (g.items||[]);
+    const _cardTotOrc  = _allItems.reduce((s,it)=>s+(it.tot||0),0);
+    const _cardAcumAntAmt = _allItems.reduce((s,it)=>s+(it.tot||0)*Math.max(0,it.pctAcum-it.pct)/100,0);
+    const _cardAcumAntPct = _cardTotOrc>0 ? _cardAcumAntAmt/_cardTotOrc*100 : 0;
+    const _cardPctMed  = _cardTotOrc>0 ? (g.feeBase||0)/_cardTotOrc*100 : 0;
+    const _cardSaldo   = _allItems.reduce((s,it)=>s+(it.tot||0)*Math.max(0,100-it.pctAcum)/100,0);
     let tableRows = '';
     discs.forEach((disc, dIdx) => {
       const items = discMap[disc];
       const collapsed = !!window._gcardCollapsed[gid][dIdx];
-      const discTot = items.reduce((s,it)=>s+(it.tot||0),0);
-      const discBase = items.reduce((s,it)=>s+it.base,0);
-      const discPct = discTot>0 ? discBase/discTot*100 : 0;
+      const discTot      = items.reduce((s,it)=>s+(it.tot||0),0);
+      const discBase     = items.reduce((s,it)=>s+it.base,0);
+      const discAcumAntA = items.reduce((s,it)=>s+(it.tot||0)*Math.max(0,it.pctAcum-it.pct)/100,0);
+      const discAcumAntP = discTot>0 ? discAcumAntA/discTot*100 : 0;
+      const discPctMed   = discTot>0 ? discBase/discTot*100 : 0;
+      const discSaldo    = items.reduce((s,it)=>s+(it.tot||0)*Math.max(0,100-it.pctAcum)/100,0);
       const supNames = [...new Set(items.map(it => { const sup=it.supId?sups.find(s=>s.id===it.supId):null; return sup?sup.name:null; }).filter(Boolean))];
       const hasAuto = items.some(it=>it.supType==='meas');
       const hasDirect = items.some(it=>it.supType!=='meas');
       const typesSummary = [hasAuto?'<span style="font-size:9px;background:#f0fdf4;color:var(--ok);border:1px solid #bbf7d0;padding:1px 5px;border-radius:2px;font-weight:700">AUTO</span>':'', hasDirect?'<span style="font-size:9px;background:var(--g100);color:var(--g500);border:1px solid var(--g200);padding:1px 5px;border-radius:2px;font-weight:700">MANUAL</span>':''].filter(Boolean).join(' ');
-      // Discipline header row
+      // Discipline header row (8 cols)
       tableRows += '<tr class="gcard-disc-hdr" onclick="toggleGcard(\''+gid+'\','+dIdx+')" style="cursor:pointer;background:var(--g50);border-bottom:'+(collapsed?'2px solid var(--g200)':'1px solid var(--g200)')+'">' +
         '<td style="padding:7px 8px 7px 0;font-size:11px;font-weight:800">' +
           '<span style="display:inline-flex;align-items:center;justify-content:center;width:17px;height:17px;border:2px solid var(--black);border-radius:3px;font-size:10px;font-weight:900;margin-right:7px" id="gcog-'+gid+'-'+dIdx+'">'+(collapsed?'+':'\u2212')+'</span>' +
@@ -4028,8 +4038,10 @@ function renderMeas() {
         '<td style="padding:7px 8px;font-size:10px;color:var(--g500)">'+(collapsed?supNames.slice(0,2).join(', ')+(supNames.length>2?' +'+( supNames.length-2):''):'')+'</td>' +
         '<td style="text-align:center;padding:7px 8px">'+(collapsed?typesSummary:'')+'</td>' +
         '<td style="text-align:right;padding:7px 8px;font-size:11px">'+(collapsed?R(discTot):'')+'</td>' +
-        '<td style="text-align:center;padding:7px 8px;font-size:11px;font-weight:700">'+(collapsed?discPct.toFixed(1)+'%':'')+'</td>' +
+        '<td style="text-align:center;padding:7px 8px;font-size:11px;color:var(--g500)">'+(collapsed?discAcumAntP.toFixed(1)+'%':'')+'</td>' +
+        '<td style="text-align:center;padding:7px 8px;font-size:11px;font-weight:700">'+(collapsed?discPctMed.toFixed(1)+'%':'')+'</td>' +
         '<td style="text-align:right;padding:7px 8px;font-size:11px;font-weight:800;color:var(--fee)">'+R(discBase)+'</td>' +
+        '<td style="text-align:right;padding:7px 8px;font-size:11px;color:var(--warn)">'+(collapsed?R(discSaldo):'')+'</td>' +
         '</tr>';
       // Item rows
       items.forEach(it => {
@@ -4038,13 +4050,17 @@ function renderMeas() {
         const typeTag = it.supType==='meas'
           ? '<span style="font-size:9px;background:#f0fdf4;color:var(--ok);border:1px solid #bbf7d0;padding:1px 5px;border-radius:2px;font-weight:700">AUTO</span>'
           : '<span style="font-size:9px;background:var(--g100);color:var(--g500);border:1px solid var(--g200);padding:1px 5px;border-radius:2px;font-weight:700">MANUAL</span>';
+        const _acumAnt = Math.max(0, it.pctAcum - it.pct);
+        const _saldo   = (it.tot||0) * Math.max(0, 100 - it.pctAcum) / 100;
         tableRows += '<tr class="gcrow-'+gid+'-'+dIdx+'" style="border-bottom:1px solid var(--g100);font-size:11px'+(collapsed?';display:none':'')+'">' +
           '<td style="padding:5px 8px 5px 24px">'+(bi?bi.desc:it.biId)+'<br><span style="font-size:10px;color:var(--g500)">'+(bi?bi.phase:'')+'</span></td>' +
           '<td style="padding:5px 8px;white-space:nowrap">'+(sup?sup.name:'\u2014')+'</td>' +
           '<td style="text-align:center;padding:5px 8px">'+typeTag+'</td>' +
           '<td style="text-align:right;padding:5px 8px">'+R(it.tot)+'</td>' +
+          '<td style="text-align:center;padding:5px 8px;color:var(--g500)">'+_acumAnt.toFixed(1)+'%</td>' +
           '<td style="text-align:center;padding:5px 8px;font-weight:700">'+it.pct.toFixed(1)+'%</td>' +
           '<td style="text-align:right;padding:5px 8px;font-weight:700">'+R(it.base)+'</td>' +
+          '<td style="text-align:right;padding:5px 8px;color:var(--warn)">'+R(_saldo)+'</td>' +
           '</tr>';
       });
     });
@@ -4082,25 +4098,33 @@ function renderMeas() {
           '<th style="text-align:left;padding:4px 8px;font-size:9px;font-weight:800;text-transform:uppercase">Fornecedor</th>' +
           '<th style="text-align:center;padding:4px 8px;font-size:9px;font-weight:800;text-transform:uppercase">Tipo</th>' +
           '<th style="text-align:right;padding:4px 8px;font-size:9px;font-weight:800;text-transform:uppercase">Or\u00e7ado</th>' +
-          '<th style="text-align:center;padding:4px 8px;font-size:9px;font-weight:800;text-transform:uppercase">% F\u00edsico</th>' +
+          '<th style="text-align:center;padding:4px 8px;font-size:9px;font-weight:800;text-transform:uppercase;color:var(--g500)">Acum. Ant.</th>' +
+          '<th style="text-align:center;padding:4px 8px;font-size:9px;font-weight:800;text-transform:uppercase">% Medida</th>' +
           '<th style="text-align:right;padding:4px 8px;font-size:9px;font-weight:800;text-transform:uppercase">Base</th>' +
+          '<th style="text-align:right;padding:4px 8px;font-size:9px;font-weight:800;text-transform:uppercase;color:var(--warn)">Saldo</th>' +
           '</tr></thead><tbody>'+tableRows+'</tbody>' +
-          '<tfoot><tr style="border-top:2px solid var(--black)">' +
-          '<td colspan="5" style="padding:6px 8px 0 0;font-weight:800">Base de C\u00e1lculo</td>' +
-          '<td style="text-align:right;padding:6px 0 0 8px;font-weight:800">'+R(g.feeBase)+'</td>' +
+          '<tfoot>' +
+          '<tr style="border-top:2px solid var(--black);background:var(--g50)">' +
+          '<td colspan="3" style="padding:6px 8px 4px 0;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.05em">Totais</td>' +
+          '<td style="text-align:right;padding:6px 8px 4px;font-weight:800">'+R(_cardTotOrc)+'</td>' +
+          '<td style="text-align:center;padding:6px 4px 4px;font-weight:700;color:var(--g500)">'+_cardAcumAntPct.toFixed(1)+'%</td>' +
+          '<td style="text-align:center;padding:6px 4px 4px;font-weight:800">'+_cardPctMed.toFixed(1)+'%</td>' +
+          '<td style="text-align:right;padding:6px 0 4px 8px;font-weight:800">'+R(g.feeBase)+'</td>' +
+          '<td style="text-align:right;padding:6px 0 4px 8px;font-weight:800;color:var(--warn)">'+R(_cardSaldo)+'</td>' +
           '</tr><tr>' +
-          '<td colspan="5" style="padding:3px 8px 6px 0;font-weight:800;color:var(--fee)">Honor\u00e1rios ('+FR().toFixed(1)+'%)</td>' +
-          '<td style="text-align:right;padding:3px 0 6px 8px;font-weight:800;color:var(--fee);font-size:15px">'+R(g.feeAmt)+'</td>' +
+          '<td colspan="7" style="padding:2px 8px 6px 0;font-weight:800;color:var(--fee)">Honor\u00e1rios ('+FR().toFixed(1)+'%)</td>' +
+          '<td style="text-align:right;padding:2px 0 6px 8px;font-weight:800;color:var(--fee);font-size:14px">'+R(g.feeAmt)+'</td>' +
           '</tr></tfoot>' +
           '</table></div>' +
-          '<div style="display:flex;margin-top:8px;border:1px solid var(--g200);border-radius:6px;overflow:hidden;background:#fff">' +
+          '<div style="display:flex;margin-top:6px;border:1px solid var(--g200);border-radius:6px;overflow:hidden;background:#faf5ff">' +
           _statCell('Total Or\u00e7ado', R(_totalOrcBase)) +
-          _statCell('% Executado', _pct.toFixed(1)+'%', _pct>=100?'var(--ok)':_pct>50?'var(--info)':'var(--black)') +
-          _statCell('Ant. Medido', R(_c.before), _c.before>0?'var(--g600)':'var(--g400)') +
+          _statCell('Acum. Anterior', (_c.before/_totalOrcBase*100||0).toFixed(1)+'%<br><span style="font-size:10px;font-weight:600;color:var(--g500)">'+R(_c.before)+'</span>', 'var(--g600)') +
+          _statCell('% Medida', _pct.toFixed(1)+'%<br><span style="font-size:10px;font-weight:600">'+R(g.feeBase||0)+'</span>', _pct>=100?'var(--ok)':'var(--black)') +
           _statCell('Honor. Acumulado', R(_honorAcum), 'var(--fee)') +
           '<div style="padding:10px 12px;flex:1;min-width:0">' +
           '<div style="font-size:9px;font-weight:800;text-transform:uppercase;color:var(--g400);letter-spacing:.4px;margin-bottom:3px">Saldo a Medir</div>' +
           '<div style="font-size:12px;font-weight:800;color:'+(_saldo>0?'var(--warn)':'var(--ok)')+'">'+R(_saldo)+'</div>' +
+          '<div style="font-size:10px;color:var(--g400)">'+((_saldo/_totalOrcBase||0)*100).toFixed(1)+'% do total</div>' +
           '</div></div></div>';
       })()
   });
@@ -4691,38 +4715,67 @@ function openGerencBoletim(gId) {
     discMap[d].push(it);
   });
   const discs = Object.keys(discMap);
+  // PDF-level totals
+  const _pdfAllItems = (g.items||[]);
+  const _pdfTotOrc   = _pdfAllItems.reduce((s,it)=>s+(it.tot||0),0);
+  const _pdfAcumAntA = _pdfAllItems.reduce((s,it)=>s+(it.tot||0)*Math.max(0,it.pctAcum-it.pct)/100,0);
+  const _pdfAcumAntP = _pdfTotOrc>0 ? _pdfAcumAntA/_pdfTotOrc*100 : 0;
+  const _pdfPctMed   = _pdfTotOrc>0 ? (g.feeBase||0)/_pdfTotOrc*100 : 0;
+  const _pdfSaldo    = _pdfAllItems.reduce((s,it)=>s+(it.tot||0)*Math.max(0,100-it.pctAcum)/100,0);
+  // Cumulative from previous gerenc records
+  const _pdfGerencAll = DB.get('gerenc')||[];
+  const _pdfGerencAsc = [..._pdfGerencAll].sort((a,b)=>{ const d=a.date.localeCompare(b.date); return d!==0?d:(a.seqNum||0)-(b.seqNum||0); });
+  let _pdfRunning = 0;
+  _pdfGerencAsc.forEach(gi => { if(gi.id===g.id) return; _pdfRunning += (gi.feeBase||0); });
+  const _pdfAcumAnt = _pdfRunning;
+  const _pdfAcumAtual = _pdfAcumAnt + (g.feeBase||0);
+  const _totalOrcPdf = bud.filter(i=>i.compoeBase!==false).reduce((s,i)=>s+(i.tot||0),0);
+  const _pdfSaldoGlobal = Math.max(0, _totalOrcPdf - _pdfAcumAtual);
+
   let tableRows = '';
   discs.forEach((disc, dIdx) => {
     const items = discMap[disc];
     const isCollapsed = !!collapsed[dIdx];
-    const discTot  = items.reduce((s,it)=>s+(it.tot||0),0);
-    const discBase = items.reduce((s,it)=>s+it.base,0);
-    const discPct  = discTot>0 ? discBase/discTot*100 : 0;
+    const discTot      = items.reduce((s,it)=>s+(it.tot||0),0);
+    const discBase     = items.reduce((s,it)=>s+it.base,0);
+    const discAcumAntA = items.reduce((s,it)=>s+(it.tot||0)*Math.max(0,it.pctAcum-it.pct)/100,0);
+    const discAcumAntP = discTot>0 ? discAcumAntA/discTot*100 : 0;
+    const discPctMed   = discTot>0 ? discBase/discTot*100 : 0;
+    const discSaldo    = items.reduce((s,it)=>s+(it.tot||0)*Math.max(0,100-it.pctAcum)/100,0);
     const supNames = [...new Set(items.map(it=>{ const s=it.supId?sups.find(x=>x.id===it.supId):null; return s?s.name:null; }).filter(Boolean))];
     if (isCollapsed) {
-      // Collapsed: one summary row only
       tableRows +=
         '<tr style="background:#f5f3ff">' +
-        '<td style="padding:7px 8px;font-size:11px;font-weight:800;color:#6d28d9">'+disc+
-          ' <span style="font-size:10px;font-weight:400;color:#7c3aed">('+items.length+' it.)</span></td>' +
-        '<td style="padding:7px 8px;font-size:10px;color:#6d28d9">'+supNames.join(', ')+'</td>' +
-        '<td style="text-align:right;padding:7px 8px;font-size:11px;color:#6d28d9">'+R(discTot)+'</td>' +
-        '<td style="text-align:center;padding:7px 8px;font-size:11px;font-weight:700;color:#6d28d9">'+discPct.toFixed(1)+'%</td>' +
-        '<td style="text-align:right;padding:7px 8px;font-size:11px;font-weight:800;color:#6d28d9">'+R(discBase)+'</td>' +
+        '<td style="padding:6px 8px;font-size:10px;font-weight:800;color:#6d28d9">'+disc+' <span style="font-weight:400">('+items.length+' it.)</span></td>' +
+        '<td style="padding:6px 8px;font-size:9px;color:#6d28d9">'+supNames.join(', ')+'</td>' +
+        '<td style="text-align:right;padding:6px 4px;font-size:10px;color:#6d28d9">'+R(discTot)+'</td>' +
+        '<td style="text-align:center;padding:6px 4px;font-size:10px;color:#9ca3af">'+discAcumAntP.toFixed(1)+'%</td>' +
+        '<td style="text-align:center;padding:6px 4px;font-size:10px;font-weight:700;color:#6d28d9">'+discPctMed.toFixed(1)+'%</td>' +
+        '<td style="text-align:right;padding:6px 4px;font-size:10px;font-weight:800;color:#6d28d9">'+R(discBase)+'</td>' +
+        '<td style="text-align:right;padding:6px 4px;font-size:10px;color:#d97706">'+R(discSaldo)+'</td>' +
         '</tr>';
     } else {
-      // Expanded: discipline header + item rows
-      tableRows += '<tr style="background:#f5f3ff"><td colspan="4" style="padding:6px 8px;font-size:11px;font-weight:800;color:#6d28d9">'+disc+'</td>' +
-        '<td style="text-align:right;padding:6px 8px;font-size:11px;font-weight:800;color:#6d28d9">'+R(discBase)+'</td></tr>';
+      tableRows += '<tr style="background:#f5f3ff"><td colspan="2" style="padding:5px 8px;font-size:10px;font-weight:800;color:#6d28d9">'+disc+'</td>' +
+        '<td style="text-align:right;padding:5px 4px;font-size:10px;color:#6d28d9">'+R(discTot)+'</td>' +
+        '<td style="text-align:center;padding:5px 4px;font-size:10px;color:#9ca3af">'+discAcumAntP.toFixed(1)+'%</td>' +
+        '<td style="text-align:center;padding:5px 4px;font-size:10px;font-weight:700;color:#6d28d9">'+discPctMed.toFixed(1)+'%</td>' +
+        '<td style="text-align:right;padding:5px 4px;font-size:10px;font-weight:800;color:#6d28d9">'+R(discBase)+'</td>' +
+        '<td style="text-align:right;padding:5px 4px;font-size:10px;color:#d97706">'+R(discSaldo)+'</td>' +
+        '</tr>';
       items.forEach(it => {
         const bi  = bud.find(b=>b.id===it.biId);
         const sup = it.supId ? sups.find(s=>s.id===it.supId) : null;
+        const _acumAnt = Math.max(0, it.pctAcum - it.pct);
+        const _saldo   = (it.tot||0) * Math.max(0, 100 - it.pctAcum) / 100;
         tableRows += '<tr style="border-bottom:1px solid #e5e7eb">' +
-          '<td style="padding:5px 8px 5px 20px;font-size:11px">'+(bi?bi.desc:it.biId)+'<br><span style="font-size:10px;color:#6b7280">'+(bi?bi.phase:'')+'</span></td>' +
-          '<td style="text-align:left;padding:5px 8px;font-size:11px;white-space:nowrap">'+(sup?sup.name:'\u2014')+'</td>' +
-          '<td style="text-align:right;padding:5px 8px;font-size:11px">'+(bi?R(bi.tot):'\u2014')+'</td>' +
-          '<td style="text-align:center;padding:5px 8px;font-size:12px;font-weight:700">'+it.pct.toFixed(1)+'%</td>' +
-          '<td style="text-align:right;padding:5px 8px;font-size:11px;font-weight:700">'+R(it.base)+'</td></tr>';
+          '<td style="padding:4px 8px 4px 20px;font-size:10px">'+(bi?bi.desc:it.biId)+'<br><span style="font-size:9px;color:#6b7280">'+(bi?bi.phase:'')+'</span></td>' +
+          '<td style="padding:4px 8px;font-size:10px;white-space:nowrap">'+(sup?sup.name:'\u2014')+'</td>' +
+          '<td style="text-align:right;padding:4px 4px;font-size:10px">'+R(it.tot)+'</td>' +
+          '<td style="text-align:center;padding:4px 4px;font-size:10px;color:#9ca3af">'+_acumAnt.toFixed(1)+'%</td>' +
+          '<td style="text-align:center;padding:4px 4px;font-size:11px;font-weight:700">'+it.pct.toFixed(1)+'%</td>' +
+          '<td style="text-align:right;padding:4px 4px;font-size:10px;font-weight:700">'+R(it.base)+'</td>' +
+          '<td style="text-align:right;padding:4px 4px;font-size:10px;color:#d97706">'+R(_saldo)+'</td>' +
+          '</tr>';
       });
     }
   });
@@ -4736,22 +4789,34 @@ function openGerencBoletim(gId) {
     '<div class="bol-cards">' +
       '<div class="bol-card"><div class="bol-clbl">Per\u00edodo</div><div class="bol-cval">'+fmtP(g.per)+'</div></div>' +
       '<div class="bol-card"><div class="bol-clbl">Data Emiss\u00e3o</div><div class="bol-cval">'+fmtD(g.date)+'</div></div>' +
-      '<div class="bol-card"><div class="bol-clbl">Base de C\u00e1lculo</div><div class="bol-cval">'+R(g.feeBase)+'</div></div>' +
+      '<div class="bol-card"><div class="bol-clbl">Acum. Anterior</div><div class="bol-cval">'+R(_pdfAcumAnt)+'</div></div>' +
+      '<div class="bol-card"><div class="bol-clbl">Base Per\u00edodo</div><div class="bol-cval">'+R(g.feeBase)+'</div></div>' +
+      '<div class="bol-card"><div class="bol-clbl">Acum. Atual</div><div class="bol-cval">'+R(_pdfAcumAtual)+'</div></div>' +
+      '<div class="bol-card"><div class="bol-clbl">Saldo a Medir</div><div class="bol-cval" style="color:#d97706">'+R(_pdfSaldoGlobal)+'</div></div>' +
       '<div class="bol-card dk"><div class="bol-clbl">Honor\u00e1rios ('+FR().toFixed(1)+'%)</div><div class="bol-cval">'+R(g.feeAmt)+'</div></div>' +
     '</div>' +
     '<div class="bol-section"><h4>Detalhamento por Disciplina</h4>' +
-      '<table class="bol-table" style="font-size:11px"><thead><tr>' +
+      '<table class="bol-table" style="font-size:10px"><thead><tr>' +
         '<th style="text-align:left">Item</th>' +
         '<th style="text-align:left">Fornecedor</th>' +
-        '<th style="text-align:right">Vl. Or\u00e7ado</th>' +
-        '<th style="text-align:center">% F\u00edsico</th>' +
-        '<th style="text-align:right">Base Calc.</th>' +
+        '<th style="text-align:right">Or\u00e7ado</th>' +
+        '<th style="text-align:center;color:#6b7280">Acum. Ant.</th>' +
+        '<th style="text-align:center">% Medida</th>' +
+        '<th style="text-align:right">Base</th>' +
+        '<th style="text-align:right;color:#d97706">Saldo</th>' +
       '</tr></thead>' +
       '<tbody>'+tableRows+'</tbody>' +
       '<tfoot>' +
-        '<tr><td colspan="4" style="font-weight:800;padding:8px 8px 4px 0">Base Total</td><td style="text-align:right;font-weight:800;padding:8px 0 4px 8px">'+R(g.feeBase)+'</td></tr>' +
-        '<tr style="background:#f5f3ff"><td colspan="4" style="font-weight:800;padding:4px 8px 8px 0;color:#6d28d9">Honor\u00e1rios ('+FR().toFixed(1)+'%) = Base \u00d7 Al\u00edquota</td>' +
-          '<td style="text-align:right;font-weight:900;font-size:16px;padding:4px 0 8px 8px;color:#6d28d9">'+R(g.feeAmt)+'</td></tr>' +
+        '<tr style="background:#f5f3ff">' +
+        '<td colspan="2" style="font-weight:800;padding:6px 8px 4px 0;font-size:10px">Totais</td>' +
+        '<td style="text-align:right;font-weight:800;padding:6px 4px 4px">'+R(_pdfTotOrc)+'</td>' +
+        '<td style="text-align:center;font-weight:700;padding:6px 4px 4px;color:#6b7280">'+_pdfAcumAntP.toFixed(1)+'%</td>' +
+        '<td style="text-align:center;font-weight:800;padding:6px 4px 4px">'+_pdfPctMed.toFixed(1)+'%</td>' +
+        '<td style="text-align:right;font-weight:800;padding:6px 4px 4px">'+R(g.feeBase)+'</td>' +
+        '<td style="text-align:right;font-weight:800;padding:6px 4px 4px;color:#d97706">'+R(_pdfSaldo)+'</td>' +
+        '</tr>' +
+        '<tr style="background:#f5f3ff"><td colspan="6" style="font-weight:800;padding:4px 8px 8px 0;color:#6d28d9">Honor\u00e1rios ('+FR().toFixed(1)+'%) = Base \u00d7 Al\u00edquota</td>' +
+          '<td style="text-align:right;font-weight:900;font-size:14px;padding:4px 4px 8px;color:#6d28d9">'+R(g.feeAmt)+'</td></tr>' +
       '</tfoot>' +
     '</table></div>' +
     (g.notes?'<div class="bol-section"><h4>Observa\u00e7\u00f5es</h4><p style="font-size:12px">'+g.notes+'</p></div>':'')+
