@@ -4012,7 +4012,7 @@ function renderMeas() {
   const sortedG = [...gerenc].sort((a,b) => { const d = b.date.localeCompare(a.date); return d !== 0 ? d : (b.seqNum||0)-(a.seqNum||0); });
 
   // Pre-compute cumulative bases per gerenc (ascending order = oldest first)
-  const _totalOrcBase = bud.filter(i => i.compoeBase !== false && i.supplierId).reduce((s,i) => s + (i.tot||0), 0);
+  const _totalOrcBase = bud.filter(i => i.compoeBase !== false && i.type === 'contracted').reduce((s,i) => s + (i.tot||0), 0);
   const _gerencAsc = [...gerenc].sort((a,b) => { const d = a.date.localeCompare(b.date); return d !== 0 ? d : (a.seqNum||0)-(b.seqNum||0); });
   const _gCumul = {}; let _running = 0;
   _gerencAsc.forEach(g => { _gCumul[g.id] = { before: _running }; _running += (g.feeBase||0); _gCumul[g.id].incl = _running; });
@@ -4145,7 +4145,7 @@ function renderMeas() {
           '</tr></tfoot>' +
           '</table></div>' +
           '<div style="display:flex;margin-top:6px;border:1px solid var(--g200);border-radius:6px;overflow:hidden;background:#faf5ff">' +
-          _statCell('Total Or\u00e7ado', R(_totalOrcBase)) +
+          _statCell('Total Contratado', R(_totalOrcBase)) +
           _statCell('Acum. Anterior', (_c.before/_totalOrcBase*100||0).toFixed(1)+'%<br><span style="font-size:10px;font-weight:600;color:var(--g500)">'+R(_c.before)+'</span>', 'var(--g600)') +
           _statCell('% Medida', _pct.toFixed(1)+'%<br><span style="font-size:10px;font-weight:600">'+R(g.feeBase||0)+'</span>', _pct>=100?'var(--ok)':'var(--black)') +
           _statCell('Honor. Acumulado', R(_honorAcum), 'var(--fee)') +
@@ -4431,7 +4431,7 @@ function openGerencWizard(editId, forceEdit) {
   }
   if (!window._gwCollapsed) window._gwCollapsed = {};
 
-  const budItems = bud.filter(i => i.supplierId && i.compoeBase !== false);
+  const budItems = bud.filter(i => i.supplierId && i.compoeBase !== false && i.type === 'contracted');
   const discNames = [...new Set(budItems.map(i => i.disc || 'Sem Disciplina'))];
 
   // Last approved gerenc (excluding the one being edited)
