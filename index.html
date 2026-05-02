@@ -4431,7 +4431,7 @@ function openGerencWizard(editId, forceEdit) {
   }
   if (!window._gwCollapsed) window._gwCollapsed = {};
 
-  const budItems = bud.filter(i => i.supplierId);
+  const budItems = bud.filter(i => i.supplierId && i.compoeBase !== false);
   const discNames = [...new Set(budItems.map(i => i.disc || 'Sem Disciplina'))];
 
   // Last approved gerenc (excluding the one being edited)
