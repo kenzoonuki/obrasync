@@ -4035,8 +4035,8 @@ function renderMeas() {
           '<span style="display:inline-flex;align-items:center;justify-content:center;width:17px;height:17px;border:2px solid var(--black);border-radius:3px;font-size:10px;font-weight:900;margin-right:7px" id="gcog-'+gid+'-'+dIdx+'">'+(collapsed?'+':'\u2212')+'</span>' +
           disc+' <span style="font-weight:400;color:var(--g500);font-size:10px">'+items.length+' it.</span>' +
         '</td>' +
-        '<td style="padding:7px 8px;font-size:10px;color:var(--g500);line-height:1.4">'+supNames.join('<br>')+'<br>'+typesSummary+'</td>' +
         '<td></td>' +
+        '<td style="text-align:center;padding:7px 2px">'+typesSummary+'</td>' +
         '<td style="text-align:right;padding:7px 8px;font-size:11px;font-weight:700">'+R(discTot)+'</td>' +
         '<td style="text-align:center;padding:7px 8px;font-size:11px;color:var(--g500)">'+discAcumAntP.toFixed(1)+'%</td>' +
         '<td style="text-align:center;padding:7px 8px;font-size:11px;font-weight:800">'+discPctMed.toFixed(1)+'%</td>' +
@@ -4092,13 +4092,17 @@ function renderMeas() {
           '<div style="font-size:9px;font-weight:800;text-transform:uppercase;color:var(--g400);letter-spacing:.4px;margin-bottom:3px">'+lbl+'</div>' +
           '<div style="font-size:12px;font-weight:800;color:'+(color||'var(--black)')+'">'+val+'</div>' +
           '</div>';
-        return '<div style="overflow-x:auto;margin-top:8px"><table style="width:100%;border-collapse:collapse">' +
+        return '<div style="overflow-x:auto;margin-top:8px"><table style="width:100%;border-collapse:collapse;table-layout:fixed">' +
+          '<colgroup>' +
+          '<col style="width:26%"/><col style="width:16%"/><col style="width:5%"/>' +
+          '<col style="width:10.6%"/><col style="width:10.6%"/><col style="width:10.6%"/><col style="width:10.6%"/><col style="width:10.6%"/>' +
+          '</colgroup>' +
           '<thead><tr style="border-bottom:2px solid var(--black)">' +
           '<th style="text-align:left;padding:4px 8px 4px 0;font-size:9px;font-weight:800;text-transform:uppercase">Item / Disciplina</th>' +
           '<th style="text-align:left;padding:4px 8px;font-size:9px;font-weight:800;text-transform:uppercase">Fornecedor</th>' +
-          '<th style="text-align:center;padding:4px 8px;font-size:9px;font-weight:800;text-transform:uppercase">Tipo</th>' +
+          '<th style="text-align:center;padding:4px 2px;font-size:9px;font-weight:800;text-transform:uppercase">Tipo</th>' +
           '<th style="text-align:right;padding:4px 8px;font-size:9px;font-weight:800;text-transform:uppercase">Or\u00e7ado</th>' +
-          '<th style="text-align:center;padding:4px 8px;font-size:9px;font-weight:800;text-transform:uppercase;color:var(--g500)">Acum. Ant.</th>' +
+          '<th style="text-align:center;padding:4px 4px;font-size:9px;font-weight:800;text-transform:uppercase;color:var(--g500)">Acum. Ant.</th>' +
           '<th style="text-align:center;padding:4px 8px;font-size:9px;font-weight:800;text-transform:uppercase">% Medida</th>' +
           '<th style="text-align:right;padding:4px 8px;font-size:9px;font-weight:800;text-transform:uppercase">Base</th>' +
           '<th style="text-align:right;padding:4px 8px;font-size:9px;font-weight:800;text-transform:uppercase;color:var(--warn)">Saldo</th>' +
