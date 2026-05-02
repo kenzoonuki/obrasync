@@ -1200,7 +1200,6 @@ tfoot td{padding:10px 0;border-top:2px solid var(--black);font-weight:800;font-s
       <div class="ff"><label>Tipo de Documento</label><select id="e-dt" onchange="updateNFLabel()"></select></div>
       <div class="ff"><label id="e-nf-label">Número</label><input type="text" id="e-nf" placeholder="Ex: 001234"/></div>
       <div class="ff"><label>Centro de Custo</label><select id="e-cc"></select></div>
-      <div class="ff"><label>Tipo de Serviço</label><select id="e-st"></select></div>
       <div class="ff"><label>Forma de Pagamento</label><select id="e-pm"></select></div>
       <div class="ff"><label>Nº de Parcelas</label><input type="number" id="e-np" min="1" max="60" value="1" oninput="genInst()"/></div>
       <div class="ff"><label>1º Vencimento</label><input type="date" id="e-fd" oninput="genInst()"/></div>
@@ -1219,7 +1218,7 @@ tfoot td{padding:10px 0;border-top:2px solid var(--black);font-weight:800;font-s
         <span style="font-size:9px;font-weight:700;text-transform:uppercase;color:var(--g500)">Descrição</span>
         <span style="font-size:9px;font-weight:700;text-transform:uppercase;color:var(--g500)">Un.</span>
         <span style="font-size:9px;font-weight:700;text-transform:uppercase;color:var(--g500);text-align:right">Qtd</span>
-        <span style="font-size:9px;font-weight:700;text-transform:uppercase;color:var(--g500)">Categoria</span>
+        <span style="font-size:9px;font-weight:700;text-transform:uppercase;color:var(--g500)">Tipo</span>
         <span style="font-size:9px;font-weight:700;text-transform:uppercase;color:var(--g500);text-align:right">P. Unit.</span>
         <span style="font-size:9px;font-weight:700;text-transform:uppercase;color:var(--g500);text-align:right">Total</span>
         <span style="font-size:9px;font-weight:700;text-transform:uppercase;color:var(--g500)">Vincular ao orç.</span>
@@ -4148,7 +4147,6 @@ function markMeasPaid(id) {
   // Pre-fill entry modal
   const c = cats();
   pop('e-cc', c.costcenters||[]);
-  pop('e-st', c.servicetypes||[]);
   pop('e-dt', c.doctypes||[]);
   pop('e-pm', c.paymethods||[]);
   // Populate supplier select
@@ -6364,7 +6362,7 @@ function renderEntrySplitRows() {
       '</select>' +
       '<input type="text" style="'+inp+';text-align:right" placeholder="0,00" value="'+fmtPunit+'" oninput="formatBRLInput(this);_entrySplitRows['+idx+'].punit=parseFloat(this.value.replace(/\\./g,\'\').replace(\',\',\'.\'))||0;calcEntryRowVal('+idx+')"/>' +
       '<span id="e-row-tot-'+idx+'" style="font-size:11px;font-weight:700;text-align:right;padding:4px 6px">'+fmtTot+'</span>' +
-      '<select style="'+inp+'" onchange="_entrySplitRows['+idx+'].budId=this.value">'+budOpts+'</select>' +
+      '<select style="'+inp+'" onchange="onBudItemSelect('+idx+',this.value)">'+budOpts+'</select>' +
       (multi ? '<button onclick="_entrySplitRows.splice('+idx+',1);renderEntrySplitRows()" style="background:none;border:none;cursor:pointer;color:var(--danger);font-size:18px;line-height:1;padding:0">&#215;</button>' : '') +
     '</div>';
   });
@@ -6372,6 +6370,33 @@ function renderEntrySplitRows() {
   const bar = document.getElementById('e-balance-bar');
   if (bar) bar.style.display = multi ? 'flex' : 'none';
   syncEntryTot();
+}
+
+function onBudItemSelect(idx, budId) {
+  const row = _entrySplitRows[idx];
+  if (!row) return;
+  row.budId = budId;
+  if (budId) {
+    const bi = (DB.get('budget')||[]).find(x=>x.id===budId);
+    if (bi) {
+      // auto-fill phase and disc if not already set
+      if (!row.phase && bi.phase) row.phase = bi.phase;
+      if (!row.disc  && bi.disc)  row.disc  = bi.disc;
+      // derive catClass from dominant cost column
+      const hasMO   = (bi.pmo   ||0) > 0;
+      const hasMat  = (bi.pmat  ||0) > 0;
+      const hasAcab = (bi.pacab ||0) > 0;
+      const hasSrv  = (bi.psrv  ||0) > 0;
+      const n = [hasMO,hasMat,hasAcab,hasSrv].filter(Boolean).length;
+      if (n === 1) {
+        if (hasMO)   row.catClass = 'mo';
+        if (hasMat)  row.catClass = 'mat';
+        if (hasAcab) row.catClass = 'acab';
+        if (hasSrv)  row.catClass = 'srv';
+      }
+    }
+  }
+  renderEntrySplitRows();
 }
 
 function calcEntryRowVal(idx) {
@@ -6417,7 +6442,7 @@ function openEntryModal(editId) {
   const _addBtn = document.getElementById('e-add-item-btn');
   if (_addBtn) _addBtn.style.display = '';
   const c = cats();
-  pop('e-cc',c.costcenters||[]); pop('e-st',c.servicetypes||[]);
+  pop('e-cc',c.costcenters||[]);
   pop('e-dt',c.doctypes||[]); pop('e-pm',c.paymethods||[]);
   _popReembFor('e-reemb-for');
   // Populate suppliers from global list
@@ -6436,7 +6461,6 @@ function openEntryModal(editId) {
         supSel.value = _byId ? _byId.id : ''; }
       document.getElementById('e-nf').value = e.nf||'';
       document.getElementById('e-cc').value = e.cc||'';
-      document.getElementById('e-st').value = e.st||'';
       document.getElementById('e-dt').value = e.dt||'';
       document.getElementById('e-pm').value = e.pm||'';
       document.getElementById('e-np').value = e.insts.length;
@@ -6467,7 +6491,6 @@ function openEntryModal(editId) {
     document.getElementById('e-notes').value = '';
     document.getElementById('e-base').checked = last.base !== undefined ? last.base : true;
     if (last.cc) document.getElementById('e-cc').value = last.cc;
-    if (last.st) document.getElementById('e-st').value = last.st;
     if (last.dt) document.getElementById('e-dt').value = last.dt;
     if (last.pm) document.getElementById('e-pm').value = last.pm;
     document.getElementById('e-reemb').checked = false;
@@ -6555,9 +6578,11 @@ function saveEntry() {
   const isSplit = rows.length > 1;
   // For single-row entries keep flat structure for backward compat
   const r0 = rows[0] || {};
+  const _catToSt = {mat:'Material', mo:'Mão de Obra', srv:'Serviço', acab:'Acabamento'};
+  const _derivedSt = _catToSt[r0.catClass] || '';
   const baseEntry = {id:editId||uid(), comp:document.getElementById('e-comp').value,
     date:document.getElementById('e-date').value, sup, supplierId, nf,
-    cc:document.getElementById('e-cc').value, st:document.getElementById('e-st').value,
+    cc:document.getElementById('e-cc').value, st:_derivedSt,
     dt:document.getElementById('e-dt').value, pm:document.getElementById('e-pm').value,
     tot, insts, notes:document.getElementById('e-notes').value,
     base:document.getElementById('e-base').checked,
@@ -6614,7 +6639,7 @@ function saveEntry() {
   // Save template for next new entry (exclude fields that should reset)
   if (!editId) { const _r0 = (_entrySplitRows||[])[0]||{}; DB.set('lastEntry', {
     comp:entry.comp, sup:entry.supplierId, disc:_r0.disc||'', phase:_r0.phase||'',
-    cc:entry.cc, st:entry.st, dt:entry.dt, pm:entry.pm,
+    cc:entry.cc, dt:entry.dt, pm:entry.pm,
     base:entry.base, catClass:_r0.catClass||'', unit:_r0.unit||'vb', budId:_r0.budId||''
   }); }
   closeModal('mod-entry'); renderFinancial(); renderBudget(); renderDash();
