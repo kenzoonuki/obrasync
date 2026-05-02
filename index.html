@@ -1523,6 +1523,14 @@ tfoot td{padding:10px 0;border-top:2px solid var(--black);font-weight:800;font-s
       </div>
     </div>
 
+    <input type="hidden" id="bi-split-entry-id"/>
+    <div id="bi-split-wrap" style="margin:10px 0 4px">
+      <label style="font-size:11px;font-weight:700;color:var(--g500);display:block;margin-bottom:4px">Lançamento de origem (NF Split)</label>
+      <select id="bi-split-sel" style="width:100%;padding:6px 8px;border:1px solid var(--g300);border-radius:4px;font-size:12px" onchange="document.getElementById('bi-split-entry-id').value=this.value">
+        <option value="">— Nenhum —</option>
+      </select>
+    </div>
+
     <div class="chk" style="margin:12px 0 8px">
       <input type="checkbox" id="bi-compoe-base" checked/>
       <div><label for="bi-compoe-base" style="font-weight:700">Compõe base de cálculo dos honorários</label>
@@ -6963,6 +6971,19 @@ function openBudgetModal(modeOrId, editId) {
   toggleBITypeFields();
   updateBISupCols();
   calcBI();
+  // Populate NF Split selector
+  { const _splitEntries = (DB.get('entries')||[]).filter(e=>e.isSplit);
+    const _sel = document.getElementById('bi-split-sel');
+    _sel.innerHTML = '<option value="">— Nenhum —</option>' +
+      _splitEntries.map(e => {
+        const _lbl = [e.sup, e.nf?'NF '+e.nf:'', e.comp].filter(Boolean).join(' · ');
+        return '<option value="'+e.id+'">'+esc(_lbl)+'</option>';
+      }).join('');
+    const _curId = editId ? ((DB.get('budget')||[]).find(x=>x.id===editId)||{}).splitEntryId||'' : '';
+    _sel.value = _curId;
+    document.getElementById('bi-split-entry-id').value = _curId;
+    document.getElementById('bi-split-wrap').style.display = _splitEntries.length ? '' : 'none';
+  }
   openModal('mod-bud');
 }
 function formatBRLInput(el) {
@@ -7056,6 +7077,7 @@ function saveBudgetItem() {
   const editId = document.getElementById('bi-id').value;
   const existing = editId ? bud.find(x=>x.id===editId) : null;
   const item_type = document.getElementById('bi-type').value;
+  const _splitEId = document.getElementById('bi-split-entry-id').value;
   const item = {
     ...(existing || {}),
     id: editId||uid(), phase,
@@ -7071,6 +7093,7 @@ function saveBudgetItem() {
     plannedDate: item_type === 'to_contract' ? (document.getElementById('bi-planned-date').value||null) : null,
     plannedNp:   item_type === 'to_contract' ? (parseInt(document.getElementById('bi-planned-np').value)||1) : null
   };
+  if (_splitEId) item.splitEntryId = _splitEId; else delete item.splitEntryId;
   const idx = bud.findIndex(x=>x.id===item.id);
   if (idx>-1) bud[idx]=item; else bud.push(item);
   DB.set(_budKey, bud);
