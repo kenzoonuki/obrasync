@@ -6127,7 +6127,9 @@ function saveSplitEntry() {
         pacab: row.catClass==='acab' ? row.val : 0,
         psrv:  row.catClass==='srv'  ? row.val : 0,
         price: row.val, tot: row.val,
-        type:'contracted', supplierId, supCols:null, pctFis:0,
+        type:'contracted', supplierId,
+        supCols:{mo:row.catClass==='mo',mat:row.catClass==='mat',acab:row.catClass==='acab',srv:row.catClass==='srv'},
+        supRemun:'direct', pctFis:0,
         compoeBase: base, splitEntryId: entryId, splitId: row.id
       };
       bud.push(newItem);
@@ -6701,7 +6703,9 @@ function saveEntry() {
         const _punit = row.punit || (row.val / _qty);
         const newBI = {id:uid(), phase:row.phase||'', disc:row.disc||'', desc:row.desc||'', unit:row.unit||'vb', qty:_qty,
           pmo:row.catClass==='mo'?_punit:0, pmat:row.catClass==='mat'?_punit:0, pacab:row.catClass==='acab'?_punit:0, psrv:row.catClass==='srv'?_punit:0,
-          price:_punit, tot:row.val, type:'contracted', supplierId, supCols:null, pctFis:0, compoeBase:baseEntry.base,
+          price:_punit, tot:row.val, type:'contracted', supplierId,
+          supCols:{mo:row.catClass==='mo',mat:row.catClass==='mat',acab:row.catClass==='acab',srv:row.catClass==='srv'},
+          supRemun:'direct', pctFis:0, compoeBase:baseEntry.base,
           entryId: entryId,
           ...(isSplit ? {splitEntryId:entryId, splitId:row.id} : {})};
         bud.push(newBI); row.budId = newBI.id; budChanged = true;
