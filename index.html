@@ -2796,6 +2796,18 @@ function nav(v) {
   renderView(v);
 }
 
+function goToEntry(entryId) {
+  nav('financial');
+  setTimeout(() => {
+    const el = document.querySelector('[data-eid="'+entryId+'"]');
+    if (!el) return;
+    el.scrollIntoView({ behavior:'smooth', block:'center' });
+    el.style.transition = 'outline .1s';
+    el.style.outline = '2px solid var(--info)';
+    setTimeout(() => { el.style.outline = ''; }, 1800);
+  }, 120);
+}
+
 function setRole(r) {
   currentRole = r;
   document.getElementById('btn-int').classList.toggle('active', r === 'interno');
@@ -3210,7 +3222,7 @@ function renderFinancial() {
       ? '<button onclick="toggleEntryCollapse(\''+e.id+'\')" style="background:none;border:1px solid var(--g300);border-radius:3px;cursor:pointer;padding:0 7px;font-size:14px;font-weight:700;color:var(--g600);margin-left:6px;line-height:1.4">'+(isCollapsed?'+':'&#8722;')+'</button>'
       : '';
 
-    html += '<div class="'+blockCls+(isSelected?' entry-selected':'')+'">';
+    html += '<div class="'+blockCls+(isSelected?' entry-selected':'')+'" data-eid="'+e.id+'">';
     // ── Header ──────────────────────────────────────────────────────
     html += '<div class="ehdr">';
     if (!isC) html += '<input type="checkbox" class="entry-cb" data-id="'+e.id+'" '+(isSelected?'checked':'')+' onclick="event.stopPropagation();toggleEntrySelect(\''+e.id+'\',this,event)" style="flex-shrink:0;margin-right:2px"/>';
@@ -5691,7 +5703,7 @@ function renderBudget() {
             '<td class="muted sm">'+esc(i.phase)+'</td>' +
             '<td class="muted sm">'+esc(i.disc)+'</td>' +
             '<td>'+esc(i.desc)+
-              (splitParent ? '<span style="font-size:8px;font-weight:800;background:var(--info);color:#fff;padding:1px 4px;border-radius:2px;margin-left:5px;vertical-align:middle">NF '+(splitParent.nf||'SPLIT')+'</span>' : '')+
+              (splitParent ? '<span onclick="goToEntry(\''+i.splitEntryId+'\')" title="Ver lançamento de origem" style="font-size:8px;font-weight:800;background:var(--info);color:#fff;padding:1px 4px;border-radius:2px;margin-left:5px;vertical-align:middle;cursor:pointer">NF '+(splitParent.nf||'SPLIT')+'</span>' : '')+
               (sup?'<div style="font-size:8px;color:var(--g400);margin-top:2px;font-weight:400">'+esc(sup.name)+'</div>':'')+'</td>' +
             '<td class="muted sm">'+esc(i.unit)+'</td>' +
             '<td style="text-align:right">'+i.qty+'</td>' +
