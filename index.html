@@ -4036,7 +4036,7 @@ function renderMeas() {
           disc+' <span style="font-weight:400;color:var(--g500);font-size:10px">'+items.length+' it.</span>' +
         '</td>' +
         '<td></td>' +
-        '<td style="text-align:center;padding:7px 2px">'+typesSummary+'</td>' +
+        '<td style="text-align:left;padding:7px 2px">'+typesSummary+'</td>' +
         '<td style="text-align:right;padding:7px 8px;font-size:11px;font-weight:700">'+R(discTot)+'</td>' +
         '<td style="text-align:center;padding:7px 8px;font-size:11px;color:var(--g500)">'+discAcumAntP.toFixed(1)+'%</td>' +
         '<td style="text-align:center;padding:7px 8px;font-size:11px;font-weight:800">'+discPctMed.toFixed(1)+'%</td>' +
@@ -4109,12 +4109,12 @@ function renderMeas() {
           '</tr></thead><tbody>'+tableRows+'</tbody>' +
           '<tfoot>' +
           '<tr style="border-top:2px solid var(--black);background:var(--g50)">' +
-          '<td colspan="3" style="padding:6px 8px 4px 0;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.05em">Totais</td>' +
-          '<td style="text-align:right;padding:6px 8px 4px;font-weight:800">'+R(_cardTotOrc)+'</td>' +
-          '<td style="text-align:center;padding:6px 4px 4px;font-weight:700;color:var(--g500)">'+_cardAcumAntPct.toFixed(1)+'%</td>' +
-          '<td style="text-align:center;padding:6px 4px 4px;font-weight:800">'+_cardPctMed.toFixed(1)+'%</td>' +
-          '<td style="text-align:right;padding:6px 0 4px 8px;font-weight:800">'+R(g.feeBase)+'</td>' +
-          '<td style="text-align:right;padding:6px 0 4px 8px;font-weight:800;color:var(--warn)">'+R(_cardSaldo)+'</td>' +
+          '<td colspan="3" style="padding:6px 8px 4px 0;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;vertical-align:bottom">Totais</td>' +
+          '<td style="text-align:right;padding:6px 8px 4px;font-weight:800;vertical-align:bottom">'+R(_cardTotOrc)+'</td>' +
+          '<td style="text-align:center;padding:6px 4px 4px;font-weight:700;color:var(--g500);vertical-align:bottom">'+_cardAcumAntPct.toFixed(1)+'%</td>' +
+          '<td style="text-align:center;padding:6px 4px 4px;font-weight:800;vertical-align:bottom">'+_cardPctMed.toFixed(1)+'%</td>' +
+          '<td style="text-align:right;padding:6px 0 4px 8px;font-weight:800;vertical-align:bottom">'+R(g.feeBase)+'</td>' +
+          '<td style="text-align:right;padding:6px 0 4px 8px;font-weight:800;color:var(--warn);vertical-align:bottom">'+R(_cardSaldo)+'</td>' +
           '</tr><tr>' +
           '<td colspan="7" style="padding:2px 8px 6px 0;font-weight:800;color:var(--fee)">Honor\u00e1rios ('+FR().toFixed(1)+'%)</td>' +
           '<td style="text-align:right;padding:2px 0 6px 8px;font-weight:800;color:var(--fee);font-size:14px">'+R(g.feeAmt)+'</td>' +
