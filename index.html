@@ -1069,6 +1069,10 @@ tfoot td{padding:10px 0;border-top:2px solid var(--black);font-weight:800;font-s
               <option value="all">Todas</option>
             </select>
           </div>
+          <div style="margin-left:auto;display:flex;gap:6px;align-items:flex-end">
+            <button class="btn btn-g" onclick="setBudAllCollapsed(false)" title="Expandir todas as disciplinas">&#8595; Expandir tudo</button>
+            <button class="btn btn-g" onclick="setBudAllCollapsed(true)"  title="Recolher todas as disciplinas">&#8593; Recolher tudo</button>
+          </div>
         </div>
         <div id="bud-sup-pills" style="display:none"></div>
         <div id="bud-phase-pills" style="display:none"></div>
@@ -5515,6 +5519,12 @@ function setBudCat(val) {
     const el = document.getElementById('bud-cat-'+v);
     if (el) el.classList.toggle('active', v === val);
   });
+  renderBudget();
+}
+
+function setBudAllCollapsed(state) {
+  if (!window._discCollapsed) window._discCollapsed = {};
+  (DB.get('budget')||[]).forEach(i => { if (i.disc) window._discCollapsed[i.disc] = state; });
   renderBudget();
 }
 
