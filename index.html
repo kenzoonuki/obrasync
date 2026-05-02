@@ -7057,6 +7057,7 @@ function saveBudgetItem() {
   const existing = editId ? bud.find(x=>x.id===editId) : null;
   const item_type = document.getElementById('bi-type').value;
   const item = {
+    ...(existing || {}),
     id: editId||uid(), phase,
     disc: document.getElementById('bi-disc').value, desc,
     unit: document.getElementById('bi-unit').value, qty,
