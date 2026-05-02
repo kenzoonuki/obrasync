@@ -153,13 +153,11 @@ tfoot td{padding:10px 0;border-top:2px solid var(--black);font-weight:800;font-s
 .bar-wrap{display:flex;gap:4px;align-items:flex-end;padding:0 4px;margin-bottom:6px}
 .bgrp{flex:1;display:flex;flex-direction:column;align-items:center}
 .binn{display:flex;gap:2px;align-items:flex-end;width:100%;justify-content:center;height:140px}
-.bp{flex:1;background:var(--g300);max-width:20px;min-height:2px;transition:height .5s}
-.br{flex:1;background:var(--black);max-width:20px;min-height:2px;transition:height .5s}
+.bp{flex:1;background:var(--g300);max-width:20px;min-height:2px;transition:height .5s;position:relative;overflow:visible}
+.br{flex:1;background:var(--black);max-width:20px;min-height:2px;transition:height .5s;position:relative;overflow:visible}
+.bfc{flex:1;background:#bfdbfe;border:1.5px dashed #60a5fa;max-width:20px;min-height:2px;transition:height .5s;box-sizing:border-box;position:relative;overflow:visible}
+.bval{position:absolute;top:-2px;left:50%;transform:rotate(-45deg);transform-origin:bottom left;font-size:8px;white-space:nowrap;color:var(--g500);pointer-events:none;line-height:1;font-weight:600}
 .blbl{font-size:9px;color:var(--g400);margin-top:4px;text-align:center}
-.bv-row{display:flex;gap:6px;height:26px;align-items:flex-end;width:100%;justify-content:center;overflow:visible}
-.bv{font-size:7px;font-weight:800;white-space:nowrap;display:inline-block;transform:rotate(-45deg);transform-origin:center bottom;line-height:1}
-.bv-p{color:var(--g500)}.bv-r{color:var(--black)}
-.mpinp{width:70px;padding:3px 5px;border:1px solid var(--g300);border-radius:3px;font-size:11px;text-align:right;background:var(--white)}
 .legrow{display:flex;gap:16px;margin-bottom:10px}
 .legi{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--g600)}
 .legbox{width:10px;height:10px}
@@ -689,18 +687,32 @@ tfoot td{padding:10px 0;border-top:2px solid var(--black);font-weight:800;font-s
       </div>
       <div class="divider"></div>
       <div class="sec-hd" style="border-bottom:1px solid var(--g200);margin-bottom:16px"><h2>Fluxo Detalhado por Período</h2></div>
-      <div class="tw"><table><thead><tr><th>Período</th><th>Projetado</th><th>Realizado</th><th>Delta</th><th>Acum. Pago</th></tr></thead><tbody id="cf-tbody"></tbody></table></div>
-      <div class="divider"></div>
-      <div class="sec-hd" style="border-bottom:1px solid var(--g200);margin-bottom:10px">
-        <h2>Projeção de Medições Futuras</h2>
-        <span class="muted sm">Distribua o saldo a medir de cada fornecedor pelos meses futuros para refletir no fluxo de caixa</span>
-      </div>
-      <div id="meas-proj-area" style="margin-bottom:8px"></div>
+      <div class="tw"><table><thead><tr><th>Período</th><th>Contratado</th><th>Previsão</th><th>Realizado</th><th>Acum. Pago</th></tr></thead><tbody id="cf-tbody"></tbody></table></div>
       <div class="divider"></div>
       <div class="sec-hd" style="border-bottom:1px solid var(--g200);margin-bottom:16px"><h2>Histórico de Relatórios Gerados</h2></div>
       <div id="rpt-history"><div class="muted sm">Nenhum relatório gerado ainda.</div></div>
     </div>
 
+
+<!-- MODAL: PROJEÇÃO DE MEDIÇÕES -->
+<div class="modal-ov" id="mod-meas-proj">
+  <div class="modal" style="max-width:540px">
+    <button class="modal-x" onclick="closeModal('mod-meas-proj')">&#10005;</button>
+    <h3 id="mp-title">Projeção de Medições</h3>
+    <input type="hidden" id="mp-sup-id"/>
+    <div style="background:var(--g50);border-radius:6px;padding:10px 14px;margin-bottom:14px;font-size:12px" id="mp-residual-info"></div>
+    <div style="display:grid;grid-template-columns:1fr 90px 100px 32px;gap:6px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--g500);margin-bottom:4px;padding:0 2px">
+      <span>Mês</span><span>% do Saldo</span><span>≈ R$ Projetado</span><span></span>
+    </div>
+    <div id="mp-rows"></div>
+    <button class="btn btn-g btn-sm" style="margin-top:10px" onclick="addMeasProjRow()">+ Adicionar Mês</button>
+    <div id="mp-total-warn" style="margin-top:8px;font-size:12px"></div>
+    <div class="factions mt16">
+      <button class="btn btn-p" onclick="saveMeasProj()">Salvar Projeção</button>
+      <button class="btn btn-g" onclick="closeModal('mod-meas-proj')">Cancelar</button>
+    </div>
+  </div>
+</div>
 
 <!-- MODAL: LANÇAMENTO COM RATEIO (NF múltiplos itens) -->
 <div class="modal-ov" id="mod-rateio">
@@ -954,6 +966,7 @@ tfoot td{padding:10px 0;border-top:2px solid var(--black);font-weight:800;font-s
       <div class="fg mb16" style="border-bottom:2px solid var(--g200);padding-bottom:0;gap:0">
         <button class="meas-tab active" id="mtab-sup" onclick="setMeasTab('sup')">Medições de Fornecedores</button>
         <button class="meas-tab" id="mtab-ger" onclick="setMeasTab('ger')">Medições de Gerenciamento</button>
+        <button class="meas-tab" id="mtab-proj" onclick="setMeasTab('proj')">Projeções de Desembolso</button>
       </div>
 
       <!-- PANEL: FORNECEDORES -->
@@ -987,6 +1000,17 @@ tfoot td{padding:10px 0;border-top:2px solid var(--black);font-weight:800;font-s
           <div class="feegrid" id="fee-grid"></div>
           <div class="inote fe mt16" id="fee-detail-note"></div>
         </div>
+      </div>
+
+      <!-- PANEL: PROJEÇÕES -->
+      <div id="mpanel-proj" style="display:none">
+        <div style="margin:16px 0 8px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+          <div>
+            <div style="font-size:13px;font-weight:800">Projeção de Medições por Fornecedor</div>
+            <div class="muted sm">Configure o % do saldo residual a ser medido em cada mês futuro. O valor absoluto é recalculado automaticamente quando o orçamento muda.</div>
+          </div>
+        </div>
+        <div id="meas-proj-list"></div>
       </div>
     </div>
 
@@ -2771,6 +2795,7 @@ function initData() {
 // HELPERS
 // =====================================================================
 const R = v => 'R$ ' + Number(v).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
+const _Rk = v => { const n = Math.abs(+v); if (n === 0) return ''; if (n >= 1e6) return (n/1e6).toLocaleString('pt-BR',{maximumFractionDigits:1})+'M'; if (n >= 1e3) return (n/1e3).toLocaleString('pt-BR',{maximumFractionDigits:1})+'K'; return n.toLocaleString('pt-BR',{maximumFractionDigits:0}); };
 const pct = v => Number(v).toFixed(1) + '%';
 const uid = () => 'i' + Date.now() + Math.random().toString(36).slice(2,5);
 const todayStr = () => new Date().toISOString().slice(0,10);
@@ -2954,163 +2979,251 @@ function setCfW(btn, w) {
   btn.classList.add('active');
   renderDashboard();
 }
-function shortVal(v) {
-  if (!v || v < 1) return '';
-  if (v >= 1000000) return (v/1000000).toFixed(1)+'M';
-  if (v >= 1000)    return (v/1000).toFixed(1)+'k';
-  return v.toFixed(0);
-}
-
 function getCFData() {
   const entries = DB.get('entries') || [];
-  const bud = DB.get('budget') || [];
+  const bud     = DB.get('budget')  || [];
+  const meas    = DB.get('meas2')   || [];
+  const cf      = DB.get('cashflow')|| {};
+  const fr      = FR() / 100;
   const allInsts = entries.flatMap(e => e.insts.map(p => ({...p, e})));
-  // Build projected installments from "A Contratar" items with plannedDate
-  const projInsts = {};
+
+  // 1. À Contratar planned payments (budget items type=to_contract with plannedDate)
+  const tcByMonth = {}, tcDirectByMonth = {};
   bud.filter(i => i.type === 'to_contract' && i.plannedDate && i.tot > 0).forEach(i => {
     const np = Math.max(1, i.plannedNp || 1);
     const parVal = +(i.tot / np).toFixed(2);
-    const base = new Date(i.plannedDate);
+    const base = new Date(i.plannedDate + 'T00:00:00');
     for (let k = 0; k < np; k++) {
-      const d = new Date(base.getFullYear(), base.getMonth() + k, base.getDate());
+      const d = new Date(base.getFullYear(), base.getMonth() + k, 1);
       const p = d.toISOString().slice(0, 7);
-      projInsts[p] = (projInsts[p] || 0) + parVal;
+      tcByMonth[p] = (tcByMonth[p] || 0) + parVal;
+      if (i.compoeBase !== false && (i.supRemun || 'direct') === 'direct')
+        tcDirectByMonth[p] = (tcDirectByMonth[p] || 0) + parVal;
     }
   });
-  // Add manual measurement projections
-  const cfMeasProj = DB.get('cfMeasProj') || {};
-  Object.values(cfMeasProj).forEach(months => {
-    Object.entries(months).forEach(([month, amt]) => {
-      projInsts[month] = (projInsts[month] || 0) + (parseFloat(amt) || 0);
+
+  // 2. Supplier measurement projections (% of residual per month)
+  const measByMonth = {};
+  (cf.measProj || []).forEach(sp => {
+    const supItems = bud.filter(b => b.supplierId === sp.supplierId && b.type !== 'to_contract');
+    const totalBudget = supItems.reduce((s, b) => s + (b.tot || 0), 0);
+    const alreadyMeasured = supItems.reduce((s, b) => {
+      const p = meas.filter(m => m.status !== 'draft').flatMap(m => m.items)
+        .filter(it => it.biId === b.id).reduce((a, it) => a + (it.pctPer || 0), 0);
+      return s + Math.min(p, 100) * (b.tot || 0) / 100;
+    }, 0);
+    const residual = Math.max(0, totalBudget - alreadyMeasured);
+    (sp.months || []).forEach(entry => {
+      const amt = +(residual * (entry.pct || 0) / 100).toFixed(2);
+      if (amt > 0) measByMonth[entry.month] = (measByMonth[entry.month] || 0) + amt;
     });
   });
+
+  // 3. Management fee forecast = (meas projections + direct à contratar) × alíquota
+  const feeByMonth = {};
+  [...new Set([...Object.keys(measByMonth), ...Object.keys(tcDirectByMonth)])].forEach(p => {
+    const v = +( ((measByMonth[p]||0) + (tcDirectByMonth[p]||0)) * fr ).toFixed(2);
+    if (v > 0) feeByMonth[p] = v;
+  });
+
   const data = [];
   const now = new Date();
   for (let i = 0; i < cfW; i++) {
     const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
-    const p = d.toISOString().slice(0,7);
-    const projLaunched = allInsts.filter(x => x.due && x.due.slice(0,7) === p).reduce((s,x) => s + x.val, 0);
-    const proj = projLaunched + (projInsts[p] || 0);
-    const real = allInsts.filter(x => x.status === 'paid' && x.paidAt && x.paidAt.slice(0,7) === p).reduce((s,x) => s + x.paidAmt, 0);
-    const projMeas = projInsts[p] || 0;
-    data.push({p, proj, real, projBud: projInsts[p] || 0, projMeas});
+    const p = d.toISOString().slice(0, 7);
+    const proj     = allInsts.filter(x => x.due && x.due.slice(0,7) === p).reduce((s,x) => s + x.val, 0);
+    const real     = allInsts.filter(x => x.status === 'paid' && x.paidAt && x.paidAt.slice(0,7) === p).reduce((s,x) => s + x.paidAmt, 0);
+    const mProj    = measByMonth[p]    || 0;
+    const tcProj   = tcByMonth[p]      || 0;
+    const feeProj  = feeByMonth[p]     || 0;
+    const forecast = mProj + tcProj + feeProj;
+    data.push({p, proj, real, forecast, mProj, tcProj, feeProj, projBud: tcProj});
   }
   return data;
 }
 function renderDashboard() {
   const data = getCFData();
-  const mx = Math.max(...data.map(d => Math.max(d.proj, d.real)), 1);
+  const mx = Math.max(...data.map(d => Math.max(d.proj, d.real, d.forecast)), 1);
   const H = 140;
   let bars = '';
   data.forEach(d => {
-    const ph = Math.max(d.proj > 0 ? 2 : 0, (d.proj / mx) * H);
-    const rh = Math.max(d.real > 0 ? 2 : 0, (d.real / mx) * H);
-    const svp = shortVal(d.proj), svr = shortVal(d.real);
-    bars += '<div class="bgrp">' +
-      '<div class="bv-row">' +
-        (svp ? '<span class="bv bv-p">'+svp+'</span>' : '<span></span>') +
-        (svr ? '<span class="bv bv-r">'+svr+'</span>' : '<span></span>') +
-      '</div>' +
-      '<div class="binn">' +
-        '<div class="bp" style="height:'+ph+'px" title="Projetado: '+R(d.proj)+'"></div>' +
-        '<div class="br" style="height:'+rh+'px" title="Realizado: '+R(d.real)+'"></div>' +
-      '</div>' +
-      '<span class="blbl">'+fmtP(d.p)+'</span>' +
-    '</div>';
+    const ph = Math.max(d.proj     > 0 ? 2 : 0, (d.proj     / mx) * H);
+    const rh = Math.max(d.real     > 0 ? 2 : 0, (d.real     / mx) * H);
+    const fh = Math.max(d.forecast > 0 ? 2 : 0, (d.forecast / mx) * H);
+    const fTip = 'Previsão: '+R(d.forecast)+(d.mProj?'\nMedições: '+R(d.mProj):'')+(d.tcProj?'\nÀ Contratar: '+R(d.tcProj):'')+(d.feeProj?'\nHonorários: '+R(d.feeProj):'');
+    bars += '<div class="bgrp"><div class="binn">' +
+      (d.forecast > 0 ? '<div class="bfc" style="height:'+fh+'px" title="'+fTip+'">'+(fh > 8 ? '<span class="bval">'+_Rk(d.forecast)+'</span>' : '')+'</div>' : '') +
+      '<div class="bp" style="height:'+ph+'px" title="Contratado: '+R(d.proj)+'">'+(d.proj > 0 && ph > 8 ? '<span class="bval">'+_Rk(d.proj)+'</span>' : '')+'</div>' +
+      '<div class="br" style="height:'+rh+'px" title="Realizado: '+R(d.real)+'">'+(d.real > 0 && rh > 8 ? '<span class="bval">'+_Rk(d.real)+'</span>' : '')+'</div>' +
+      '</div><span class="blbl">'+fmtP(d.p)+'</span></div>';
   });
   document.getElementById('cf-bars').innerHTML = bars;
   const tp = data.reduce((s,d) => s+d.proj, 0);
   const tr = data.reduce((s,d) => s+d.real, 0);
+  const tf = data.reduce((s,d) => s+d.forecast, 0);
   document.getElementById('cf-cards').innerHTML =
-    '<div class="card"><div class="clbl">Previsto Total</div><div class="cval">'+R(tp)+'</div></div>' +
-    '<div class="card dk"><div class="clbl">Realizado Total</div><div class="cval">'+R(tr)+'</div></div>' +
-    '<div class="card"><div class="clbl">A Desembolsar</div><div class="cval">'+R(Math.max(0,tp-tr))+'</div></div>';
+    '<div class="card dk"><div class="clbl">Realizado</div><div class="cval">'+R(tr)+'</div></div>' +
+    '<div class="card"><div class="clbl">Contratado (prev.)</div><div class="cval">'+R(tp)+'</div></div>' +
+    '<div class="card" style="border-left:3px solid #60a5fa"><div class="clbl" style="color:#60a5fa">Previsão (proj.)</div><div class="cval" style="color:#2563eb">'+R(tf)+'</div><div class="csub">Meds: '+R(data.reduce((s,d)=>s+d.mProj,0))+' · Cont.: '+R(data.reduce((s,d)=>s+d.tcProj,0))+' · Hon.: '+R(data.reduce((s,d)=>s+d.feeProj,0))+'</div></div>' +
+    '<div class="card"><div class="clbl">Total a Desembolsar</div><div class="cval">'+R(Math.max(0,tp+tf-tr))+'</div></div>';
   // Table
   let acc = 0, rows = '';
   data.forEach(d => {
     acc += d.real;
-    const delta = d.real > 0 ? d.real - d.proj : null;
-    rows += '<tr><td>'+fmtP(d.p)+'</td><td>'+R(d.proj)+'</td>' +
+    rows += '<tr>' +
+      '<td>'+fmtP(d.p)+'</td>' +
+      '<td class="'+(d.proj>0?'fw7':'muted')+'">'+(d.proj>0?R(d.proj):'—')+'</td>' +
+      '<td style="color:#2563eb">'+(d.forecast>0?'<span title="Meds: '+R(d.mProj)+' | Cont.: '+R(d.tcProj)+' | Hon.: '+R(d.feeProj)+'">'+R(d.forecast)+'</span>':'<span class="muted">—</span>')+'</td>' +
       '<td class="'+(d.real>0?'fw7':'muted')+'">'+(d.real>0?R(d.real):'—')+'</td>' +
-      '<td>'+(delta!==null?'<span class="'+(delta>=0?'dok':'dwn')+'">'+(delta>=0?'+':'')+R(delta)+'</span>':'<span class="muted">—</span>')+'</td>' +
       '<td class="fw7">'+(acc>0?R(acc):'—')+'</td></tr>';
   });
   document.getElementById('cf-tbody').innerHTML = rows;
   buildPies();
   renderReportHistory();
-  renderMeasProj();
 }
 
-function saveMeasProj(supId, month, rawVal) {
-  const cfMeasProj = DB.get('cfMeasProj') || {};
-  if (!cfMeasProj[supId]) cfMeasProj[supId] = {};
-  const num = parseFloat((rawVal||'').replace(/\./g,'').replace(',','.')) || 0;
-  if (num > 0) cfMeasProj[supId][month] = num;
-  else delete cfMeasProj[supId][month];
-  DB.set('cfMeasProj', cfMeasProj);
-  renderDashboard();
+function _calcSupResidual(supplierId) {
+  const bud  = DB.get('budget') || [];
+  const meas = DB.get('meas2')  || [];
+  const supItems = bud.filter(b => b.supplierId === supplierId && b.type !== 'to_contract');
+  const totalBudget = supItems.reduce((s, b) => s + (b.tot || 0), 0);
+  const alreadyMeasured = supItems.reduce((s, b) => {
+    const pct = meas.filter(m => m.status !== 'draft').flatMap(m => m.items)
+      .filter(it => it.biId === b.id).reduce((a, it) => a + (it.pctPer || 0), 0);
+    return s + Math.min(pct, 100) * (b.tot || 0) / 100;
+  }, 0);
+  return { totalBudget, alreadyMeasured, residual: Math.max(0, totalBudget - alreadyMeasured) };
 }
 
 function renderMeasProj() {
-  const el = document.getElementById('meas-proj-area'); if (!el) return;
-  const bud   = DB.get('budget') || [];
-  const meas2 = DB.get('meas2') || [];
-  const sups  = DB.get('suppliers') || [];
-  const cfMeasProj = DB.get('cfMeasProj') || {};
-  // AUTO items: contracted, compoeBase, supRemun=meas, with supplier
-  const autoItems = bud.filter(i => i.supplierId && i.type === 'contracted' && i.compoeBase !== false && (i.supRemun||'meas') === 'meas');
-  // Group remaining balance by supplier
-  const bySup = {};
-  autoItems.forEach(bi => {
-    const pctAcum = Math.min(100, meas2.filter(m=>m.status!=='draft').flatMap(m=>m.items).filter(it=>it.biId===bi.id).reduce((s,it)=>s+(it.pctPer||0),0));
-    const rem = bi.tot * Math.max(0, 100 - pctAcum) / 100;
-    if (rem < 0.5) return;
-    if (!bySup[bi.supplierId]) { const sup = sups.find(s=>s.id===bi.supplierId); bySup[bi.supplierId] = {name: sup?sup.name:bi.supplierId, rem:0}; }
-    bySup[bi.supplierId].rem += rem;
+  const sups = DB.get('suppliers') || [];
+  const bud  = DB.get('budget')   || [];
+  const cf   = DB.get('cashflow') || {};
+  const meas = DB.get('meas2')    || [];
+  const supWithMeas = new Set(meas.map(m => m.supplierId).filter(Boolean));
+  const supIds = [...new Set(bud.filter(b =>
+    b.supplierId && b.type !== 'to_contract' &&
+    (b.supRemun === 'meas' || (!b.supRemun && supWithMeas.has(b.supplierId)))
+  ).map(b => b.supplierId))];
+  const el = document.getElementById('meas-proj-list');
+  if (!el) return;
+  if (!supIds.length) { el.innerHTML = '<div class="inote">Nenhum fornecedor remunerado via medição de obra encontrado no orçamento.</div>'; return; }
+  let html = '';
+  supIds.forEach(sid => {
+    const sup = sups.find(s => s.id === sid);
+    const { totalBudget, alreadyMeasured, residual } = _calcSupResidual(sid);
+    const pctDone = totalBudget > 0 ? Math.min(100, alreadyMeasured / totalBudget * 100) : 0;
+    const proj = (cf.measProj || []).find(x => x.supplierId === sid);
+    const totalProjPct = proj ? proj.months.reduce((s, m) => s + (m.pct || 0), 0) : 0;
+    const totalProjAmt = +(residual * totalProjPct / 100).toFixed(2);
+    const overLimit    = totalProjPct > 100;
+    html += '<div class="mcard" style="margin-bottom:12px">' +
+      '<div class="mcard-hdr" style="align-items:center">' +
+        '<div style="flex:1">' +
+          '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">' +
+            '<span class="mcard-sup">'+(sup ? sup.name : '?')+'</span>' +
+            '<span style="font-size:11px;color:var(--g500)">Orçado: <strong>'+R(totalBudget)+'</strong></span>' +
+            '<span style="font-size:11px;color:var(--g500)">Medido: <strong>'+pctDone.toFixed(1)+'%</strong></span>' +
+            '<span style="font-size:11px;font-weight:800;color:var(--ok)">Saldo: '+R(residual)+'</span>' +
+          '</div>' +
+          (proj && proj.months.length > 0
+            ? '<div style="margin-top:6px;font-size:11px;display:flex;flex-wrap:wrap;gap:8px;align-items:center">' +
+                proj.months.sort((a,b)=>a.month.localeCompare(b.month)).map(m =>
+                  '<span style="background:var(--g100);border-radius:4px;padding:2px 7px">'+fmtP(m.month)+': <strong>'+m.pct+'%</strong> ≈ '+R(+(residual*m.pct/100).toFixed(2))+'</span>'
+                ).join('') +
+                '<span style="font-weight:800;color:'+(overLimit?'var(--danger)':'var(--info)')+'">Total: '+totalProjPct.toFixed(1)+'% → '+R(totalProjAmt)+(overLimit?' ⚠':'')+'</span>' +
+              '</div>'
+            : '<div class="muted sm" style="margin-top:4px">Sem projeção configurada</div>'
+          ) +
+        '</div>' +
+        '<button class="btn btn-e btn-sm" onclick="openMeasProjModal(\''+sid+'\')">&#9998; Projetar</button>' +
+      '</div></div>';
   });
-  const supIds = Object.keys(bySup);
-  if (!supIds.length) { el.innerHTML = '<div class="muted sm" style="padding:8px 0">Nenhum fornecedor com saldo a medir via medição de obra.</div>'; return; }
-  // Month columns
-  const now = new Date();
-  const months = Array.from({length: cfW}, (_,i) => { const d = new Date(now.getFullYear(), now.getMonth()+i, 1); return d.toISOString().slice(0,7); });
-  // Table
-  const colW = '72px', cols = '1fr 100px '+months.map(()=>colW).join(' ')+' 100px';
-  let html = '<div style="overflow-x:auto">';
-  // Header
-  html += '<div style="display:grid;grid-template-columns:'+cols+';gap:4px;padding:6px 0;border-bottom:2px solid var(--black);font-size:9px;font-weight:800;text-transform:uppercase;align-items:center">';
-  html += '<div>Fornecedor</div><div style="text-align:right;color:var(--g500)">Saldo total</div>';
-  months.forEach(m => { html += '<div style="text-align:center">'+fmtP(m)+'</div>'; });
-  html += '<div style="text-align:right;color:var(--warn)">Não aloc.</div></div>';
-  // Rows
-  supIds.forEach(supId => {
-    const {name, rem} = bySup[supId];
-    const supProj = cfMeasProj[supId] || {};
-    const alloc = months.reduce((s,m) => s + (parseFloat(supProj[m])||0), 0);
-    const unalloc = rem - alloc;
-    const uColor = unalloc < -0.5 ? 'var(--err)' : unalloc > 0.5 ? 'var(--warn)' : 'var(--ok)';
-    html += '<div style="display:grid;grid-template-columns:'+cols+';gap:4px;padding:6px 0;border-bottom:1px solid var(--g100);align-items:center;font-size:12px">';
-    html += '<div style="font-weight:600">'+esc(name)+'</div>';
-    html += '<div style="text-align:right;color:var(--g500);font-size:11px">'+R(rem)+'</div>';
-    months.forEach(m => {
-      const v = supProj[m] ? (+supProj[m]).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) : '';
-      html += '<div style="text-align:center"><input class="mpinp" type="text" data-sup="'+supId+'" data-month="'+m+'" value="'+esc(v)+'" placeholder="0,00" onchange="saveMeasProj(\''+supId+'\',\''+m+'\',this.value)" oninput="formatBRLInput(this)"/></div>';
-    });
-    html += '<div style="text-align:right;font-weight:700;font-size:11px;color:'+uColor+'">'+R(Math.abs(unalloc))+(unalloc<-0.5?' ↑':unalloc>0.5?' ↓':' ✓')+'</div>';
-    html += '</div>';
-  });
-  // Totals row
-  const totalRem = supIds.reduce((s,id) => s + bySup[id].rem, 0);
-  const totalAlloc = months.reduce((s,m) => { const cfp = DB.get('cfMeasProj')||{}; return s + supIds.reduce((ss,id) => ss + (parseFloat((cfp[id]||{})[m])||0), 0); }, 0);
-  html += '<div style="display:grid;grid-template-columns:'+cols+';gap:4px;padding:8px 0 4px;border-top:2px solid var(--black);font-size:11px;font-weight:800;align-items:center">';
-  html += '<div>Total</div><div style="text-align:right;color:var(--g500)">'+R(totalRem)+'</div>';
-  months.forEach(m => {
-    const cfp = DB.get('cfMeasProj') || {};
-    const mTotal = supIds.reduce((s,id) => s + (parseFloat((cfp[id]||{})[m])||0), 0);
-    html += '<div style="text-align:center;color:'+(mTotal>0?'var(--black)':'var(--g400)')+'">'+( mTotal>0 ? R(mTotal) : '—')+'</div>';
-  });
-  html += '<div style="text-align:right;color:'+(Math.abs(totalRem-totalAlloc)<0.5?'var(--ok)':'var(--warn)')+'">'+R(Math.abs(totalRem-totalAlloc))+(totalRem-totalAlloc>0.5?' ↓':totalRem-totalAlloc<-0.5?' ↑':' ✓')+'</div></div>';
-  html += '</div>';
   el.innerHTML = html;
+}
+
+function openMeasProjModal(supplierId) {
+  const sups = DB.get('suppliers') || [];
+  const cf   = DB.get('cashflow') || {};
+  const sup  = sups.find(s => s.id === supplierId);
+  const { totalBudget, alreadyMeasured, residual } = _calcSupResidual(supplierId);
+  document.getElementById('mp-title').textContent = 'Projeção — ' + (sup ? sup.name : '?');
+  document.getElementById('mp-sup-id').value = supplierId;
+  document.getElementById('mp-residual-info').innerHTML =
+    'Orçado total: <strong>'+R(totalBudget)+'</strong> &nbsp;·&nbsp; Já medido: <strong>'+R(alreadyMeasured)+'</strong> &nbsp;·&nbsp; <span style="color:var(--ok);font-weight:800">Saldo residual: '+R(residual)+'</span>';
+  window._mpResidual = residual;
+  const existing = (cf.measProj || []).find(x => x.supplierId === supplierId);
+  window._mpMonths = existing ? JSON.parse(JSON.stringify(existing.months || [])) : [];
+  _renderMPRows();
+  openModal('mod-meas-proj');
+}
+
+function _renderMPRows() {
+  const residual  = window._mpResidual || 0;
+  const months    = window._mpMonths   || [];
+  const totalPct  = months.reduce((s, m) => s + (+(m.pct)||0), 0);
+  let html = months.map((m, idx) => {
+    const amt = +(residual * (+(m.pct)||0) / 100).toFixed(2);
+    return '<div style="display:grid;grid-template-columns:1fr 90px 100px 32px;gap:6px;align-items:center;margin-bottom:6px">' +
+      '<input type="month" value="'+m.month+'" oninput="window._mpMonths['+idx+'].month=this.value;_renderMPRows()"/>' +
+      '<div style="display:flex;align-items:center;gap:4px"><input type="number" value="'+(m.pct||0)+'" min="0" max="100" step="0.1" style="width:62px;text-align:right" oninput="_updateMPPct('+idx+',this.value)"/>%</div>' +
+      '<span id="mp-amt-'+idx+'" style="font-size:12px;font-weight:700">≈ '+R(amt)+'</span>' +
+      '<button onclick="window._mpMonths.splice('+idx+',1);_renderMPRows()" style="background:none;border:1px solid var(--g300);border-radius:3px;cursor:pointer;color:var(--g500);font-size:12px;padding:2px 6px;line-height:1">&#10005;</button>' +
+      '</div>';
+  }).join('');
+  if (!html) html = '<div class="muted sm" style="padding:8px 0">Nenhum mês configurado. Clique em "+ Adicionar Mês".</div>';
+  document.getElementById('mp-rows').innerHTML = html;
+  const warn = document.getElementById('mp-total-warn');
+  if (totalPct > 100) {
+    warn.innerHTML = '<span style="color:var(--danger);font-weight:700">&#9888; Total: '+totalPct.toFixed(1)+'% — excede 100% do saldo residual</span>';
+  } else if (totalPct > 0) {
+    warn.innerHTML = '<span style="color:var(--ok);font-weight:700">&#10003; Total projetado: '+totalPct.toFixed(1)+'% &nbsp;→&nbsp; '+R(residual * totalPct / 100)+'</span>';
+  } else { warn.innerHTML = ''; }
+}
+
+function _updateMPPct(idx, val) {
+  window._mpMonths[idx].pct = parseFloat(val) || 0;
+  const residual = window._mpResidual || 0;
+  const amt = +(residual * (window._mpMonths[idx].pct) / 100).toFixed(2);
+  const amtEl = document.getElementById('mp-amt-'+idx);
+  if (amtEl) amtEl.textContent = '≈ ' + R(amt);
+  const totalPct = (window._mpMonths || []).reduce((s, m) => s + (+(m.pct)||0), 0);
+  const warn = document.getElementById('mp-total-warn');
+  if (totalPct > 100) {
+    warn.innerHTML = '<span style="color:var(--danger);font-weight:700">&#9888; Total: '+totalPct.toFixed(1)+'% — excede 100% do saldo residual</span>';
+  } else if (totalPct > 0) {
+    warn.innerHTML = '<span style="color:var(--ok);font-weight:700">&#10003; Total projetado: '+totalPct.toFixed(1)+'% &nbsp;→&nbsp; '+R(residual * totalPct / 100)+'</span>';
+  } else { warn.innerHTML = ''; }
+}
+
+function addMeasProjRow() {
+  if (!window._mpMonths) window._mpMonths = [];
+  const now = new Date();
+  let nextMonth;
+  if (window._mpMonths.length > 0) {
+    const last = window._mpMonths[window._mpMonths.length-1].month;
+    const d = new Date(last + '-02'); d.setMonth(d.getMonth() + 1);
+    nextMonth = d.toISOString().slice(0, 7);
+  } else {
+    nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1).toISOString().slice(0, 7);
+  }
+  window._mpMonths.push({ month: nextMonth, pct: 0 });
+  _renderMPRows();
+}
+
+function saveMeasProj() {
+  const supplierId = document.getElementById('mp-sup-id').value;
+  const months = (window._mpMonths || []).filter(m => m.month && (+(m.pct)) > 0);
+  const cf = DB.get('cashflow') || { measProj: [] };
+  if (!cf.measProj) cf.measProj = [];
+  const idx = cf.measProj.findIndex(x => x.supplierId === supplierId);
+  if (months.length === 0) { if (idx !== -1) cf.measProj.splice(idx, 1); }
+  else { const entry = { supplierId, months }; if (idx !== -1) cf.measProj[idx] = entry; else cf.measProj.push(entry); }
+  DB.set('cashflow', cf);
+  closeModal('mod-meas-proj');
+  renderMeasProj();
+  renderDashboard();
+  toast('Projeção salva');
 }
 
 const PIE_C = ['#000','#555','#888','#aaa','#ccc','#e0e0e0','#333','#777'];
@@ -3989,12 +4102,13 @@ let measFilter = 'all', measStatusFilter = 'all';
 let measTab = 'sup';
 function setMeasTab(tab) {
   measTab = tab;
-  document.getElementById('mtab-sup').classList.toggle('active', tab === 'sup');
-  document.getElementById('mtab-ger').classList.toggle('active', tab === 'ger');
-  document.getElementById('mpanel-sup').style.display = tab === 'sup' ? '' : 'none';
-  document.getElementById('mpanel-ger').style.display = tab === 'ger' ? '' : 'none';
+  ['sup','ger','proj'].forEach(x => {
+    const tb = document.getElementById('mtab-'+x); if (tb) tb.classList.toggle('active', tab === x);
+    const pn = document.getElementById('mpanel-'+x); if (pn) pn.style.display = tab === x ? '' : 'none';
+  });
   document.getElementById('btn-new-meas-sup').style.display = tab === 'sup' ? '' : 'none';
   document.getElementById('btn-new-meas-ger').style.display = tab === 'ger' ? '' : 'none';
+  if (tab === 'proj') renderMeasProj();
 }
 function setMF(val) {
   measFilter = val;
