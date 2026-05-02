@@ -6976,7 +6976,7 @@ function openBudgetModal(modeOrId, editId) {
     const _sel = document.getElementById('bi-split-sel');
     _sel.innerHTML = '<option value="">— Nenhum —</option>' +
       _splitEntries.map(e => {
-        const _lbl = [e.sup, e.nf?'NF '+e.nf:'', e.comp].filter(Boolean).join(' · ');
+        const _lbl = [e.sup, R(e.tot), e.nf?'NF '+e.nf:'', fmtP(e.comp)].filter(Boolean).join(' · ');
         return '<option value="'+e.id+'">'+esc(_lbl)+'</option>';
       }).join('');
     const _curId = editId ? ((DB.get('budget')||[]).find(x=>x.id===editId)||{}).splitEntryId||'' : '';
