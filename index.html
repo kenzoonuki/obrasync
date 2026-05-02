@@ -156,6 +156,10 @@ tfoot td{padding:10px 0;border-top:2px solid var(--black);font-weight:800;font-s
 .bp{flex:1;background:var(--g300);max-width:20px;min-height:2px;transition:height .5s}
 .br{flex:1;background:var(--black);max-width:20px;min-height:2px;transition:height .5s}
 .blbl{font-size:9px;color:var(--g400);margin-top:4px;text-align:center}
+.bv-row{display:flex;gap:6px;height:26px;align-items:flex-end;width:100%;justify-content:center;overflow:visible}
+.bv{font-size:7px;font-weight:800;white-space:nowrap;display:inline-block;transform:rotate(-45deg);transform-origin:center bottom;line-height:1}
+.bv-p{color:var(--g500)}.bv-r{color:var(--black)}
+.mpinp{width:70px;padding:3px 5px;border:1px solid var(--g300);border-radius:3px;font-size:11px;text-align:right;background:var(--white)}
 .legrow{display:flex;gap:16px;margin-bottom:10px}
 .legi{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--g600)}
 .legbox{width:10px;height:10px}
@@ -686,6 +690,12 @@ tfoot td{padding:10px 0;border-top:2px solid var(--black);font-weight:800;font-s
       <div class="divider"></div>
       <div class="sec-hd" style="border-bottom:1px solid var(--g200);margin-bottom:16px"><h2>Fluxo Detalhado por Período</h2></div>
       <div class="tw"><table><thead><tr><th>Período</th><th>Projetado</th><th>Realizado</th><th>Delta</th><th>Acum. Pago</th></tr></thead><tbody id="cf-tbody"></tbody></table></div>
+      <div class="divider"></div>
+      <div class="sec-hd" style="border-bottom:1px solid var(--g200);margin-bottom:10px">
+        <h2>Projeção de Medições Futuras</h2>
+        <span class="muted sm">Distribua o saldo a medir de cada fornecedor pelos meses futuros para refletir no fluxo de caixa</span>
+      </div>
+      <div id="meas-proj-area" style="margin-bottom:8px"></div>
       <div class="divider"></div>
       <div class="sec-hd" style="border-bottom:1px solid var(--g200);margin-bottom:16px"><h2>Histórico de Relatórios Gerados</h2></div>
       <div id="rpt-history"><div class="muted sm">Nenhum relatório gerado ainda.</div></div>
@@ -2944,11 +2954,18 @@ function setCfW(btn, w) {
   btn.classList.add('active');
   renderDashboard();
 }
+function shortVal(v) {
+  if (!v || v < 1) return '';
+  if (v >= 1000000) return (v/1000000).toFixed(1)+'M';
+  if (v >= 1000)    return (v/1000).toFixed(1)+'k';
+  return v.toFixed(0);
+}
+
 function getCFData() {
   const entries = DB.get('entries') || [];
   const bud = DB.get('budget') || [];
   const allInsts = entries.flatMap(e => e.insts.map(p => ({...p, e})));
-  // Build projected installments from "A Contratar" items that have plannedDate
+  // Build projected installments from "A Contratar" items with plannedDate
   const projInsts = {};
   bud.filter(i => i.type === 'to_contract' && i.plannedDate && i.tot > 0).forEach(i => {
     const np = Math.max(1, i.plannedNp || 1);
@@ -2960,6 +2977,13 @@ function getCFData() {
       projInsts[p] = (projInsts[p] || 0) + parVal;
     }
   });
+  // Add manual measurement projections
+  const cfMeasProj = DB.get('cfMeasProj') || {};
+  Object.values(cfMeasProj).forEach(months => {
+    Object.entries(months).forEach(([month, amt]) => {
+      projInsts[month] = (projInsts[month] || 0) + (parseFloat(amt) || 0);
+    });
+  });
   const data = [];
   const now = new Date();
   for (let i = 0; i < cfW; i++) {
@@ -2968,7 +2992,8 @@ function getCFData() {
     const projLaunched = allInsts.filter(x => x.due && x.due.slice(0,7) === p).reduce((s,x) => s + x.val, 0);
     const proj = projLaunched + (projInsts[p] || 0);
     const real = allInsts.filter(x => x.status === 'paid' && x.paidAt && x.paidAt.slice(0,7) === p).reduce((s,x) => s + x.paidAmt, 0);
-    data.push({p, proj, real, projBud: projInsts[p] || 0});
+    const projMeas = projInsts[p] || 0;
+    data.push({p, proj, real, projBud: projInsts[p] || 0, projMeas});
   }
   return data;
 }
@@ -2980,10 +3005,18 @@ function renderDashboard() {
   data.forEach(d => {
     const ph = Math.max(d.proj > 0 ? 2 : 0, (d.proj / mx) * H);
     const rh = Math.max(d.real > 0 ? 2 : 0, (d.real / mx) * H);
-    bars += '<div class="bgrp"><div class="binn">' +
-      '<div class="bp" style="height:'+ph+'px" title="Proj: '+R(d.proj)+'"></div>' +
-      '<div class="br" style="height:'+rh+'px" title="Real: '+R(d.real)+'"></div>' +
-      '</div><span class="blbl">'+fmtP(d.p)+'</span></div>';
+    const svp = shortVal(d.proj), svr = shortVal(d.real);
+    bars += '<div class="bgrp">' +
+      '<div class="bv-row">' +
+        (svp ? '<span class="bv bv-p">'+svp+'</span>' : '<span></span>') +
+        (svr ? '<span class="bv bv-r">'+svr+'</span>' : '<span></span>') +
+      '</div>' +
+      '<div class="binn">' +
+        '<div class="bp" style="height:'+ph+'px" title="Projetado: '+R(d.proj)+'"></div>' +
+        '<div class="br" style="height:'+rh+'px" title="Realizado: '+R(d.real)+'"></div>' +
+      '</div>' +
+      '<span class="blbl">'+fmtP(d.p)+'</span>' +
+    '</div>';
   });
   document.getElementById('cf-bars').innerHTML = bars;
   const tp = data.reduce((s,d) => s+d.proj, 0);
@@ -3005,6 +3038,79 @@ function renderDashboard() {
   document.getElementById('cf-tbody').innerHTML = rows;
   buildPies();
   renderReportHistory();
+  renderMeasProj();
+}
+
+function saveMeasProj(supId, month, rawVal) {
+  const cfMeasProj = DB.get('cfMeasProj') || {};
+  if (!cfMeasProj[supId]) cfMeasProj[supId] = {};
+  const num = parseFloat((rawVal||'').replace(/\./g,'').replace(',','.')) || 0;
+  if (num > 0) cfMeasProj[supId][month] = num;
+  else delete cfMeasProj[supId][month];
+  DB.set('cfMeasProj', cfMeasProj);
+  renderDashboard();
+}
+
+function renderMeasProj() {
+  const el = document.getElementById('meas-proj-area'); if (!el) return;
+  const bud   = DB.get('budget') || [];
+  const meas2 = DB.get('meas2') || [];
+  const sups  = DB.get('suppliers') || [];
+  const cfMeasProj = DB.get('cfMeasProj') || {};
+  // AUTO items: contracted, compoeBase, supRemun=meas, with supplier
+  const autoItems = bud.filter(i => i.supplierId && i.type === 'contracted' && i.compoeBase !== false && (i.supRemun||'meas') === 'meas');
+  // Group remaining balance by supplier
+  const bySup = {};
+  autoItems.forEach(bi => {
+    const pctAcum = Math.min(100, meas2.filter(m=>m.status!=='draft').flatMap(m=>m.items).filter(it=>it.biId===bi.id).reduce((s,it)=>s+(it.pctPer||0),0));
+    const rem = bi.tot * Math.max(0, 100 - pctAcum) / 100;
+    if (rem < 0.5) return;
+    if (!bySup[bi.supplierId]) { const sup = sups.find(s=>s.id===bi.supplierId); bySup[bi.supplierId] = {name: sup?sup.name:bi.supplierId, rem:0}; }
+    bySup[bi.supplierId].rem += rem;
+  });
+  const supIds = Object.keys(bySup);
+  if (!supIds.length) { el.innerHTML = '<div class="muted sm" style="padding:8px 0">Nenhum fornecedor com saldo a medir via medição de obra.</div>'; return; }
+  // Month columns
+  const now = new Date();
+  const months = Array.from({length: cfW}, (_,i) => { const d = new Date(now.getFullYear(), now.getMonth()+i, 1); return d.toISOString().slice(0,7); });
+  // Table
+  const colW = '72px', cols = '1fr 100px '+months.map(()=>colW).join(' ')+' 100px';
+  let html = '<div style="overflow-x:auto">';
+  // Header
+  html += '<div style="display:grid;grid-template-columns:'+cols+';gap:4px;padding:6px 0;border-bottom:2px solid var(--black);font-size:9px;font-weight:800;text-transform:uppercase;align-items:center">';
+  html += '<div>Fornecedor</div><div style="text-align:right;color:var(--g500)">Saldo total</div>';
+  months.forEach(m => { html += '<div style="text-align:center">'+fmtP(m)+'</div>'; });
+  html += '<div style="text-align:right;color:var(--warn)">Não aloc.</div></div>';
+  // Rows
+  supIds.forEach(supId => {
+    const {name, rem} = bySup[supId];
+    const supProj = cfMeasProj[supId] || {};
+    const alloc = months.reduce((s,m) => s + (parseFloat(supProj[m])||0), 0);
+    const unalloc = rem - alloc;
+    const uColor = unalloc < -0.5 ? 'var(--err)' : unalloc > 0.5 ? 'var(--warn)' : 'var(--ok)';
+    html += '<div style="display:grid;grid-template-columns:'+cols+';gap:4px;padding:6px 0;border-bottom:1px solid var(--g100);align-items:center;font-size:12px">';
+    html += '<div style="font-weight:600">'+esc(name)+'</div>';
+    html += '<div style="text-align:right;color:var(--g500);font-size:11px">'+R(rem)+'</div>';
+    months.forEach(m => {
+      const v = supProj[m] ? (+supProj[m]).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) : '';
+      html += '<div style="text-align:center"><input class="mpinp" type="text" data-sup="'+supId+'" data-month="'+m+'" value="'+esc(v)+'" placeholder="0,00" onchange="saveMeasProj(\''+supId+'\',\''+m+'\',this.value)" oninput="formatBRLInput(this)"/></div>';
+    });
+    html += '<div style="text-align:right;font-weight:700;font-size:11px;color:'+uColor+'">'+R(Math.abs(unalloc))+(unalloc<-0.5?' ↑':unalloc>0.5?' ↓':' ✓')+'</div>';
+    html += '</div>';
+  });
+  // Totals row
+  const totalRem = supIds.reduce((s,id) => s + bySup[id].rem, 0);
+  const totalAlloc = months.reduce((s,m) => { const cfp = DB.get('cfMeasProj')||{}; return s + supIds.reduce((ss,id) => ss + (parseFloat((cfp[id]||{})[m])||0), 0); }, 0);
+  html += '<div style="display:grid;grid-template-columns:'+cols+';gap:4px;padding:8px 0 4px;border-top:2px solid var(--black);font-size:11px;font-weight:800;align-items:center">';
+  html += '<div>Total</div><div style="text-align:right;color:var(--g500)">'+R(totalRem)+'</div>';
+  months.forEach(m => {
+    const cfp = DB.get('cfMeasProj') || {};
+    const mTotal = supIds.reduce((s,id) => s + (parseFloat((cfp[id]||{})[m])||0), 0);
+    html += '<div style="text-align:center;color:'+(mTotal>0?'var(--black)':'var(--g400)')+'">'+( mTotal>0 ? R(mTotal) : '—')+'</div>';
+  });
+  html += '<div style="text-align:right;color:'+(Math.abs(totalRem-totalAlloc)<0.5?'var(--ok)':'var(--warn)')+'">'+R(Math.abs(totalRem-totalAlloc))+(totalRem-totalAlloc>0.5?' ↓':totalRem-totalAlloc<-0.5?' ↑':' ✓')+'</div></div>';
+  html += '</div>';
+  el.innerHTML = html;
 }
 
 const PIE_C = ['#000','#555','#888','#aaa','#ccc','#e0e0e0','#333','#777'];
