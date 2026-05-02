@@ -3987,6 +3987,12 @@ function renderMeas() {
   // ── Gerenciamento cards ────────────────────────────────────────────
   if (!window._gcardCollapsed) window._gcardCollapsed = {};
   const sortedG = [...gerenc].sort((a,b) => { const d = b.date.localeCompare(a.date); return d !== 0 ? d : (b.seqNum||0)-(a.seqNum||0); });
+
+  // Pre-compute cumulative bases per gerenc (ascending order = oldest first)
+  const _totalOrcBase = bud.filter(i => i.compoeBase !== false).reduce((s,i) => s + (i.tot||0), 0);
+  const _gerencAsc = [...gerenc].sort((a,b) => { const d = a.date.localeCompare(b.date); return d !== 0 ? d : (a.seqNum||0)-(b.seqNum||0); });
+  const _gCumul = {}; let _running = 0;
+  _gerencAsc.forEach(g => { _gCumul[g.id] = { before: _running }; _running += (g.feeBase||0); _gCumul[g.id].incl = _running; });
   let ghtml = '';
   if (!sortedG.length) ghtml = '<div class="inote" style="margin-bottom:16px">Nenhuma medi\u00e7\u00e3o de gerenciamento criada ainda.</div>';
   sortedG.forEach(g => {
@@ -4061,23 +4067,43 @@ function renderMeas() {
       (g.status==='approved'?'<button class="btn btn-fee btn-sm" onclick="markGerencPaid(\''+gid+'\')">Receber Honor\u00e1rios</button>':'') +
       '<button class="btn btn-d" onclick="delGerenc(\''+gid+'\')">&#10005;</button>' +
       '</div></div>' +
-      '<div style="overflow-x:auto;margin-top:8px"><table style="width:100%;border-collapse:collapse">' +
-      '<thead><tr style="border-bottom:2px solid var(--black)">' +
-      '<th style="text-align:left;padding:4px 8px 4px 0;font-size:9px;font-weight:800;text-transform:uppercase">Item / Disciplina</th>' +
-      '<th style="text-align:left;padding:4px 8px;font-size:9px;font-weight:800;text-transform:uppercase">Fornecedor</th>' +
-      '<th style="text-align:center;padding:4px 8px;font-size:9px;font-weight:800;text-transform:uppercase">Tipo</th>' +
-      '<th style="text-align:right;padding:4px 8px;font-size:9px;font-weight:800;text-transform:uppercase">Or\u00e7ado</th>' +
-      '<th style="text-align:center;padding:4px 8px;font-size:9px;font-weight:800;text-transform:uppercase">% F\u00edsico</th>' +
-      '<th style="text-align:right;padding:4px 8px;font-size:9px;font-weight:800;text-transform:uppercase">Base</th>' +
-      '</tr></thead><tbody>'+tableRows+'</tbody>' +
-      '<tfoot><tr style="border-top:2px solid var(--black)">' +
-      '<td colspan="5" style="padding:6px 8px 0 0;font-weight:800">Base de C\u00e1lculo</td>' +
-      '<td style="text-align:right;padding:6px 0 0 8px;font-weight:800">'+R(g.feeBase)+'</td>' +
-      '</tr><tr>' +
-      '<td colspan="5" style="padding:3px 8px 0 0;font-weight:800;color:var(--fee)">Honor\u00e1rios ('+FR().toFixed(1)+'%)</td>' +
-      '<td style="text-align:right;padding:3px 0 0 8px;font-weight:800;color:var(--fee);font-size:15px">'+R(g.feeAmt)+'</td>' +
-      '</tr></tfoot>' +
-      '</table></div></div>';
+      (function(){
+        const _c = _gCumul[gid] || {before:0, incl:g.feeBase||0};
+        const _pct = _totalOrcBase > 0 ? _c.incl / _totalOrcBase * 100 : 0;
+        const _saldo = Math.max(0, _totalOrcBase - _c.incl);
+        const _honorAcum = _c.incl * fr;
+        const _statCell = (lbl, val, color) =>
+          '<div style="padding:10px 12px;flex:1;min-width:0;border-right:1px solid var(--g200)">' +
+          '<div style="font-size:9px;font-weight:800;text-transform:uppercase;color:var(--g400);letter-spacing:.4px;margin-bottom:3px">'+lbl+'</div>' +
+          '<div style="font-size:12px;font-weight:800;color:'+(color||'var(--black)')+'">'+val+'</div>' +
+          '</div>';
+        return '<div style="overflow-x:auto;margin-top:8px"><table style="width:100%;border-collapse:collapse">' +
+          '<thead><tr style="border-bottom:2px solid var(--black)">' +
+          '<th style="text-align:left;padding:4px 8px 4px 0;font-size:9px;font-weight:800;text-transform:uppercase">Item / Disciplina</th>' +
+          '<th style="text-align:left;padding:4px 8px;font-size:9px;font-weight:800;text-transform:uppercase">Fornecedor</th>' +
+          '<th style="text-align:center;padding:4px 8px;font-size:9px;font-weight:800;text-transform:uppercase">Tipo</th>' +
+          '<th style="text-align:right;padding:4px 8px;font-size:9px;font-weight:800;text-transform:uppercase">Or\u00e7ado</th>' +
+          '<th style="text-align:center;padding:4px 8px;font-size:9px;font-weight:800;text-transform:uppercase">% F\u00edsico</th>' +
+          '<th style="text-align:right;padding:4px 8px;font-size:9px;font-weight:800;text-transform:uppercase">Base</th>' +
+          '</tr></thead><tbody>'+tableRows+'</tbody>' +
+          '<tfoot><tr style="border-top:2px solid var(--black)">' +
+          '<td colspan="5" style="padding:6px 8px 0 0;font-weight:800">Base de C\u00e1lculo</td>' +
+          '<td style="text-align:right;padding:6px 0 0 8px;font-weight:800">'+R(g.feeBase)+'</td>' +
+          '</tr><tr>' +
+          '<td colspan="5" style="padding:3px 8px 6px 0;font-weight:800;color:var(--fee)">Honor\u00e1rios ('+FR().toFixed(1)+'%)</td>' +
+          '<td style="text-align:right;padding:3px 0 6px 8px;font-weight:800;color:var(--fee);font-size:15px">'+R(g.feeAmt)+'</td>' +
+          '</tr></tfoot>' +
+          '</table></div>' +
+          '<div style="display:flex;margin-top:8px;border:1px solid var(--g200);border-radius:6px;overflow:hidden;background:#fff">' +
+          _statCell('Total Or\u00e7ado', R(_totalOrcBase)) +
+          _statCell('% Executado', _pct.toFixed(1)+'%', _pct>=100?'var(--ok)':_pct>50?'var(--info)':'var(--black)') +
+          _statCell('Ant. Medido', R(_c.before), _c.before>0?'var(--g600)':'var(--g400)') +
+          _statCell('Honor. Acumulado', R(_honorAcum), 'var(--fee)') +
+          '<div style="padding:10px 12px;flex:1;min-width:0">' +
+          '<div style="font-size:9px;font-weight:800;text-transform:uppercase;color:var(--g400);letter-spacing:.4px;margin-bottom:3px">Saldo a Medir</div>' +
+          '<div style="font-size:12px;font-weight:800;color:'+(_saldo>0?'var(--warn)':'var(--ok)')+'">'+R(_saldo)+'</div>' +
+          '</div></div></div>';
+      })()
   });
   document.getElementById('gerenc-list').innerHTML = ghtml;
 
