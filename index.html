@@ -668,16 +668,18 @@ tfoot td{padding:10px 0;border-top:2px solid var(--black);font-weight:800;font-s
       </div>
       <div class="sec-hd" style="border-bottom:1px solid var(--g200);margin-bottom:16px">
         <h2>Fluxo de Caixa</h2>
-        <div style="display:flex;gap:6px">
-          <button class="pill active" id="cf-p6" onclick="setCfW(this,6)">Próx. 6 meses</button>
-          <button class="pill" id="cf-p12" onclick="setCfW(this,12)">Próx. 12 meses</button>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <button class="pill active" id="cf-p6" onclick="setCfW(this,6)">Próx. 6m</button>
+          <button class="pill" id="cf-p12" onclick="setCfW(this,12)">Próx. 12m</button>
+          <button class="pill" id="cf-hist" onclick="setCfHist(this)" style="border-color:var(--g400)">Histórico</button>
         </div>
       </div>
       <div class="legrow">
         <div class="legi"><div class="legbox" style="background:var(--g300)"></div>Projetado</div>
         <div class="legi"><div class="legbox" style="background:var(--black)"></div>Realizado</div>
+        <div class="legi"><div class="legbox" style="background:#bfdbfe;border:1.5px dashed #60a5fa"></div>Previsão</div>
       </div>
-      <div class="bar-wrap" id="cf-bars"></div>
+      <div class="bar-wrap" id="cf-bars" style="overflow-x:auto"></div>
       <div class="cards mt16" id="cf-cards"></div>
       <div class="divider"></div>
       <div class="sec-hd" style="border-bottom:1px solid var(--g200);margin-bottom:20px"><h2>Distribuição do Orçamento Contratado</h2></div>
@@ -2973,8 +2975,23 @@ function renderDash() {
 // DASHBOARD ANALÍTICO
 // =====================================================================
 let cfW = 6;
+let cfPast = 0;
 function setCfW(btn, w) {
-  cfW = w;
+  cfW = w; cfPast = 0;
+  document.querySelectorAll('#view-dashboard .pill').forEach(p => p.classList.remove('active'));
+  btn.classList.add('active');
+  renderDashboard();
+}
+function setCfHist(btn) {
+  const entries = DB.get('entries') || [];
+  const allDates = entries.flatMap(e => e.insts.map(p => p.paidAt||p.due)).filter(Boolean);
+  if (!allDates.length) { toast('Nenhum lançamento encontrado'); return; }
+  const earliest = allDates.reduce((a,b) => a < b ? a : b);
+  const now = new Date();
+  const eDate = new Date(earliest + 'T00:00:00');
+  const months = (now.getFullYear() - eDate.getFullYear()) * 12 + (now.getMonth() - eDate.getMonth());
+  cfPast = Math.max(1, months);
+  cfW = 3;
   document.querySelectorAll('#view-dashboard .pill').forEach(p => p.classList.remove('active'));
   btn.classList.add('active');
   renderDashboard();
@@ -3028,34 +3045,42 @@ function getCFData() {
 
   const data = [];
   const now = new Date();
-  for (let i = 0; i < cfW; i++) {
+  const todayP = now.toISOString().slice(0, 7);
+  for (let i = -cfPast; i < cfW; i++) {
     const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
     const p = d.toISOString().slice(0, 7);
+    const isPast = p < todayP;
     const proj     = allInsts.filter(x => x.due && x.due.slice(0,7) === p).reduce((s,x) => s + x.val, 0);
     const real     = allInsts.filter(x => x.status === 'paid' && x.paidAt && x.paidAt.slice(0,7) === p).reduce((s,x) => s + x.paidAmt, 0);
-    const mProj    = measByMonth[p]    || 0;
-    const tcProj   = tcByMonth[p]      || 0;
-    const feeProj  = feeByMonth[p]     || 0;
+    const mProj    = isPast ? 0 : (measByMonth[p] || 0);
+    const tcProj   = isPast ? 0 : (tcByMonth[p]   || 0);
+    const feeProj  = isPast ? 0 : (feeByMonth[p]  || 0);
     const forecast = mProj + tcProj + feeProj;
-    data.push({p, proj, real, forecast, mProj, tcProj, feeProj, projBud: tcProj});
+    data.push({p, proj, real, forecast, mProj, tcProj, feeProj, projBud: tcProj, isPast});
   }
   return data;
 }
 function renderDashboard() {
   const data = getCFData();
+  const todayP = new Date().toISOString().slice(0, 7);
   const mx = Math.max(...data.map(d => Math.max(d.proj, d.real, d.forecast)), 1);
   const H = 140;
+  // min width per bar group so many months don't get too narrow
+  const minW = Math.max(28, Math.floor(600 / Math.max(data.length, 1)));
   let bars = '';
   data.forEach(d => {
     const ph = Math.max(d.proj     > 0 ? 2 : 0, (d.proj     / mx) * H);
     const rh = Math.max(d.real     > 0 ? 2 : 0, (d.real     / mx) * H);
     const fh = Math.max(d.forecast > 0 ? 2 : 0, (d.forecast / mx) * H);
     const fTip = 'Previsão: '+R(d.forecast)+(d.mProj?'\nMedições: '+R(d.mProj):'')+(d.tcProj?'\nÀ Contratar: '+R(d.tcProj):'')+(d.feeProj?'\nHonorários: '+R(d.feeProj):'');
-    bars += '<div class="bgrp"><div class="binn">' +
+    const isToday = d.p === todayP;
+    const lblStyle = isToday ? 'font-weight:800;color:var(--black)' : '';
+    const grpBorder = isToday ? 'border-left:2px solid var(--black);padding-left:2px' : '';
+    bars += '<div class="bgrp" style="min-width:'+minW+'px;'+grpBorder+'"><div class="binn">' +
       (d.forecast > 0 ? '<div class="bfc" style="height:'+fh+'px" title="'+fTip+'">'+(fh > 8 ? '<span class="bval">'+_Rk(d.forecast)+'</span>' : '')+'</div>' : '') +
       '<div class="bp" style="height:'+ph+'px" title="Contratado: '+R(d.proj)+'">'+(d.proj > 0 && ph > 8 ? '<span class="bval">'+_Rk(d.proj)+'</span>' : '')+'</div>' +
       '<div class="br" style="height:'+rh+'px" title="Realizado: '+R(d.real)+'">'+(d.real > 0 && rh > 8 ? '<span class="bval">'+_Rk(d.real)+'</span>' : '')+'</div>' +
-      '</div><span class="blbl">'+fmtP(d.p)+'</span></div>';
+      '</div><span class="blbl" style="'+lblStyle+'">'+fmtP(d.p)+'</span></div>';
   });
   document.getElementById('cf-bars').innerHTML = bars;
   const tp = data.reduce((s,d) => s+d.proj, 0);
@@ -3070,8 +3095,9 @@ function renderDashboard() {
   let acc = 0, rows = '';
   data.forEach(d => {
     acc += d.real;
-    rows += '<tr>' +
-      '<td>'+fmtP(d.p)+'</td>' +
+    const rowStyle = d.isPast ? 'color:var(--g500)' : d.p === todayP ? 'font-weight:800' : '';
+    rows += '<tr style="'+rowStyle+'">' +
+      '<td>'+(d.p === todayP ? '▶ ' : '')+fmtP(d.p)+'</td>' +
       '<td class="'+(d.proj>0?'fw7':'muted')+'">'+(d.proj>0?R(d.proj):'—')+'</td>' +
       '<td style="color:#2563eb">'+(d.forecast>0?'<span title="Meds: '+R(d.mProj)+' | Cont.: '+R(d.tcProj)+' | Hon.: '+R(d.feeProj)+'">'+R(d.forecast)+'</span>':'<span class="muted">—</span>')+'</td>' +
       '<td class="'+(d.real>0?'fw7':'muted')+'">'+(d.real>0?R(d.real):'—')+'</td>' +
