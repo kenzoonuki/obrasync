@@ -680,7 +680,7 @@ tfoot td{padding:10px 0;border-top:2px solid var(--black);font-weight:800;font-s
       <div class="bar-wrap" id="cf-bars"></div>
       <div class="cards mt16" id="cf-cards"></div>
       <div class="divider"></div>
-      <div class="sec-hd" style="border-bottom:1px solid var(--g200);margin-bottom:20px"><h2>Distribuição de Gastos</h2></div>
+      <div class="sec-hd" style="border-bottom:1px solid var(--g200);margin-bottom:20px"><h2>Distribuição do Orçamento Contratado</h2></div>
       <div class="pie-row">
         <div class="pie-box"><h4>Por Disciplina</h4><div class="pie-wrap"><canvas id="pie-disc" width="180" height="180"></canvas></div><ul class="pie-leg" id="leg-disc"></ul></div>
         <div class="pie-box"><h4>Por Tipo</h4><div class="pie-wrap"><canvas id="pie-type" width="180" height="180"></canvas></div><ul class="pie-leg" id="leg-type"></ul></div>
@@ -3244,29 +3244,30 @@ function drawPie(id, data) {
   ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(W/2,H/2,W/4,0,Math.PI*2); ctx.fill();
 }
 function buildPies() {
-  const entries = DB.get('entries') || [];
+  const bud = DB.get('budget') || [];
   const byD = {}, byT = {};
-  const _catLbl = {mat:'Material', mo:'Mão de Obra', srv:'Serviço', acab:'Acabamento'};
-  entries.forEach(e => {
-    const totalPaid = e.insts.filter(p => p.status === 'paid').reduce((s, p) => s + p.paidAmt, 0);
-    if (!totalPaid) return;
-    if (e.isSplit && e.splits && e.splits.length > 0) {
-      // Distribute paid amount proportionally across split rows by their value
-      const totalVal = e.splits.reduce((s, r) => s + (r.val || 0), 0);
-      if (!totalVal) return;
-      e.splits.forEach(r => {
-        const share = +(totalPaid * (r.val || 0) / totalVal).toFixed(2);
-        if (!share) return;
-        const d = r.disc || 'Outros';
-        const t = _catLbl[r.catClass] || 'Não class.';
-        byD[d] = (byD[d] || 0) + share;
-        byT[t] = (byT[t] || 0) + share;
-      });
+  bud.filter(b => (b.tot||0) > 0).forEach(b => {
+    const tot = b.tot;
+    // Por disciplina
+    const disc = b.disc || 'Outros';
+    byD[disc] = (byD[disc] || 0) + tot;
+    // Por tipo de custo — usar pmo/pmat/pacab/psrv proporcionalmente
+    const mo   = b.pmo   || 0;
+    const mat  = b.pmat  || 0;
+    const acab = b.pacab || 0;
+    const srv  = b.psrv  || 0;
+    const sum  = mo + mat + acab + srv;
+    if (sum > 0) {
+      if (mo   > 0) byT['Mão de Obra']  = (byT['Mão de Obra']  || 0) + tot * mo   / sum;
+      if (mat  > 0) byT['Material']     = (byT['Material']     || 0) + tot * mat  / sum;
+      if (acab > 0) byT['Acabamento']   = (byT['Acabamento']   || 0) + tot * acab / sum;
+      if (srv  > 0) byT['Serviço']      = (byT['Serviço']      || 0) + tot * srv  / sum;
     } else {
-      const d = e.disc || 'Outros';
-      const t = e.st || _catLbl[e.catClass] || 'Não class.';
-      byD[d] = (byD[d] || 0) + totalPaid;
-      byT[t] = (byT[t] || 0) + totalPaid;
+      // Fallback: usar supCols ou catClass
+      const sc = b.supCols || {};
+      const cc = b.catClass || '';
+      const tKey = sc.mo||cc==='mo' ? 'Mão de Obra' : sc.mat||cc==='mat' ? 'Material' : sc.acab||cc==='acab' ? 'Acabamento' : sc.srv||cc==='srv' ? 'Serviço' : 'Não classificado';
+      byT[tKey] = (byT[tKey] || 0) + tot;
     }
   });
   const dd = Object.entries(byD).map(([l,v]) => ({l,v:+v.toFixed(2)})).sort((a,b) => b.v-a.v);
