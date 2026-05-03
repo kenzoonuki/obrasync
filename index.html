@@ -152,12 +152,11 @@ tfoot td{padding:10px 0;border-top:2px solid var(--black);font-weight:800;font-s
 .pie-leg .dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
 .bar-wrap{display:flex;gap:4px;align-items:flex-end;padding:0 4px;margin-bottom:6px}
 .bgrp{flex:1;display:flex;flex-direction:column;align-items:center}
-.binn{display:flex;gap:2px;align-items:flex-end;width:100%;justify-content:center;height:140px}
-.bp{flex:1;background:var(--g300);max-width:20px;min-height:2px;transition:height .5s;position:relative;overflow:visible}
-.br{flex:1;background:var(--black);max-width:20px;min-height:2px;transition:height .5s;position:relative;overflow:visible}
-.bfc{flex:1;background:#bfdbfe;border:1.5px dashed #60a5fa;max-width:20px;min-height:2px;transition:height .5s;box-sizing:border-box;position:relative;overflow:visible}
-.bval{position:absolute;top:-2px;left:50%;transform:rotate(-45deg);transform-origin:bottom left;font-size:8px;white-space:nowrap;color:var(--g500);pointer-events:none;line-height:1;font-weight:600}
-.blbl{font-size:9px;color:var(--g400);margin-top:4px;text-align:center}
+.binn{display:flex;gap:2px;align-items:flex-end;width:100%;justify-content:center;height:220px}
+.bp{flex:1;background:var(--g300);max-width:20px;min-height:2px;transition:height .5s}
+.br{flex:1;background:var(--black);max-width:20px;min-height:2px;transition:height .5s}
+.bfc{flex:1;background:#bfdbfe;border:1.5px dashed #60a5fa;max-width:20px;min-height:2px;transition:height .5s;box-sizing:border-box}
+.blbl{font-size:9px;color:var(--g400);margin-top:4px;text-align:center;width:100%}
 .legrow{display:flex;gap:16px;margin-bottom:10px}
 .legi{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--g600)}
 .legbox{width:10px;height:10px}
@@ -3064,25 +3063,55 @@ function renderDashboard() {
   const data = getCFData();
   const todayP = new Date().toISOString().slice(0, 7);
   const mx = Math.max(...data.map(d => Math.max(d.proj, d.real, d.forecast)), 1);
-  const H = 140;
-  // min width per bar group so many months don't get too narrow
+  const H = 220; // bar area height (must match .binn)
+  const LBLH = 20; // month label height below bars
+  const STEP = 10000;
+  const topVal = Math.ceil(mx / STEP) * STEP || STEP;
   const minW = Math.max(28, Math.floor(600 / Math.max(data.length, 1)));
+
+  // Y-axis labels
+  let yHtml = '<div style="position:relative;width:38px;flex-shrink:0;height:'+(H+LBLH)+'px">';
+  for (let v = 0; v <= topVal; v += STEP) {
+    const bot = LBLH + Math.round((v / topVal) * H);
+    yHtml += '<div style="position:absolute;bottom:'+bot+'px;right:6px;font-size:8px;color:var(--g400);line-height:1;white-space:nowrap;transform:translateY(50%)">'+(v===0?'0':_Rk(v))+'</div>';
+  }
+  yHtml += '</div>';
+
+  // Grid lines (inside bar area, positioned from bottom of binn)
+  let gridHtml = '';
+  for (let v = STEP; v <= topVal; v += STEP) {
+    const bot = Math.round((v / topVal) * H);
+    gridHtml += '<div style="position:absolute;left:0;right:0;bottom:'+bot+'px;height:1px;background:var(--g100);pointer-events:none;z-index:0"></div>';
+  }
+
   let bars = '';
   data.forEach(d => {
-    const ph = Math.max(d.proj     > 0 ? 2 : 0, (d.proj     / mx) * H);
-    const rh = Math.max(d.real     > 0 ? 2 : 0, (d.real     / mx) * H);
-    const fh = Math.max(d.forecast > 0 ? 2 : 0, (d.forecast / mx) * H);
+    const ph = Math.max(d.proj     > 0 ? 2 : 0, Math.round((d.proj     / topVal) * H));
+    const rh = Math.max(d.real     > 0 ? 2 : 0, Math.round((d.real     / topVal) * H));
+    const fh = Math.max(d.forecast > 0 ? 2 : 0, Math.round((d.forecast / topVal) * H));
     const fTip = 'Previsão: '+R(d.forecast)+(d.mProj?'\nMedições: '+R(d.mProj):'')+(d.tcProj?'\nÀ Contratar: '+R(d.tcProj):'')+(d.feeProj?'\nHonorários: '+R(d.feeProj):'');
     const isToday = d.p === todayP;
     const lblStyle = isToday ? 'font-weight:800;color:var(--black)' : '';
     const grpBorder = isToday ? 'border-left:2px solid var(--black);padding-left:2px' : '';
-    bars += '<div class="bgrp" style="min-width:'+minW+'px;'+grpBorder+'"><div class="binn">' +
-      (d.forecast > 0 ? '<div class="bfc" style="height:'+fh+'px" title="'+fTip+'">'+(fh > 8 ? '<span class="bval">'+_Rk(d.forecast)+'</span>' : '')+'</div>' : '') +
-      '<div class="bp" style="height:'+ph+'px" title="Contratado: '+R(d.proj)+'">'+(d.proj > 0 && ph > 8 ? '<span class="bval">'+_Rk(d.proj)+'</span>' : '')+'</div>' +
-      '<div class="br" style="height:'+rh+'px" title="Realizado: '+R(d.real)+'">'+(d.real > 0 && rh > 8 ? '<span class="bval">'+_Rk(d.real)+'</span>' : '')+'</div>' +
-      '</div><span class="blbl" style="'+lblStyle+'">'+fmtP(d.p)+'</span></div>';
+    bars += '<div class="bgrp" style="min-width:'+minW+'px;'+grpBorder+'">' +
+      '<div class="binn">' +
+        (d.forecast > 0 ? '<div class="bfc" style="height:'+fh+'px" title="'+fTip+'"></div>' : '') +
+        '<div class="bp" style="height:'+ph+'px" title="Contratado: '+R(d.proj)+'"></div>' +
+        '<div class="br" style="height:'+rh+'px" title="Realizado: '+R(d.real)+'"></div>' +
+      '</div>' +
+      '<span class="blbl" style="'+lblStyle+'">'+fmtP(d.p)+'</span>' +
+    '</div>';
   });
-  document.getElementById('cf-bars').innerHTML = bars;
+
+  document.getElementById('cf-bars').innerHTML =
+    '<div style="display:flex;align-items:flex-start">' +
+      yHtml +
+      '<div style="position:relative;flex:1;overflow-x:auto">' +
+        '<div style="position:relative;display:flex;gap:4px;align-items:flex-end;padding:0 4px 0 0;min-height:'+(H+LBLH)+'px">' +
+          gridHtml + bars +
+        '</div>' +
+      '</div>' +
+    '</div>';
   const tp = data.reduce((s,d) => s+d.proj, 0);
   const tr = data.reduce((s,d) => s+d.real, 0);
   const tf = data.reduce((s,d) => s+d.forecast, 0);
