@@ -686,9 +686,6 @@ tfoot td{padding:10px 0;border-top:2px solid var(--black);font-weight:800;font-s
       <div class="divider"></div>
       <div class="sec-hd" style="border-bottom:1px solid var(--g200);margin-bottom:16px"><h2>Fluxo Detalhado por Período</h2></div>
       <div class="tw"><table><thead><tr><th>Período</th><th>Contratado</th><th>Previsão</th><th>Realizado</th><th>Acum. Pago</th></tr></thead><tbody id="cf-tbody"></tbody></table></div>
-      <div class="divider"></div>
-      <div class="sec-hd" style="border-bottom:1px solid var(--g200);margin-bottom:16px"><h2>Histórico de Relatórios Gerados</h2></div>
-      <div id="rpt-history"><div class="muted sm">Nenhum relatório gerado ainda.</div></div>
     </div>
 
 
@@ -3131,7 +3128,6 @@ function renderDashboard() {
   });
   document.getElementById('cf-tbody').innerHTML = rows;
   buildDistTable();
-  renderReportHistory();
 }
 
 function _calcSupResidual(supplierId) {
@@ -3278,9 +3274,18 @@ function saveMeasProj() {
   toast('Projeção salva');
 }
 
+const PIE_C = ['#1e293b','#475569','#94a3b8','#334155','#64748b','#0f172a','#cbd5e1','#7c8ca0'];
+
+function saveDiscLabel(disc, val) {
+  const labels = DB.get('discLabels') || {};
+  if (val.trim()) labels[disc] = val.trim(); else delete labels[disc];
+  DB.set('discLabels', labels);
+}
+
 function buildDistTable() {
   const bud = DB.get('budget') || [];
   const entries = DB.get('entries') || [];
+  const labels = DB.get('discLabels') || {};
   const fr = FR() / 100;
 
   // budget totals by disc
@@ -3336,6 +3341,7 @@ function buildDistTable() {
   const tgTP = totTP + feeTP;
   const tgTC = totTC + feeTC;
 
+  const escQ = v => (v||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'&quot;');
   const tdl = (t, sx='') => '<td style="padding:6px 8px;font-size:12px;' + sx + '">' + t + '</td>';
   const tdr = v => '<td style="text-align:right;padding:6px 8px;white-space:nowrap;font-size:12px">' + (v > 0 ? R(v) : '—') + '</td>';
   const ftdl = (t, sx='') => '<td style="padding:8px;font-size:12px;font-weight:600;' + sx + '">' + t + '</td>';
@@ -3343,8 +3349,8 @@ function buildDistTable() {
 
   const thS = 'padding:8px;font-size:11px;font-weight:600;border-bottom:1px solid var(--g300);white-space:nowrap';
   const header = '<tr>' +
-    '<th style="' + thS + ';text-align:left">Disciplina</th>' +
-    '<th style="' + thS + ';text-align:right">Val. Contratado</th>' +
+    '<th style="' + thS + ';text-align:left;min-width:200px">Disciplina</th>' +
+    '<th style="' + thS + ';text-align:right">Contratado</th>' +
     '<th style="' + thS + ';text-align:right">Pago</th>' +
     '<th style="' + thS + ';text-align:right">À Pagar</th>' +
     '<th style="' + thS + ';text-align:right">À Contratar (Est.)</th>' +
@@ -3353,14 +3359,23 @@ function buildDistTable() {
   let rows = discs.map(d => {
     const c = discMap[d].contracted, tc = discMap[d].toContract;
     const pd = paidByDisc[d]||0, tp = Math.max(0, c - pd);
-    return '<tr style="border-bottom:1px solid var(--g100)">' + tdl(d) + tdr(c) + tdr(pd) + tdr(tp) + tdr(tc) + '</tr>';
+    const lbl = labels[d] || '';
+    const discCell = '<td style="padding:6px 8px;font-size:12px">' +
+      '<span style="font-weight:500">' + d + '</span>' +
+      '<input type="text" value="' + escQ(lbl) + '" placeholder="Descrição…" ' +
+      'onchange="saveDiscLabel(\'' + escQ(d) + '\',this.value)" ' +
+      'style="border:none;border-bottom:1px dashed var(--g300);background:transparent;font-size:11px;color:var(--g500);width:130px;outline:none;margin-left:8px;padding:1px 4px">' +
+      '</td>';
+    return '<tr style="border-bottom:1px solid var(--g100)">' + discCell + tdr(c) + tdr(pd) + tdr(tp) + tdr(tc) + '</tr>';
   }).join('');
 
   if (foraContr + foraTC > 0) {
     rows += '<tr style="background:#f0f4ff;border-bottom:1px solid #c7d2fe">' +
       tdl('↳ Fora da ADM', 'color:#6366f1;font-size:11px') +
-      tdr(foraContr) + '<td style="padding:6px 8px;text-align:right;font-size:12px;color:var(--g400)">—</td>' +
-      '<td style="padding:6px 8px;text-align:right;font-size:12px;color:var(--g400)">—</td>' + tdr(foraTC) + '</tr>';
+      tdr(foraContr) +
+      '<td style="padding:6px 8px;text-align:right;font-size:12px;color:var(--g400)">—</td>' +
+      '<td style="padding:6px 8px;text-align:right;font-size:12px;color:var(--g400)">—</td>' +
+      tdr(foraTC) + '</tr>';
   }
 
   const foot =
@@ -3368,8 +3383,64 @@ function buildDistTable() {
     '<tr style="border-top:1px solid var(--g200)">' + ftdl('Taxa de Administração (' + FR().toFixed(1) + '%)', 'font-weight:400') + ftdr(feeC,false) + ftdr(feePaid,false) + ftdr(feeTP,false) + ftdr(feeTC,false) + '</tr>' +
     '<tr style="border-top:2px solid var(--g300);background:var(--g100)">' + ftdl('Total Geral') + ftdr(tgC) + ftdr(tgP) + ftdr(tgTP) + ftdr(tgTC) + '</tr>';
 
+  // Pie data (by contracted value, per disc)
+  const totPie = discs.reduce((s, d) => s + discMap[d].contracted, 0);
+  const pieData = discs.map((d, i) => ({
+    l: d + (labels[d] ? ' — ' + labels[d] : ''),
+    v: discMap[d].contracted,
+    c: PIE_C[i % PIE_C.length]
+  })).filter(x => x.v > 0);
+  const legend = pieData.map(x =>
+    '<li style="display:flex;align-items:center;gap:6px;font-size:11px;margin-bottom:5px">' +
+    '<span style="width:10px;height:10px;border-radius:2px;background:' + x.c + ';flex-shrink:0"></span>' +
+    x.l + ' — ' + pct(x.v / Math.max(totPie,1) * 100) + '</li>'
+  ).join('');
+
+  // Resumo Geral
+  const rgRow = (lbl, val, bold, bg) =>
+    '<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 14px;' +
+    (bg ? 'background:' + bg + ';' : '') + (bold ? 'font-weight:700;' : 'font-weight:400;') + 'font-size:13px">' +
+    '<span>' + lbl + '</span><span>' + R(val) + '</span></div>';
+
+  const resumo =
+    '<div style="margin-top:28px;max-width:480px">' +
+      '<div style="font-weight:700;font-size:13px;text-transform:uppercase;letter-spacing:.04em;border-bottom:2px solid var(--g900);padding-bottom:6px;margin-bottom:2px">Resumo Geral</div>' +
+      rgRow('Total Contratado (A)', totC, false, '') +
+      '<div style="height:1px;background:var(--g100)"></div>' +
+      rgRow('Total Pago', totP, false, '') +
+      '<div style="height:1px;background:var(--g100)"></div>' +
+      rgRow('Total À Pagar', totTP, false, '') +
+      '<div style="height:1px;background:var(--g100)"></div>' +
+      rgRow('Total À Contratar (B)', totTC, false, '') +
+      '<div style="height:2px;background:var(--g300)"></div>' +
+      rgRow('TOTAL (A + B)', totC + totTC, true, 'var(--g100)') +
+    '</div>';
+
   const el = document.getElementById('dist-table');
-  if (el) el.innerHTML = '<table style="width:100%;border-collapse:collapse"><thead>' + header + '</thead><tbody>' + rows + '</tbody><tfoot>' + foot + '</tfoot></table>';
+  if (!el) return;
+  el.innerHTML =
+    '<table style="width:100%;border-collapse:collapse"><thead>' + header + '</thead><tbody>' + rows + '</tbody><tfoot>' + foot + '</tfoot></table>' +
+    '<div style="display:flex;gap:24px;margin-top:24px;align-items:flex-start">' +
+      '<canvas id="pie-disc" width="160" height="160" style="flex-shrink:0"></canvas>' +
+      '<ul id="leg-disc" style="list-style:none;margin:0;padding:0;flex:1;padding-top:4px">' + legend + '</ul>' +
+    '</div>' +
+    resumo;
+
+  // Draw donut pie
+  const canvas = document.getElementById('pie-disc');
+  if (canvas && totPie > 0) {
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, 160, 160);
+    let st = -Math.PI / 2;
+    pieData.forEach(x => {
+      const a = (x.v / totPie) * Math.PI * 2;
+      ctx.fillStyle = x.c;
+      ctx.beginPath(); ctx.moveTo(80, 80); ctx.arc(80, 80, 76, st, st + a); ctx.closePath(); ctx.fill();
+      st += a;
+    });
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath(); ctx.arc(80, 80, 38, 0, Math.PI * 2); ctx.fill();
+  }
 }
 
 // =====================================================================
