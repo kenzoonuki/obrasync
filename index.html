@@ -681,11 +681,8 @@ tfoot td{padding:10px 0;border-top:2px solid var(--black);font-weight:800;font-s
       <div class="bar-wrap" id="cf-bars" style="overflow-x:auto"></div>
       <div class="cards mt16" id="cf-cards"></div>
       <div class="divider"></div>
-      <div class="sec-hd" style="border-bottom:1px solid var(--g200);margin-bottom:20px"><h2>Distribuição do Orçamento Contratado</h2></div>
-      <div class="pie-row">
-        <div class="pie-box"><h4>Por Disciplina</h4><div class="pie-wrap"><canvas id="pie-disc" width="180" height="180"></canvas></div><ul class="pie-leg" id="leg-disc"></ul></div>
-        <div class="pie-box"><h4>Por Tipo</h4><div class="pie-wrap"><canvas id="pie-type" width="180" height="180"></canvas></div><ul class="pie-leg" id="leg-type"></ul></div>
-      </div>
+      <div class="sec-hd" style="border-bottom:1px solid var(--g200);margin-bottom:16px"><h2>Distribuição do Orçamento</h2></div>
+      <div id="dist-table"></div>
       <div class="divider"></div>
       <div class="sec-hd" style="border-bottom:1px solid var(--g200);margin-bottom:16px"><h2>Fluxo Detalhado por Período</h2></div>
       <div class="tw"><table><thead><tr><th>Período</th><th>Contratado</th><th>Previsão</th><th>Realizado</th><th>Acum. Pago</th></tr></thead><tbody id="cf-tbody"></tbody></table></div>
@@ -3133,7 +3130,7 @@ function renderDashboard() {
       '<td class="fw7">'+(acc>0?R(acc):'—')+'</td></tr>';
   });
   document.getElementById('cf-tbody').innerHTML = rows;
-  buildPies();
+  buildDistTable();
   renderReportHistory();
 }
 
@@ -3281,57 +3278,98 @@ function saveMeasProj() {
   toast('Projeção salva');
 }
 
-const PIE_C = ['#000','#555','#888','#aaa','#ccc','#e0e0e0','#333','#777'];
-function drawPie(id, data) {
-  const canvas = document.getElementById(id); if(!canvas) return;
-  const ctx = canvas.getContext('2d');
-  const W = canvas.width, H = canvas.height;
-  ctx.clearRect(0,0,W,H);
-  const tot = data.reduce((s,d) => s+d.v, 0);
-  if(!tot) { ctx.fillStyle='#e8e8e8'; ctx.beginPath(); ctx.arc(W/2,H/2,W/2-4,0,Math.PI*2); ctx.fill(); return; }
-  let st = -Math.PI/2;
-  data.forEach((d,i) => {
-    const a = (d.v/tot)*Math.PI*2;
-    ctx.fillStyle = PIE_C[i%PIE_C.length];
-    ctx.beginPath(); ctx.moveTo(W/2,H/2); ctx.arc(W/2,H/2,W/2-4,st,st+a); ctx.closePath(); ctx.fill();
-    st += a;
-  });
-  ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(W/2,H/2,W/4,0,Math.PI*2); ctx.fill();
-}
-function buildPies() {
+function buildDistTable() {
   const bud = DB.get('budget') || [];
-  const byD = {}, byT = {};
-  bud.filter(b => (b.tot||0) > 0).forEach(b => {
-    const tot = b.tot;
-    // Por disciplina
+  const entries = DB.get('entries') || [];
+  const fr = FR() / 100;
+
+  // budget totals by disc
+  const discMap = {};
+  let foraContr = 0, foraTC = 0;
+  bud.forEach(b => {
+    if (!(b.tot > 0)) return;
     const disc = b.disc || 'Outros';
-    byD[disc] = (byD[disc] || 0) + tot;
-    // Por tipo de custo — usar pmo/pmat/pacab/psrv proporcionalmente
-    const mo   = b.pmo   || 0;
-    const mat  = b.pmat  || 0;
-    const acab = b.pacab || 0;
-    const srv  = b.psrv  || 0;
-    const sum  = mo + mat + acab + srv;
-    if (sum > 0) {
-      if (mo   > 0) byT['Mão de Obra']  = (byT['Mão de Obra']  || 0) + tot * mo   / sum;
-      if (mat  > 0) byT['Material']     = (byT['Material']     || 0) + tot * mat  / sum;
-      if (acab > 0) byT['Acabamento']   = (byT['Acabamento']   || 0) + tot * acab / sum;
-      if (srv  > 0) byT['Serviço']      = (byT['Serviço']      || 0) + tot * srv  / sum;
-    } else {
-      // Fallback: usar supCols ou catClass
-      const sc = b.supCols || {};
-      const cc = b.catClass || '';
-      const tKey = sc.mo||cc==='mo' ? 'Mão de Obra' : sc.mat||cc==='mat' ? 'Material' : sc.acab||cc==='acab' ? 'Acabamento' : sc.srv||cc==='srv' ? 'Serviço' : 'Não classificado';
-      byT[tKey] = (byT[tKey] || 0) + tot;
+    if (!discMap[disc]) discMap[disc] = {contracted: 0, toContract: 0};
+    if (b.type === 'contracted' || b.type === 'extra') discMap[disc].contracted += b.tot;
+    else if (b.type === 'to_contract') discMap[disc].toContract += b.tot;
+    if (b.compoeBase === false) {
+      if (b.type === 'contracted' || b.type === 'extra') foraContr += b.tot;
+      else if (b.type === 'to_contract') foraTC += b.tot;
     }
   });
-  const dd = Object.entries(byD).map(([l,v]) => ({l,v:+v.toFixed(2)})).sort((a,b) => b.v-a.v);
-  const td = Object.entries(byT).map(([l,v]) => ({l,v:+v.toFixed(2)})).sort((a,b) => b.v-a.v);
-  drawPie('pie-disc', dd); drawPie('pie-type', td);
-  const totD = dd.reduce((s,d) => s+d.v, 0);
-  const totT = td.reduce((s,d) => s+d.v, 0);
-  document.getElementById('leg-disc').innerHTML = dd.map((d,i) => '<li><span class="dot" style="background:'+PIE_C[i%PIE_C.length]+'"></span>'+d.l+' — '+R(d.v)+' ('+pct(d.v/Math.max(totD,1)*100)+')</li>').join('') || '<li class="muted">Sem dados</li>';
-  document.getElementById('leg-type').innerHTML = td.map((d,i) => '<li><span class="dot" style="background:'+PIE_C[i%PIE_C.length]+'"></span>'+d.l+' — '+R(d.v)+' ('+pct(d.v/Math.max(totT,1)*100)+')</li>').join('') || '<li class="muted">Sem dados</li>';
+
+  // paid per disc from non-fee entries
+  const paidByDisc = {};
+  entries.filter(e => !e.isFee).forEach(e => {
+    const pd = e.insts.filter(p => p.status === 'paid').reduce((s, p) => s + p.paidAmt, 0);
+    if (!pd) return;
+    if (e.isSplit && (e.splits||[]).length) {
+      const st = e.splits.reduce((s, sp) => s + (sp.val||0), 0);
+      if (!st) { paidByDisc[e.disc||'Outros'] = (paidByDisc[e.disc||'Outros']||0) + pd; return; }
+      e.splits.forEach(sp => {
+        const d = sp.disc || 'Outros';
+        paidByDisc[d] = (paidByDisc[d]||0) + pd * (sp.val / st);
+      });
+    } else {
+      const d = e.disc || 'Outros';
+      paidByDisc[d] = (paidByDisc[d]||0) + pd;
+    }
+  });
+
+  const discs = Object.keys(discMap).sort((a, b) =>
+    (discMap[b].contracted + discMap[b].toContract) - (discMap[a].contracted + discMap[a].toContract)
+  );
+
+  let totC = 0, totP = 0, totTC = 0;
+  discs.forEach(d => { totC += discMap[d].contracted; totTC += discMap[d].toContract; totP += paidByDisc[d]||0; });
+  const totTP = Math.max(0, totC - totP);
+
+  const s = summary();
+  const feePaid = entries.filter(e => e.isFee).flatMap(e => e.insts)
+    .filter(p => p.status === 'paid').reduce((a, p) => a + p.paidAmt, 0);
+  const feeC  = totC  * fr;
+  const feeTC = totTC * fr;
+  const feeTP = Math.max(0, s.feeMeasured - feePaid);
+
+  const tgC  = totC  + feeC;
+  const tgP  = totP  + feePaid;
+  const tgTP = totTP + feeTP;
+  const tgTC = totTC + feeTC;
+
+  const tdl = (t, sx='') => '<td style="padding:6px 8px;font-size:12px;' + sx + '">' + t + '</td>';
+  const tdr = v => '<td style="text-align:right;padding:6px 8px;white-space:nowrap;font-size:12px">' + (v > 0 ? R(v) : '—') + '</td>';
+  const ftdl = (t, sx='') => '<td style="padding:8px;font-size:12px;font-weight:600;' + sx + '">' + t + '</td>';
+  const ftdr = (v, bold=true) => '<td style="text-align:right;padding:8px;white-space:nowrap;font-size:12px;' + (bold?'font-weight:600':'') + '">' + (v > 0 ? R(v) : '—') + '</td>';
+
+  const thS = 'padding:8px;font-size:11px;font-weight:600;border-bottom:1px solid var(--g300);white-space:nowrap';
+  const header = '<tr>' +
+    '<th style="' + thS + ';text-align:left">Disciplina</th>' +
+    '<th style="' + thS + ';text-align:right">Val. Contratado</th>' +
+    '<th style="' + thS + ';text-align:right">Pago</th>' +
+    '<th style="' + thS + ';text-align:right">À Pagar</th>' +
+    '<th style="' + thS + ';text-align:right">À Contratar (Est.)</th>' +
+    '</tr>';
+
+  let rows = discs.map(d => {
+    const c = discMap[d].contracted, tc = discMap[d].toContract;
+    const pd = paidByDisc[d]||0, tp = Math.max(0, c - pd);
+    return '<tr style="border-bottom:1px solid var(--g100)">' + tdl(d) + tdr(c) + tdr(pd) + tdr(tp) + tdr(tc) + '</tr>';
+  }).join('');
+
+  if (foraContr + foraTC > 0) {
+    rows += '<tr style="background:#f0f4ff;border-bottom:1px solid #c7d2fe">' +
+      tdl('↳ Fora da ADM', 'color:#6366f1;font-size:11px') +
+      tdr(foraContr) + '<td style="padding:6px 8px;text-align:right;font-size:12px;color:var(--g400)">—</td>' +
+      '<td style="padding:6px 8px;text-align:right;font-size:12px;color:var(--g400)">—</td>' + tdr(foraTC) + '</tr>';
+  }
+
+  const foot =
+    '<tr style="border-top:2px solid var(--g300)">' + ftdl('Totais') + ftdr(totC) + ftdr(totP) + ftdr(totTP) + ftdr(totTC) + '</tr>' +
+    '<tr style="border-top:1px solid var(--g200)">' + ftdl('Taxa de Administração (' + FR().toFixed(1) + '%)', 'font-weight:400') + ftdr(feeC,false) + ftdr(feePaid,false) + ftdr(feeTP,false) + ftdr(feeTC,false) + '</tr>' +
+    '<tr style="border-top:2px solid var(--g300);background:var(--g100)">' + ftdl('Total Geral') + ftdr(tgC) + ftdr(tgP) + ftdr(tgTP) + ftdr(tgTC) + '</tr>';
+
+  const el = document.getElementById('dist-table');
+  if (el) el.innerHTML = '<table style="width:100%;border-collapse:collapse"><thead>' + header + '</thead><tbody>' + rows + '</tbody><tfoot>' + foot + '</tfoot></table>';
 }
 
 // =====================================================================
