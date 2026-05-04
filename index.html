@@ -982,17 +982,22 @@ tfoot td{padding:10px 0;border-top:2px solid var(--black);font-weight:800;font-s
 
       <!-- PANEL: FORNECEDORES -->
       <div id="mpanel-sup">
-        <div class="fg mb8 mt12" id="meas-sup-fg">
-          <span class="flbl">Fornecedor:</span>
-          <button class="pill active" id="mf-all" onclick="setMF('all')">Todos</button>
-          <div id="meas-sup-pills"></div>
-        </div>
-        <div class="fg mb16" id="meas-sta-fg">
-          <span class="flbl">Status:</span>
-          <button class="pill active" id="ms-all" onclick="setMS('all')">Todos</button>
-          <button class="pill" id="ms-draft" onclick="setMS('draft')">Rascunho</button>
-          <button class="pill" id="ms-approved" onclick="setMS('approved')">Aprovadas</button>
-          <button class="pill" id="ms-paid" onclick="setMS('paid')">Pagas</button>
+        <div style="display:flex;gap:16px;align-items:flex-start;margin-top:12px;margin-bottom:16px">
+          <div style="flex:1;min-width:0">
+            <div class="fg mb8" id="meas-sup-fg">
+              <span class="flbl">Fornecedor:</span>
+              <button class="pill active" id="mf-all" onclick="setMF('all')">Todos</button>
+              <div id="meas-sup-pills"></div>
+            </div>
+            <div class="fg" id="meas-sta-fg">
+              <span class="flbl">Status:</span>
+              <button class="pill active" id="ms-all" onclick="setMS('all')">Todos</button>
+              <button class="pill" id="ms-draft" onclick="setMS('draft')">Rascunho</button>
+              <button class="pill" id="ms-approved" onclick="setMS('approved')">Aprovadas</button>
+              <button class="pill" id="ms-paid" onclick="setMS('paid')">Pagas</button>
+            </div>
+          </div>
+          <div id="meas-sup-indicators" style="flex-shrink:0"></div>
         </div>
         <div id="meas-list"></div>
       </div>
@@ -4658,6 +4663,39 @@ function renderMeas() {
     const el = document.getElementById('ms-'+v);
     if (el) el.classList.toggle('active', measStatusFilter === v);
   });
+
+  // ── Indicators ────────────────────────────────────────────────────────
+  let indOrcado = 0, indMedido = 0;
+  if (measFilter !== 'all') {
+    const r = _calcSupResidual(measFilter);
+    indOrcado = r.totalBudget; indMedido = r.alreadyMeasured;
+  } else {
+    [...measSupIds].forEach(sid => {
+      const r = _calcSupResidual(sid);
+      indOrcado += r.totalBudget; indMedido += r.alreadyMeasured;
+    });
+  }
+  const indAMedir = Math.max(0, indOrcado - indMedido);
+  const indPct = indOrcado > 0 ? indMedido / indOrcado * 100 : 0;
+  const indEl = document.getElementById('meas-sup-indicators');
+  if (indEl) {
+    const bar = (p, color) => '<div style="margin-top:5px;height:3px;background:var(--g100);border-radius:2px"><div style="height:100%;width:'+Math.min(p,100).toFixed(1)+'%;background:'+color+';border-radius:2px"></div></div>';
+    indEl.innerHTML =
+      '<div style="display:flex;gap:10px">' +
+        '<div style="border:1px solid var(--g200);padding:12px 16px;border-radius:4px;min-width:140px">' +
+          '<div class="clbl">Medido</div>' +
+          '<div style="font-size:17px;font-weight:800;color:#1d4ed8">'+R(indMedido)+'</div>' +
+          bar(indPct,'#1d4ed8') +
+          '<div style="font-size:10px;color:var(--g500);margin-top:3px">'+pct(indPct)+' do orçado</div>' +
+        '</div>' +
+        '<div style="border:1px solid var(--g200);padding:12px 16px;border-radius:4px;min-width:140px">' +
+          '<div class="clbl">À Medir</div>' +
+          '<div style="font-size:17px;font-weight:800;color:'+(indAMedir>0?'var(--warn)':'var(--ok)')+'">'+R(indAMedir)+'</div>' +
+          bar(100-indPct, indAMedir>0?'#d97706':'#16a34a') +
+          '<div style="font-size:10px;color:var(--g500);margin-top:3px">de '+R(indOrcado)+' orçado</div>' +
+        '</div>' +
+      '</div>';
+  }
 
   // ── Supplier measurement cards ─────────────────────────────────────
   let fil = meas;
