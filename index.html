@@ -799,6 +799,10 @@ tfoot td{padding:10px 0;border-top:2px solid var(--black);font-weight:800;font-s
         <span style="font-size:12px;font-weight:600;color:#1d4ed8"></span>
         <button class="btn btn-g btn-sm" onclick="finDiscFilter='';renderFinancial()">✕ Limpar filtro</button>
       </div>
+      <div id="fin-month-banner" style="display:none;align-items:center;gap:10px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;padding:8px 14px;margin-bottom:12px">
+        <span style="font-size:12px;font-weight:600;color:#15803d" id="fin-month-banner-txt"></span>
+        <button class="btn btn-g btn-sm" onclick="finMonthFilter={p:'',mode:''};renderFinancial()">✕ Limpar filtro</button>
+      </div>
       <div class="inote bl mb16" id="fin-note">&#128161; Use <strong>Lançar Honorários</strong> para registrar pagamentos dos seus honorários de gerenciamento.</div>
       <div style="display:flex;align-items:center;gap:16px;margin-bottom:10px;padding:0 2px">
         <div style="display:flex;align-items:center;gap:6px">
@@ -3175,14 +3179,24 @@ function renderDashboard() {
     '<div class="card"><div class="clbl">Total a Desembolsar</div><div class="cval">'+R(Math.max(0,tp+tf-tr))+'</div></div>';
   // Table
   let acc = 0, rows = '';
+  const _clk = 'cursor:pointer;border-bottom:1px dashed currentColor';
   data.forEach(d => {
     acc += d.real;
     const rowStyle = d.isPast ? 'color:var(--g500)' : d.p === todayP ? 'font-weight:800' : '';
+    const _projCell = d.proj > 0
+      ? '<span style="'+_clk+'" title="Ver vencimentos de '+fmtP(d.p)+'" onclick="navToCFMonth(\''+d.p+'\',\'proj\')">'+R(d.proj)+'</span>'
+      : '<span class="muted">—</span>';
+    const _foreCell = d.forecast > 0
+      ? '<span style="'+_clk+';color:#2563eb" title="Meds: '+R(d.mProj)+' | Cont.: '+R(d.tcProj)+' | Hon.: '+R(d.feeProj)+'" onclick="navToCFMonth(\''+d.p+'\',\'forecast\')">'+R(d.forecast)+'</span>'
+      : '<span class="muted">—</span>';
+    const _realCell = d.real > 0
+      ? '<span style="'+_clk+'" title="Ver pagamentos de '+fmtP(d.p)+'" onclick="navToCFMonth(\''+d.p+'\',\'real\')">'+R(d.real)+'</span>'
+      : '<span class="muted">—</span>';
     rows += '<tr style="'+rowStyle+'">' +
       '<td>'+(d.p === todayP ? '▶ ' : '')+fmtP(d.p)+'</td>' +
-      '<td class="'+(d.proj>0?'fw7':'muted')+'">'+(d.proj>0?R(d.proj):'—')+'</td>' +
-      '<td style="color:#2563eb">'+(d.forecast>0?'<span title="Meds: '+R(d.mProj)+' | Cont.: '+R(d.tcProj)+' | Hon.: '+R(d.feeProj)+'">'+R(d.forecast)+'</span>':'<span class="muted">—</span>')+'</td>' +
-      '<td class="'+(d.real>0?'fw7':'muted')+'">'+(d.real>0?R(d.real):'—')+'</td>' +
+      '<td class="'+(d.proj>0?'fw7':'')+'">'+_projCell+'</td>' +
+      '<td style="color:#2563eb">'+_foreCell+'</td>' +
+      '<td class="'+(d.real>0?'fw7':'')+'">'+_realCell+'</td>' +
       '<td class="fw7">'+(acc>0?R(acc):'—')+'</td></tr>';
   });
   document.getElementById('cf-tbody').innerHTML = rows;
@@ -3350,6 +3364,22 @@ function navToDiscPending(disc) {
   finDiscFilter = disc;
   finFilter = 'open';
   finSupFilter = 'all';
+  nav('financial');
+}
+function navToCFMonth(p, colType) {
+  if (colType === 'forecast') {
+    toast('Previsão de ' + fmtP(p) + ': projeções de medições + itens À Contratar + honorários estimados');
+    return;
+  }
+  finDiscFilter = '';
+  finSupFilter = 'all';
+  if (colType === 'real') {
+    finMonthFilter = {p, mode: 'paid'};
+    finFilter = 'paid';
+  } else {
+    finMonthFilter = {p, mode: 'due'};
+    finFilter = 'all';
+  }
   nav('financial');
 }
 
@@ -3520,22 +3550,28 @@ function buildDistTable() {
     v: discMap[d].contracted + discMap[d].toContract,
     c: PIE_C[i % PIE_C.length]
   })).filter(x => x.v > 0);
-  const legendItems = pieData.map(x => {
+  const _legCell = (x) => {
     const parts = x.l.split(' — ');
     const code = parts[0];
     const desc = parts.slice(1).join(' — ');
     const pcVal = pct(x.v / Math.max(totPie,1) * 100);
-    return '<li style="display:table-row;font-size:11px">' +
-      '<span style="display:table-cell;padding:0 7px 8px 0;vertical-align:middle">' +
-        '<span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:' + x.c + '"></span>' +
-      '</span>' +
-      '<span style="display:table-cell;font-weight:700;color:var(--g700);white-space:nowrap;padding:0 10px 8px 0;vertical-align:middle">' + code + '</span>' +
-      '<span style="display:table-cell;color:var(--g500);white-space:nowrap;padding:0 16px 8px 0;vertical-align:middle">' + desc + '</span>' +
-      '<span style="display:table-cell;color:var(--g700);text-align:right;white-space:nowrap;padding:0 10px 8px 0;vertical-align:middle">' + R(x.v) + '</span>' +
-      '<span style="display:table-cell;color:var(--g400);text-align:right;white-space:nowrap;padding:0 0 8px 0;min-width:36px;vertical-align:middle">' + pcVal + '</span>' +
-      '</li>';
-  });
-  const half = Math.ceil(legendItems.length / 2);
+    const td = 'style="vertical-align:middle;padding:3px 0"';
+    return '<td '+td+'><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:' + x.c + ';flex-shrink:0"></span></td>' +
+      '<td '+td+' style="vertical-align:middle;padding:3px 8px 3px 5px;font-weight:700;color:var(--g700);white-space:nowrap">' + code + '</td>' +
+      '<td '+td+' style="vertical-align:middle;padding:3px 14px 3px 0;color:var(--g500);white-space:nowrap">' + desc + '</td>' +
+      '<td '+td+' style="vertical-align:middle;padding:3px 8px 3px 0;text-align:right;color:var(--g700);white-space:nowrap">' + R(x.v) + '</td>' +
+      '<td '+td+' style="vertical-align:middle;padding:3px 0;text-align:right;color:var(--g400);white-space:nowrap;min-width:34px">' + pcVal + '</td>';
+  };
+  const half = Math.ceil(pieData.length / 2);
+  let legHtml = '<table style="border-collapse:collapse;width:100%"><tbody>';
+  for (let _i = 0; _i < half; _i++) {
+    const _r = pieData[_i + half];
+    legHtml += '<tr>' + _legCell(pieData[_i]) +
+      '<td style="width:20px"></td>' +
+      (_r ? _legCell(_r) : '<td colspan="5"></td>') +
+      '</tr>';
+  }
+  legHtml += '</tbody></table>';
 
   // Resumo Geral
   const rgRow = (lbl, val, bold, accent) =>
@@ -3566,10 +3602,7 @@ function buildDistTable() {
       '</div>' +
       // Zone 2: Legend
       '<div style="display:flex;flex-direction:column;flex:1;padding:24px 28px;border-right:1px solid var(--g200);min-width:0;overflow:auto">' +
-        '<div style="display:flex;align-items:flex-start">' +
-          '<ul style="list-style:none;margin:0;padding:0 20px 0 0;display:table;border-right:1px solid var(--g100)">' + legendItems.slice(0, half).join('') + '</ul>' +
-          '<ul style="list-style:none;margin:0;padding:0 0 0 20px;display:table">' + legendItems.slice(half).join('') + '</ul>' +
-        '</div>' +
+        legHtml +
         '<div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--g200);display:inline-flex;align-items:baseline;gap:10px">' +
           '<span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--g400)">Total Orçado</span>' +
           '<span style="font-size:16px;font-weight:700;color:var(--g900)">' + R(totC + totTC) + '</span>' +
@@ -3605,6 +3638,7 @@ let finFilter = 'all';
 let finSort   = 'comp';
 let finSupFilter = 'all';
 let finDiscFilter = '';
+let finMonthFilter = {p: '', mode: ''};
 function setFF(btn, f) {
   finFilter = f;
   const sel = document.getElementById('fin-status-sel');
@@ -3735,6 +3769,14 @@ function renderFinancial() {
     _discBanner.style.display = finDiscFilter ? 'flex' : 'none';
     if (finDiscFilter) _discBanner.querySelector('span').textContent = 'Filtrando por disciplina: ' + finDiscFilter;
   }
+  const _monthBanner = document.getElementById('fin-month-banner');
+  if (_monthBanner) {
+    _monthBanner.style.display = finMonthFilter.p ? 'flex' : 'none';
+    if (finMonthFilter.p) {
+      const _modeLabel = finMonthFilter.mode === 'paid' ? 'Realizado' : 'Vencimento';
+      document.getElementById('fin-month-banner-txt').textContent = _modeLabel + ': ' + fmtP(finMonthFilter.p);
+    }
+  }
 
   // ── Supplier pills ────────────────────────────────────────────────
   const _sups = DB.get('suppliers') || [];
@@ -3797,6 +3839,13 @@ function renderFinancial() {
         ? (e.splits||[]).some(sp => sp.disc === finDiscFilter)
         : e.disc === finDiscFilter;
       if (!hasDisc) return;
+    }
+    if (finMonthFilter.p) {
+      if (finMonthFilter.mode === 'paid') {
+        if (!e.insts.some(p => p.status === 'paid' && (p.paidAt||'').slice(0,7) === finMonthFilter.p)) return;
+      } else {
+        if (!e.insts.some(p => (p.due||'').slice(0,7) === finMonthFilter.p)) return;
+      }
     }
     const ins = e.insts;
     const fi = (finFilter==='all'||finFilter==='nobase'||finFilter==='fee') ? ins :
@@ -6514,10 +6563,10 @@ function generateAnalyticsPDF() {
   let acc = 0;
   data.forEach(d => {
     acc += d.real;
-    const delta = d.real > 0 ? d.real - d.proj : null;
-    cfRows += '<tr><td>'+fmtP(d.p)+'</td><td style="text-align:right">'+R(d.proj)+'</td>' +
+    cfRows += '<tr><td>'+fmtP(d.p)+'</td>' +
+      '<td style="text-align:right">'+(d.proj>0?R(d.proj):'\u2014')+'</td>' +
+      '<td style="text-align:right;color:#2563eb">'+(d.forecast>0?R(d.forecast):'\u2014')+'</td>' +
       '<td style="text-align:right;font-weight:'+(d.real>0?700:400)+'">'+(d.real>0?R(d.real):'\u2014')+'</td>' +
-      '<td style="text-align:right;color:'+(delta!==null?(delta>=0?'#16a34a':'#dc2626'):'#9ca3af')+'">'+(delta!==null?(delta>=0?'+':'')+R(delta):'\u2014')+'</td>' +
       '<td style="text-align:right;font-weight:700">'+(acc>0?R(acc):'\u2014')+'</td></tr>';
   });
 
@@ -6662,7 +6711,7 @@ function generateAnalyticsPDF() {
   </div>
   ${cfSVG}
 </div>
-<table><thead><tr><th>Per\u00edodo</th><th style="text-align:right">Projetado</th><th style="text-align:right">Realizado</th><th style="text-align:right">Delta</th><th style="text-align:right">Acum.</th></tr></thead>
+<table><thead><tr><th>Per\u00edodo</th><th style="text-align:right">Contratado</th><th style="text-align:right">Previs\u00e3o</th><th style="text-align:right">Realizado</th><th style="text-align:right">Acum. Pago</th></tr></thead>
 <tbody>${cfRows}</tbody></table>
 <div class="ftr"><span>ObraSync \u00a9 ${now.getFullYear()}</span><span>Gerado em ${dateStr} \u00e0s ${timeStr}</span></div>
 </body></html>`;
