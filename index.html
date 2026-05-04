@@ -3620,12 +3620,12 @@ function buildDistTable() {
     const code = parts[0];
     const desc = parts.slice(1).join(' — ');
     const pcVal = pct(x.v / Math.max(totPie,1) * 100);
-    const td = 'style="vertical-align:middle;padding:3px 0"';
-    return '<td '+td+'><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:' + x.c + ';flex-shrink:0"></span></td>' +
-      '<td '+td+' style="vertical-align:middle;padding:3px 8px 3px 5px;font-weight:700;color:var(--g700);white-space:nowrap">' + code + '</td>' +
-      '<td '+td+' style="vertical-align:middle;padding:3px 14px 3px 0;color:var(--g500);white-space:nowrap">' + desc + '</td>' +
-      '<td '+td+' style="vertical-align:middle;padding:3px 8px 3px 0;text-align:right;color:var(--g700);white-space:nowrap">' + R(x.v) + '</td>' +
-      '<td '+td+' style="vertical-align:middle;padding:3px 0;text-align:right;color:var(--g400);white-space:nowrap;min-width:34px">' + pcVal + '</td>';
+    const vm = 'vertical-align:middle;white-space:nowrap;';
+    return '<td style="'+vm+'padding:3px 6px 3px 0"><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:' + x.c + '"></span></td>' +
+      '<td style="'+vm+'padding:3px 8px 3px 0;font-weight:700;color:var(--g700)">' + code + '</td>' +
+      '<td style="'+vm+'padding:3px 16px 3px 0;color:var(--g500)">' + desc + '</td>' +
+      '<td style="'+vm+'padding:3px 10px 3px 0;text-align:right;color:var(--g700)">' + R(x.v) + '</td>' +
+      '<td style="'+vm+'padding:3px 12px 3px 0;text-align:right;color:var(--g400);min-width:38px">' + pcVal + '</td>';
   };
   const half = Math.ceil(pieData.length / 2);
   let legHtml = '<table style="border-collapse:collapse;width:100%"><tbody>';
