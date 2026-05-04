@@ -3362,6 +3362,12 @@ function navToDisc(disc) {
   finSupFilter = 'all';
   nav('financial');
 }
+function navToDiscPending(disc) {
+  finDiscFilter = disc;
+  finFilter = 'open';
+  finSupFilter = 'all';
+  nav('financial');
+}
 
 function saveDiscLabel(disc, val) {
   const labels = DB.get('discLabels') || {};
@@ -3455,6 +3461,8 @@ function buildDistTable() {
   const tdr = v => '<td style="text-align:right;padding:6px 8px;white-space:nowrap;font-size:12px">' + (v > 0 ? R(v) : '—') + '</td>';
   const tdrPago = (v, disc) => '<td style="text-align:right;padding:6px 8px;white-space:nowrap;font-size:12px">' +
     (v > 0 ? '<span style="cursor:pointer;border-bottom:1px dashed var(--g400)" title="Clique para ver lançamentos de ' + disc + '" onclick="navToDisc(\'' + escQ(disc) + '\')">' + R(v) + '</span>' : '—') + '</td>';
+  const tdrAPagar = (v, disc) => '<td style="text-align:right;padding:6px 8px;white-space:nowrap;font-size:12px">' +
+    (v > 0 ? '<span style="cursor:pointer;border-bottom:1px dashed #f59e0b;color:#b45309" title="Clique para ver pendentes de ' + disc + '" onclick="navToDiscPending(\'' + escQ(disc) + '\')">' + R(v) + '</span>' : '—') + '</td>';
   const ftdl = (t, sx='') => '<td style="padding:8px;font-size:12px;font-weight:600;' + sx + '">' + t + '</td>';
   const ftdr = (v, bold=true) => '<td style="text-align:right;padding:8px;white-space:nowrap;font-size:12px;' + (bold?'font-weight:600':'') + '">' + (v > 0 ? R(v) : '—') + '</td>';
 
@@ -3495,7 +3503,7 @@ function buildDistTable() {
       'onchange="saveDiscLabel(\'' + escQ(d) + '\',this.value)" ' +
       'style="border:none;border-bottom:1px dashed var(--g300);background:transparent;font-size:11px;color:var(--g500);flex:1;min-width:0;outline:none;padding:1px 4px">' +
       '</div></td>';
-    return '<tr style="border-bottom:1px solid var(--g100)">' + discCell + tdr(c) + tdrPago(pd, d) + tdr(tp) + tdr(tc) + phyBar(phyPct[d] || 0) + '</tr>';
+    return '<tr style="border-bottom:1px solid var(--g100)">' + discCell + tdr(c) + tdrPago(pd, d) + tdrAPagar(tp, d) + tdr(tc) + phyBar(phyPct[d] || 0) + '</tr>';
   }).join('');
 
   if (foraContr + foraTC > 0) {
@@ -3736,6 +3744,8 @@ function renderFinancial() {
     '<div class="card"><div class="clbl">A Pagar (obra)</div><div class="cval">'+R(s.toPay - entries.filter(e=>e.isFee).flatMap(e=>e.insts).filter(p=>p.status!=='paid').reduce((a,p)=>a+p.val,0))+'</div></div>';
   document.getElementById('fin-acts').style.display = isC ? 'none' : 'flex';
   document.getElementById('fin-note').style.display = isC ? 'none' : 'block';
+  const _statusSel = document.getElementById('fin-status-sel');
+  if (_statusSel && _statusSel.value !== finFilter) _statusSel.value = finFilter;
   const _discBanner = document.getElementById('fin-disc-banner');
   if (_discBanner) {
     _discBanner.style.display = finDiscFilter ? 'flex' : 'none';
