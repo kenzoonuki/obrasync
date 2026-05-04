@@ -6587,7 +6587,7 @@ function generateAnalyticsPDF() {
   const fr = FR();
   const _cfg = DB.get('appConfig') || {};
   const _logoHTML = _cfg.logo
-    ? '<img src="'+_cfg.logo+'" style="max-height:48px;max-width:180px;object-fit:contain;display:block;margin-bottom:2px"/>'
+    ? '<img src="'+_cfg.logo+'" style="height:48px;max-width:200px;object-fit:contain;object-position:left center;display:block;margin-bottom:2px"/>'
     : '<div class="logo">'+(_cfg.name||'ObraSync')+'</div>';
 
   // ── Physical % per discipline ──
