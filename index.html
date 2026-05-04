@@ -51,7 +51,7 @@ button{cursor:pointer}
 .card.dk{background:var(--black);color:var(--white);border-color:var(--black)}
 .card.wn{background:#fffbeb;border-color:#fde68a}
 .card.fe{background:#f5f3ff;border-color:#ddd6fe}
-.clbl{font-size:9px;text-transform:uppercase;letter-spacing:.12em;color:var(--g400);margin-bottom:8px}
+.clbl{font-size:9px;text-transform:uppercase;letter-spacing:.12em;color:var(--g600);margin-bottom:8px}
 .card.dk .clbl{color:#666}.card.wn .clbl{color:#92400e}.card.fe .clbl{color:#6d28d9}
 .cval{font-size:19px;font-weight:800;line-height:1}
 .card.wn .cval{color:#b45309}.card.fe .cval{color:var(--fee)}
@@ -3172,14 +3172,13 @@ function renderDashboard() {
       wrap.scrollLeft = Math.max(0, (currentIdx - Math.floor(VISIBLE / 2)) * (barW + GAP));
     }
   });
-  const tp = data.reduce((s,d) => s+d.proj, 0);
-  const tr = data.reduce((s,d) => s+d.real, 0);
-  const tf = data.reduce((s,d) => s+d.forecast, 0);
+  const _cs = summary();
   document.getElementById('cf-cards').innerHTML =
-    '<div class="card dk"><div class="clbl">Realizado</div><div class="cval">'+R(tr)+'</div></div>' +
-    '<div class="card"><div class="clbl">Contratado (prev.)</div><div class="cval">'+R(tp)+'</div></div>' +
-    '<div class="card" style="border-left:3px solid #60a5fa"><div class="clbl" style="color:#60a5fa">Previsão (proj.)</div><div class="cval" style="color:#2563eb">'+R(tf)+'</div><div class="csub">Meds: '+R(data.reduce((s,d)=>s+d.mProj,0))+' · Cont.: '+R(data.reduce((s,d)=>s+d.tcProj,0))+' · Hon.: '+R(data.reduce((s,d)=>s+d.feeProj,0))+'</div></div>' +
-    '<div class="card"><div class="clbl">Total a Desembolsar</div><div class="cval">'+R(Math.max(0,tp+tf-tr))+'</div></div>';
+    '<div class="card"><div class="clbl">Total Orçado</div><div class="cval">'+R(_cs.total)+'</div></div>' +
+    '<div class="card"><div class="clbl">Contratado</div><div class="cval">'+R(_cs.contracted)+'</div></div>' +
+    '<div class="card dk"><div class="clbl">Realizado</div><div class="cval">'+R(_cs.paid)+'</div></div>' +
+    '<div class="card"><div class="clbl">À Pagar</div><div class="cval">'+R(_cs.toPay)+'</div></div>' +
+    '<div class="card" style="border-left:3px solid #93c5fd"><div class="clbl" style="color:#1d4ed8">À Contratar (Prev.)</div><div class="cval" style="color:#1d4ed8">'+R(_cs.toContract)+'</div></div>';
   // Table — always use full date range (all entries + planned dates)
   const _allInsts = (DB.get('entries')||[]).flatMap(e=>e.insts);
   const _allDateStrs = [
@@ -6747,7 +6746,7 @@ function generateAnalyticsPDF() {
   .hdr{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #111;padding-bottom:12px;margin-bottom:16px}
   .logo{font-size:20px;font-weight:900;letter-spacing:-1px}
   .sub{font-size:10px;color:#666;margin-top:2px}
-  .cards{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px}
+  .cards{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:14px}
   .card{border:1px solid #e5e7eb;padding:10px 12px;border-radius:5px}
   .clbl{font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#888;margin-bottom:3px}
   .cval{font-size:14px;font-weight:900}
@@ -6787,9 +6786,10 @@ function generateAnalyticsPDF() {
 <h2>Resumo Financeiro</h2>
 <div class="cards">
   <div class="card"><div class="clbl">Total Or\u00e7ado</div><div class="cval">${R(s.total)}</div></div>
-  <div class="card dk"><div class="clbl">Pago</div><div class="cval">${R(s.paid)}</div></div>
-  <div class="card"><div class="clbl">A Pagar</div><div class="cval">${R(s.toPay)}</div></div>
-  <div class="card bl"><div class="clbl">Honor\u00e1rios Medidos</div><div class="cval">${R(s.feeMeasured)}</div></div>
+  <div class="card"><div class="clbl">Contratado</div><div class="cval">${R(s.contracted)}</div></div>
+  <div class="card dk"><div class="clbl">Realizado</div><div class="cval">${R(s.paid)}</div></div>
+  <div class="card"><div class="clbl">\u00c0 Pagar</div><div class="cval">${R(s.toPay)}</div></div>
+  <div class="card bl"><div class="clbl">\u00c0 Contratar (Prev.)</div><div class="cval">${R(s.toContract)}</div></div>
 </div>
 <div class="prog-row"><div class="prog-lbl">F\u00edsico (execu\u00e7\u00e3o)</div><div class="prog-track"><div class="prog-fill" style="background:#1d4ed8;width:${Math.min(s.pctPhy,100)}%"></div></div><div class="prog-pct">${pct(s.pctPhy)}</div></div>
 <div class="prog-row"><div class="prog-lbl">Financeiro (pagamentos)</div><div class="prog-track"><div class="prog-fill" style="background:#93c5fd;width:${Math.min(s.pctFin,100)}%"></div></div><div class="prog-pct">${pct(s.pctFin)}</div></div>
