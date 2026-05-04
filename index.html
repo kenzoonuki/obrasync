@@ -1096,13 +1096,6 @@ tfoot td{padding:10px 0;border-top:2px solid var(--black);font-weight:800;font-s
         </div>
         <div class="fg mb16 bud-screen-only" style="gap:16px;flex-wrap:wrap;align-items:flex-end">
           <div style="display:flex;flex-direction:column;gap:3px">
-            <span class="flbl">Visão</span>
-            <select id="bud-tab-sel" onchange="setBudTab(this.value,null)" style="font-size:12px;padding:4px 8px;border:1px solid var(--g300);border-radius:4px;background:var(--white)">
-              <option value="all">Global</option>
-              <option value="disc">Por Disciplina</option>
-            </select>
-          </div>
-          <div style="display:flex;flex-direction:column;gap:3px">
             <span class="flbl">Fornecedor</span>
             <select id="bud-sup-sel" onchange="setBudSup(null,this.value)" style="font-size:12px;padding:4px 8px;border:1px solid var(--g300);border-radius:4px;background:var(--white)">
               <option value="all">Todos</option>
@@ -1118,6 +1111,14 @@ tfoot td{padding:10px 0;border-top:2px solid var(--black);font-weight:800;font-s
             <span class="flbl">Disciplina</span>
             <select id="bud-disc-sel" onchange="setBudDisc(this.value)" style="font-size:12px;padding:4px 8px;border:1px solid var(--g300);border-radius:4px;background:var(--white)">
               <option value="all">Todas</option>
+            </select>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:3px">
+            <span class="flbl">Tipo</span>
+            <select id="bud-type-sel" onchange="setBudType(this.value)" style="font-size:12px;padding:4px 8px;border:1px solid var(--g300);border-radius:4px;background:var(--white)">
+              <option value="all">Todos</option>
+              <option value="contracted">Contratado</option>
+              <option value="to_contract">À Contratar</option>
             </select>
           </div>
           <div style="margin-left:auto;display:flex;gap:6px;align-items:flex-end">
@@ -3181,10 +3182,28 @@ function renderDashboard() {
     '<div class="card"><div class="clbl">Contratado (prev.)</div><div class="cval">'+R(tp)+'</div></div>' +
     '<div class="card" style="border-left:3px solid #60a5fa"><div class="clbl" style="color:#60a5fa">Previsão (proj.)</div><div class="cval" style="color:#2563eb">'+R(tf)+'</div><div class="csub">Meds: '+R(data.reduce((s,d)=>s+d.mProj,0))+' · Cont.: '+R(data.reduce((s,d)=>s+d.tcProj,0))+' · Hon.: '+R(data.reduce((s,d)=>s+d.feeProj,0))+'</div></div>' +
     '<div class="card"><div class="clbl">Total a Desembolsar</div><div class="cval">'+R(Math.max(0,tp+tf-tr))+'</div></div>';
-  // Table
+  // Table — always use full date range (all entries + planned dates)
+  const _allInsts = (DB.get('entries')||[]).flatMap(e=>e.insts);
+  const _allDateStrs = [
+    ..._allInsts.filter(p=>p.paidAt).map(p=>p.paidAt.slice(0,7)),
+    ..._allInsts.filter(p=>p.due).map(p=>p.due.slice(0,7)),
+    ...(DB.get('budget')||[]).filter(i=>i.plannedDate).map(i=>i.plannedDate.slice(0,7)),
+  ].filter(Boolean);
+  let tableData = data;
+  if (_allDateStrs.length) {
+    const _minP = _allDateStrs.reduce((a,b)=>a<b?a:b);
+    const _maxP = _allDateStrs.reduce((a,b)=>a>b?a:b);
+    const _now = new Date();
+    const _minD = new Date(_minP+'-01'), _maxD = new Date(_maxP+'-01');
+    const _fp = Math.max(0,(_now.getFullYear()-_minD.getFullYear())*12+(_now.getMonth()-_minD.getMonth()));
+    const _fw = Math.max(1,(_maxD.getFullYear()-_now.getFullYear())*12+(_maxD.getMonth()-_now.getMonth())+1);
+    const _op = cfPast, _ow = cfW; cfPast = _fp; cfW = _fw;
+    tableData = getCFData();
+    cfPast = _op; cfW = _ow;
+  }
   let acc = 0, rows = '';
   const _clk = 'cursor:pointer;border-bottom:1px dashed currentColor';
-  data.forEach(d => {
+  tableData.forEach(d => {
     acc += d.real;
     const rowStyle = d.isPast ? 'color:var(--g500)' : d.p === todayP ? 'font-weight:800' : '';
     const _projCell = d.proj > 0
@@ -6217,7 +6236,7 @@ function delScenarioItem(scId, itemId) {
 // =====================================================================
 // ORÇAMENTO
 // =====================================================================
-let budgetFilter = 'all', budTab = 'all', budSupFilter = 'all', budPhaseFilter = 'all', budCatFilter = 'all', budDiscFilter = 'all', budPlannedMonthFilter = '';
+let budgetFilter = 'all', budTab = 'all', budSupFilter = 'all', budPhaseFilter = 'all', budCatFilter = 'all', budDiscFilter = 'all', budPlannedMonthFilter = '', budTypeFilter = 'all';
 
 function setBudCat(val) {
   budCatFilter = val;
@@ -6260,6 +6279,12 @@ function setBudPhase(btn, val) {
 function setBudDisc(val) {
   budDiscFilter = val;
   const sel = document.getElementById('bud-disc-sel');
+  if (sel) sel.value = val;
+  renderBudget();
+}
+function setBudType(val) {
+  budTypeFilter = val;
+  const sel = document.getElementById('bud-type-sel');
   if (sel) sel.value = val;
   renderBudget();
 }
@@ -6346,6 +6371,8 @@ function renderBudget() {
     ).join('');
     if (discSelEl.value !== budDiscFilter) discSelEl.value = budDiscFilter;
   }
+  const typeSelEl = document.getElementById('bud-type-sel');
+  if (typeSelEl && typeSelEl.value !== budTypeFilter) typeSelEl.value = budTypeFilter;
 
   // Discipline filter pills
   const discs = [...new Set(bud.map(i => i.disc))];
@@ -6366,6 +6393,7 @@ function renderBudget() {
   if (budSupFilter !== 'all')   fil = fil.filter(i => i.supplierId === budSupFilter);
   if (budPhaseFilter !== 'all') fil = fil.filter(i => i.phase === budPhaseFilter);
   if (budPlannedMonthFilter)    fil = fil.filter(i => i.type === 'to_contract' && (i.plannedDate||'').slice(0,7) === budPlannedMonthFilter);
+  if (budTypeFilter !== 'all')  fil = fil.filter(i => budTypeFilter === 'contracted' ? (i.type === 'contracted' || i.type === 'extra') : i.type === budTypeFilter);
   if (budCatFilter !== 'all') {
     const catToSt = {mo:['m\u00e3o de obra','mo','mao de obra','labour','labor'],mat:['material','materiais','mat'],eq:['equipamento','equipment','eq','loca\u00e7\u00e3o','locacao']};
     const kwds = catToSt[budCatFilter] || [];
