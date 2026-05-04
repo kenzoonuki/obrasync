@@ -1115,6 +1115,12 @@ tfoot td{padding:10px 0;border-top:2px solid var(--black);font-weight:800;font-s
               <option value="all">Todas</option>
             </select>
           </div>
+          <div style="display:flex;flex-direction:column;gap:3px">
+            <span class="flbl">Disciplina</span>
+            <select id="bud-disc-sel" onchange="setBudDisc(this.value)" style="font-size:12px;padding:4px 8px;border:1px solid var(--g300);border-radius:4px;background:var(--white)">
+              <option value="all">Todas</option>
+            </select>
+          </div>
           <div style="margin-left:auto;display:flex;gap:6px;align-items:flex-end">
             <button class="btn btn-g" onclick="setBudAllCollapsed(false)" title="Expandir todas as disciplinas">&#8595; Expandir tudo</button>
             <button class="btn btn-g" onclick="setBudAllCollapsed(true)"  title="Recolher todas as disciplinas">&#8593; Recolher tudo</button>
@@ -6140,7 +6146,7 @@ function delScenarioItem(scId, itemId) {
 // =====================================================================
 // ORÇAMENTO
 // =====================================================================
-let budgetFilter = 'all', budTab = 'all', budSupFilter = 'all', budPhaseFilter = 'all', budCatFilter = 'all';
+let budgetFilter = 'all', budTab = 'all', budSupFilter = 'all', budPhaseFilter = 'all', budCatFilter = 'all', budDiscFilter = 'all';
 
 function setBudCat(val) {
   budCatFilter = val;
@@ -6177,6 +6183,12 @@ function setBudSup(btn, val) {
 function setBudPhase(btn, val) {
   budPhaseFilter = val;
   const sel = document.getElementById('bud-phase-sel');
+  if (sel) sel.value = val;
+  renderBudget();
+}
+function setBudDisc(val) {
+  budDiscFilter = val;
+  const sel = document.getElementById('bud-disc-sel');
   if (sel) sel.value = val;
   renderBudget();
 }
@@ -6253,6 +6265,17 @@ function renderBudget() {
     if (phaseSelEl.value !== budPhaseFilter) phaseSelEl.value = budPhaseFilter;
   }
 
+  // Discipline filter select
+  const discLabels = DB.get('discLabels') || {};
+  const allDiscs = [...new Set(bud.map(i=>i.disc).filter(Boolean))].sort();
+  const discSelEl = document.getElementById('bud-disc-sel');
+  if (discSelEl) {
+    discSelEl.innerHTML = '<option value="all">Todas</option>' + allDiscs.map(d =>
+      '<option value="'+esc(d)+'"'+(budDiscFilter===d?' selected':'')+'>'+esc(d)+(discLabels[d]?' — '+esc(discLabels[d]):'')+'</option>'
+    ).join('');
+    if (discSelEl.value !== budDiscFilter) discSelEl.value = budDiscFilter;
+  }
+
   // Discipline filter pills
   const discs = [...new Set(bud.map(i => i.disc))];
   const budPillsEl = document.getElementById('bud-pills'); if (budPillsEl) budPillsEl.innerHTML = discs.map(d =>
@@ -6261,6 +6284,7 @@ function renderBudget() {
 
   // Apply all filters
   let fil = budTab === 'all' ? bud : (budgetFilter === 'all' ? bud : bud.filter(i => i.disc === budgetFilter));
+  if (budDiscFilter !== 'all')  fil = fil.filter(i => i.disc === budDiscFilter);
   if (budSupFilter !== 'all')   fil = fil.filter(i => i.supplierId === budSupFilter);
   if (budPhaseFilter !== 'all') fil = fil.filter(i => i.phase === budPhaseFilter);
   if (budCatFilter !== 'all') {
