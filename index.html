@@ -3176,7 +3176,7 @@ function renderDashboard() {
   document.getElementById('cf-cards').innerHTML =
     '<div class="card"><div class="clbl">Total Orçado</div><div class="cval">'+R(_cs.total)+'</div></div>' +
     '<div class="card"><div class="clbl">Contratado</div><div class="cval">'+R(_cs.contracted)+'</div></div>' +
-    '<div class="card dk"><div class="clbl">Realizado</div><div class="cval">'+R(_cs.paid)+'</div></div>' +
+    '<div class="card" style="background:#1d4ed8;border-color:#1d4ed8;color:#fff"><div class="clbl" style="color:rgba(255,255,255,.75)">Realizado</div><div class="cval">'+R(_cs.paid)+'</div></div>' +
     '<div class="card"><div class="clbl">À Pagar</div><div class="cval">'+R(_cs.toPay)+'</div></div>' +
     '<div class="card" style="border-left:3px solid #93c5fd"><div class="clbl" style="color:#1d4ed8">À Contratar (Prev.)</div><div class="cval" style="color:#1d4ed8">'+R(_cs.toContract)+'</div></div>';
   // Table — always use full date range (all entries + planned dates)
@@ -6787,7 +6787,7 @@ function generateAnalyticsPDF() {
 <div class="cards">
   <div class="card"><div class="clbl">Total Or\u00e7ado</div><div class="cval">${R(s.total)}</div></div>
   <div class="card"><div class="clbl">Contratado</div><div class="cval">${R(s.contracted)}</div></div>
-  <div class="card dk"><div class="clbl">Realizado</div><div class="cval">${R(s.paid)}</div></div>
+  <div class="card" style="background:#1d4ed8;border-color:#1d4ed8;color:#fff"><div class="clbl" style="color:rgba(255,255,255,.75)">Realizado</div><div class="cval">${R(s.paid)}</div></div>
   <div class="card"><div class="clbl">\u00c0 Pagar</div><div class="cval">${R(s.toPay)}</div></div>
   <div class="card bl"><div class="clbl">\u00c0 Contratar (Prev.)</div><div class="cval">${R(s.toContract)}</div></div>
 </div>
