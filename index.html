@@ -342,9 +342,6 @@ tfoot td{padding:10px 0;border-top:2px solid var(--black);font-weight:800;font-s
 .btn-pdf{background:var(--black);color:#fff;border:none;padding:6px 14px;border-radius:4px;font-size:12px;font-weight:700;cursor:pointer}
 .btn-pdf:hover{opacity:.85}
 /* report history */
-.rpt-item{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--g100);font-size:12px}
-.rpt-item:last-child{border-bottom:none}
-.rpt-badge{font-size:9px;font-weight:800;background:var(--g100);color:var(--g500);padding:2px 7px;border-radius:2px}
 
 /* ── Budget mode tabs ── */
 .bud-mode-tab{background:none;border:none;border-bottom:3px solid transparent;padding:10px 22px;font-size:13px;font-weight:700;letter-spacing:.04em;cursor:pointer;color:var(--g500);transition:all .15s;margin-bottom:-2px}
@@ -645,8 +642,6 @@ tfoot td{padding:10px 0;border-top:2px solid var(--black);font-weight:800;font-s
     <button class="nav-btn" onclick="nav('reembolsos')">Reembolsos</button>
     <button class="nav-btn" onclick="nav('budget')">Orçamento</button>
     <button class="nav-btn" onclick="nav('photos')">Fotos</button>
-    <div class="sb-label">Relatórios</div>
-    <button class="nav-btn" onclick="nav('reports')">Histórico de Relatórios</button>
     <div class="sb-label">Sistema</div>
   </nav>
   <main id="main">
@@ -1238,23 +1233,6 @@ tfoot td{padding:10px 0;border-top:2px solid var(--black);font-weight:800;font-s
     </div>
 
     <!-- RELATÓRIOS -->
-    <div class="view" id="view-reports">
-      <div class="sec-hd">
-        <h2>Histórico de Relatórios</h2>
-        <div class="acts"><button class="btn-pdf" onclick="generateAnalyticsPDF()">&#128196; Gerar PDF Analítico</button></div>
-      </div>
-      <div class="muted sm" style="margin-bottom:16px">Relatórios gerados ficam registrados aqui após o fechamento.</div>
-      <div id="rpt-history"></div>
-      <div id="mig-esmeraldo-zone" style="margin-top:32px;padding:16px;border:1.5px dashed #f59e0b;border-radius:10px;background:#fffbeb;display:none">
-        <div style="font-weight:700;color:#92400e;margin-bottom:6px">&#9888; Migração de Dados — Uso Único</div>
-        <div class="muted sm" style="margin-bottom:12px">Converte lançamentos de medições do Esmeraldo Bispo Santos para split por disciplina. Execute apenas uma vez.</div>
-        <button class="btn btn-g" onclick="_migrateEsmeraldoEntries()" style="background:#f59e0b;color:#fff;border:none">&#128296; Executar Migração</button>
-        <button class="btn btn-g" onclick="document.getElementById('mig-esmeraldo-zone').style.display='none'" style="margin-left:8px">Fechar</button>
-      </div>
-      <div style="margin-top:16px">
-        <button class="btn btn-g btn-sm" style="opacity:.5;font-size:11px" onclick="document.getElementById('mig-esmeraldo-zone').style.display='block'">Ferramentas de migração</button>
-      </div>
-    </div>
 
   </main>
 </div>
@@ -1809,7 +1787,7 @@ const DB = {
     this._loaded = false;
     if (!window._sbUrl) {
       const keys = ['cats','suppliers','budget','entries','meas','meas2','photos',
-        'gerenc','reports','feeRate','lastEntry','lastBudget','entryCollapsed',
+        'gerenc','feeRate','lastEntry','lastBudget','entryCollapsed',
         'budgetScenarios','budgetExecOrigin','reembolsos','reembolsosRelatorios','init7'];
       keys.forEach(k => {
         try { this._c[k] = JSON.parse(localStorage.getItem('os3_' + k) || 'null'); } catch(e) {}
@@ -2936,7 +2914,7 @@ function setRole(r) {
 function renderView(v) {
   const map = {dash:renderDash, dashboard:renderDashboard, financial:renderFinancial,
     installments:renderInstallments, measurements:renderMeas, reembolsos:renderReembolsos,
-    suppliers:renderSuppliers, reports:renderReportHistory,
+    suppliers:renderSuppliers,
     budget:function(){setBudMode(budMode||'estimative'); renderDash();}, photos:renderPhotos, categories:renderCats, client:renderClient};
   (map[v] || function(){})();
 }
@@ -6473,81 +6451,6 @@ function catRealPerBI(biId, cat) {
 // =====================================================================
 // ANALYTICS PDF + REPORT HISTORY
 // =====================================================================
-function _migrateEsmeraldoEntries() {
-  const suppliers = DB.get('suppliers') || [];
-  const sup = suppliers.find(s => s.name && s.name.toLowerCase().includes('esmeraldo'));
-  if (!sup) { toast('Fornecedor Esmeraldo não encontrado'); return; }
-
-  const meas2 = DB.get('meas2') || [];
-  const bud   = DB.get('budget')  || [];
-  const entries = DB.get('entries') || [];
-
-  const supMeas = meas2.filter(m => m.supplierId === sup.id || m.supplierId === sup.id);
-
-  let updated = 0;
-  supMeas.forEach(m => {
-    const seqPad = 'Med. ' + String(m.seqNum).padStart(3, '0');
-    const eIdx = entries.findIndex(e =>
-      (e.supplierId === sup.id || e.sup === sup.name) &&
-      (e.desc || '').includes(seqPad)
-    );
-    if (eIdx === -1) return;
-
-    // Build discipline→value map from measurement items
-    const discMap = {};
-    (m.items || []).forEach(it => {
-      const bi = bud.find(b => b.id === it.biId);
-      const disc  = bi ? (bi.disc  || '') : '';
-      const phase = bi ? (bi.phase || '') : '';
-      if (!discMap[disc]) discMap[disc] = { val: 0, phase };
-      discMap[disc].val += it.val || 0;
-    });
-    const discEntries = Object.entries(discMap).filter(([, v]) => v.val > 0);
-    if (discEntries.length <= 1) return; // single disc, no split needed
-
-    const e = entries[eIdx];
-    const baseDesc = seqPad + ' — ' + sup.name;
-    const tot = e.tot || 0;
-    let running = 0;
-    const splits = discEntries.map(([disc, { val, phase }], idx) => {
-      const isLast = idx === discEntries.length - 1;
-      const rowVal = isLast ? +(tot - running).toFixed(2) : +val.toFixed(2);
-      running += rowVal;
-      return { id: uid(), disc, phase, desc: baseDesc, catClass: '', val: rowVal, budId: '' };
-    });
-
-    // Merge into existing entry preserving all fields
-    entries[eIdx] = Object.assign({}, e, {
-      isSplit: true,
-      splits: splits,
-      disc: splits[0].disc,
-      phase: splits[0].phase,
-      desc: baseDesc,
-      catClass: splits[0].catClass
-    });
-    updated++;
-  });
-
-  if (!updated) { toast('Nenhum lançamento precisou de ajuste'); return; }
-  DB.set('entries', entries);
-  toast(updated + ' lançamento(s) convertido(s) por disciplina ✓');
-  if (typeof renderFinancial === 'function') renderFinancial();
-  if (typeof buildDistTable  === 'function') buildDistTable();
-}
-
-function renderReportHistory() {
-  const reports = DB.get('reports') || [];
-  const el = document.getElementById('rpt-history');
-  if (!el) return;
-  if (!reports.length) { el.innerHTML = '<div class="muted sm">Nenhum relat\u00f3rio gerado ainda.</div>'; return; }
-  el.innerHTML = [...reports].reverse().map(r =>
-    '<div class="rpt-item">' +
-      '<span class="rpt-badge">'+r.type+'</span>' +
-      '<span style="flex:1;font-weight:700">'+r.title+'</span>' +
-      '<span class="muted sm">'+fmtD(r.date)+' \u00b7 '+r.time+'</span>' +
-    '</div>'
-  ).join('');
-}
 function generateAnalyticsPDF() {
   const s = summary();
   const data = getCFData();
@@ -6767,11 +6670,6 @@ function generateAnalyticsPDF() {
   w.document.write(html);
   w.document.close();
   w.onload = () => w.print();
-  // Save to report history
-  const reports = DB.get('reports') || [];
-  reports.push({ id: uid(), type: 'Anal\u00edtico', title: 'Relat\u00f3rio Anal\u00edtico — '+dateStr, date: todayStr(), time: timeStr });
-  DB.set('reports', reports);
-  renderReportHistory();
   toast('PDF gerado — janela de impressão aberta');
 }
 
