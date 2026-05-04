@@ -5192,7 +5192,7 @@ function openGerencWizard(editId, forceEdit) {
   }
   if (!window._gwCollapsed) window._gwCollapsed = {};
 
-  const budItems = bud.filter(i => i.supplierId && i.compoeBase !== false && i.type === 'contracted');
+  const budItems = bud.filter(i => i.compoeBase !== false && i.type === 'contracted');
   const discNames = [...new Set(budItems.map(i => i.disc || 'Sem Disciplina'))];
 
   // Last approved gerenc (excluding the one being edited)
@@ -5213,10 +5213,10 @@ function openGerencWizard(editId, forceEdit) {
     let itemRows = '';
     items.forEach(bi => {
       const sup = sups.find(s => s.id === bi.supplierId);
-      if (!sup) return;
+      const supName = sup ? sup.name : (bi.supplierId ? '—' : 'Sem fornecedor');
       let pct, pctPrev, maxPct, isAuto, infoHtml;
 
-      if ((bi.supRemun || 'meas') === 'meas') {
+      if (bi.supplierId && (bi.supRemun || 'meas') === 'meas') {
         // AUTO: % vem das medições de fornecedor aprovadas
         // Base = diferença entre acumulado atual e acumulado na última medição de gerenciamento aprovada
         const pctAcumMeas = Math.min(
@@ -5236,7 +5236,7 @@ function openGerencWizard(editId, forceEdit) {
         // Store pctDelta in hidden input for base calc
         itemRows += '<tr class="gwrow-'+dIdx+'" style="border-bottom:1px solid var(--g100);'+(collapsed?'display:none':'')+'">' +
           '<td style="padding:6px 8px 6px 16px;font-size:11px">'+bi.desc+'<br><span style="font-size:10px;color:var(--g500)">'+bi.phase+'</span></td>' +
-          '<td style="padding:6px 8px;font-size:11px;white-space:nowrap">'+sup.name+'</td>' +
+          '<td style="padding:6px 8px;font-size:11px;white-space:nowrap">'+supName+'</td>' +
           '<td style="text-align:center;padding:6px 8px"><span style="font-size:9px;background:#f0fdf4;color:var(--ok);border:1px solid #bbf7d0;padding:1px 5px;border-radius:2px;font-weight:700">AUTO</span></td>' +
           '<td style="text-align:right;padding:6px 8px;font-size:11px">'+R(bi.tot)+'</td>' +
           '<td style="text-align:center;padding:6px 4px">' +
@@ -5264,7 +5264,7 @@ function openGerencWizard(editId, forceEdit) {
       discBase += base; discTot += bi.tot;
       itemRows += '<tr class="gwrow-'+dIdx+'" style="border-bottom:1px solid var(--g100);'+(collapsed?'display:none':'')+'">' +
         '<td style="padding:6px 8px 6px 16px;font-size:11px">'+bi.desc+'<br><span style="font-size:10px;color:var(--g500)">'+bi.phase+'</span></td>' +
-        '<td style="padding:6px 8px;font-size:11px;white-space:nowrap">'+sup.name+'</td>' +
+        '<td style="padding:6px 8px;font-size:11px;white-space:nowrap">'+supName+'</td>' +
         '<td style="text-align:center;padding:6px 8px"><span style="font-size:9px;background:var(--g100);color:var(--g500);border:1px solid var(--g200);padding:1px 5px;border-radius:2px;font-weight:700">MANUAL</span></td>' +
         '<td style="text-align:right;padding:6px 8px;font-size:11px">'+R(bi.tot)+'</td>' +
         '<td style="text-align:center;padding:6px 4px">' +
