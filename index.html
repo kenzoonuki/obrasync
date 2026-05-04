@@ -6585,6 +6585,10 @@ function generateAnalyticsPDF() {
   const bud = DB.get('budget') || [];
   const labels = DB.get('discLabels') || {};
   const fr = FR();
+  const _cfg = DB.get('appConfig') || {};
+  const _logoHTML = _cfg.logo
+    ? '<img src="'+_cfg.logo+'" style="max-height:48px;max-width:180px;object-fit:contain;display:block;margin-bottom:2px"/>'
+    : '<div class="logo">'+(_cfg.name||'ObraSync')+'</div>';
 
   // ── Physical % per discipline ──
   const phyPctPDF = getDiscPhyPct();
@@ -6770,7 +6774,7 @@ function generateAnalyticsPDF() {
 </style></head><body>
 <div class="hdr">
   <div>
-    <div class="logo">ObraSync</div>
+    ${_logoHTML}
     <div style="font-size:13px;font-weight:800;margin-top:3px">Relat\u00f3rio Anal\u00edtico</div>
     <div class="sub">Gerado em ${dateStr} \u00e0s ${timeStr}</div>
   </div>
@@ -6812,7 +6816,7 @@ function generateAnalyticsPDF() {
 </div>
 <table><thead><tr><th>Per\u00edodo</th><th style="text-align:right">Contratado</th><th style="text-align:right">Previs\u00e3o</th><th style="text-align:right">Realizado</th><th style="text-align:right">Acum. Pago</th></tr></thead>
 <tbody>${cfRows}</tbody></table>
-<div class="ftr"><span>ObraSync \u00a9 ${now.getFullYear()}</span><span>Gerado em ${dateStr} \u00e0s ${timeStr}</span></div>
+<div class="ftr"><span>${_cfg.name||'ObraSync'} \u00a9 ${now.getFullYear()}</span><span>Gerado em ${dateStr} \u00e0s ${timeStr}</span></div>
 </body></html>`;
   const w = window.open('','_blank');
   w.document.write(html);
