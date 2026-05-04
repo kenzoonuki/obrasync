@@ -2998,6 +2998,14 @@ function renderDash() {
 // =====================================================================
 let cfW = 6;
 let cfPast = 0;
+let _cfInitialized = false;
+function _computeIntegralRange() {
+  const _e = DB.get('entries') || [], _b = DB.get('budget') || [], _now = new Date();
+  const _all = _e.flatMap(e => e.insts.map(p => p.paidAt||p.due)).filter(Boolean);
+  const _fut = [..._b.filter(i=>i.plannedDate).map(i=>i.plannedDate), ..._e.flatMap(e=>e.insts.map(p=>p.due)).filter(Boolean)];
+  if (_all.length) { const d=new Date(_all.reduce((a,b)=>a<b?a:b)+'T00:00:00'); cfPast=Math.max(0,(_now.getFullYear()-d.getFullYear())*12+(_now.getMonth()-d.getMonth())); }
+  if (_fut.length) { const d=new Date(_fut.reduce((a,b)=>a>b?a:b)+'T00:00:00'); cfW=Math.max(1,(d.getFullYear()-_now.getFullYear())*12+(d.getMonth()-_now.getMonth())+1); }
+}
 function setCfW(btn, w) {
   cfW = w; cfPast = 0;
   document.querySelectorAll('#view-dashboard .pill').forEach(p => p.classList.remove('active'));
@@ -3018,25 +3026,9 @@ function setCfHist(btn) {
   renderDashboard();
 }
 function setCfIntegral(btn) {
-  const entries = DB.get('entries') || [];
-  const bud     = DB.get('budget')  || [];
-  const now = new Date();
-  const allDates = entries.flatMap(e => e.insts.map(p => p.paidAt||p.due)).filter(Boolean);
-  const futureDates = [
-    ...bud.filter(i => i.plannedDate).map(i => i.plannedDate),
-    ...entries.flatMap(e => e.insts.map(p => p.due)).filter(Boolean)
-  ];
-  if (!allDates.length && !futureDates.length) { toast('Nenhum lançamento encontrado'); return; }
-  if (allDates.length) {
-    const eDate = new Date(allDates.reduce((a,b) => a < b ? a : b) + 'T00:00:00');
-    cfPast = Math.max(0, (now.getFullYear() - eDate.getFullYear()) * 12 + (now.getMonth() - eDate.getMonth()));
-  } else { cfPast = 0; }
-  if (futureDates.length) {
-    const lDate = new Date(futureDates.reduce((a,b) => a > b ? a : b) + 'T00:00:00');
-    cfW = Math.max(1, (lDate.getFullYear() - now.getFullYear()) * 12 + (lDate.getMonth() - now.getMonth()) + 1);
-  } else { cfW = 6; }
+  _computeIntegralRange();
   document.querySelectorAll('#view-dashboard .pill').forEach(p => p.classList.remove('active'));
-  btn.classList.add('active');
+  if (btn) btn.classList.add('active');
   renderDashboard();
 }
 function getCFData() {
@@ -3104,6 +3096,12 @@ function getCFData() {
   return data;
 }
 function renderDashboard() {
+  if (!_cfInitialized) {
+    _cfInitialized = true;
+    _computeIntegralRange();
+    const _btn = document.getElementById('cf-integral');
+    if (_btn) { document.querySelectorAll('#view-dashboard .pill').forEach(p=>p.classList.remove('active')); _btn.classList.add('active'); }
+  }
   const data = getCFData();
   const todayP = new Date().toISOString().slice(0, 7);
   const mx = Math.max(...data.map(d => Math.max(d.proj, d.real, d.forecast)), 1);
@@ -3116,7 +3114,7 @@ function renderDashboard() {
   let yHtml = '<div style="position:relative;width:38px;flex-shrink:0;height:'+(H+LBLH)+'px">';
   for (let v = 0; v <= topVal; v += STEP) {
     const bot = LBLH + Math.round((v / topVal) * H);
-    yHtml += '<div style="position:absolute;bottom:'+bot+'px;right:6px;font-size:8px;color:var(--g400);line-height:1;white-space:nowrap;transform:translateY(50%)">'+(v===0?'0':_Rk(v))+'</div>';
+    yHtml += '<div style="position:absolute;bottom:'+bot+'px;right:6px;font-size:10px;color:var(--g600);line-height:1;white-space:nowrap;transform:translateY(50%);font-weight:500">'+(v===0?'0':_Rk(v))+'</div>';
   }
   yHtml += '</div>';
 
@@ -3135,7 +3133,7 @@ function renderDashboard() {
     const fTip = 'Previsão: '+R(d.forecast)+(d.mProj?'\nMedições: '+R(d.mProj):'')+(d.tcProj?'\nÀ Contratar: '+R(d.tcProj):'')+(d.feeProj?'\nHonorários: '+R(d.feeProj):'');
     const isToday = d.p === todayP;
     const lblStyle = isToday ? 'font-weight:800;color:var(--black)' : '';
-    const grpBorder = isToday ? 'border-left:2px solid var(--black);padding-left:2px' : '';
+    const grpBorder = isToday ? 'border-left:1px solid rgba(0,0,0,0.18);padding-left:2px' : '';
     bars += '<div class="bgrp" data-month="'+d.p+'" style="'+grpBorder+'">' +
       '<div class="binn">' +
         (d.forecast > 0 ? '<div class="bfc" style="height:'+fh+'px" title="'+fTip+'"></div>' : '') +
@@ -6706,8 +6704,8 @@ function generateAnalyticsPDF() {
   let cfBarsSVG = '';
   for (let i=1;i<=4;i++) {
     const y = CH - Math.round(i/4*CH);
-    cfBarsSVG += '<line x1="28" y1="'+y+'" x2="'+(svgW-2)+'" y2="'+y+'" stroke="#eee" stroke-width="1"/>';
-    cfBarsSVG += '<text x="26" y="'+(y+3)+'" text-anchor="end" font-size="7" fill="#bbb">'+_Rk(Math.round(cfMax*i/4))+'</text>';
+    cfBarsSVG += '<line x1="28" y1="'+y+'" x2="'+(svgW-2)+'" y2="'+y+'" stroke="#d1d5db" stroke-width="0.8"/>';
+    cfBarsSVG += '<text x="26" y="'+(y+3)+'" text-anchor="end" font-size="8" fill="#555" font-weight="500">'+_Rk(Math.round(cfMax*i/4))+'</text>';
   }
   data.forEach((d,i) => {
     const x0 = 30 + i * GRP;
@@ -6718,7 +6716,8 @@ function generateAnalyticsPDF() {
     if (rh) cfBarsSVG += '<rect x="'+(x0+BW+2)+'" y="'+(CH-rh)+'" width="'+BW+'" height="'+rh+'" fill="#1d4ed8" rx="1"/>';
     if (fh) cfBarsSVG += '<rect x="'+(x0+BW*2+4)+'" y="'+(CH-fh)+'" width="'+BW+'" height="'+fh+'" fill="#dbeafe" stroke="#3b82f6" stroke-width="0.5" stroke-dasharray="2,2" rx="1"/>';
     const isNow = d.p === new Date().toISOString().slice(0,7);
-    cfBarsSVG += '<text x="'+(x0+BW)+'" y="'+(CH+12)+'" text-anchor="middle" font-size="7" fill="'+(isNow?'#1d4ed8':'#aaa')+'" font-weight="'+(isNow?700:400)+'">'+fmtP(d.p)+'</text>';
+    if (isNow) cfBarsSVG += '<line x1="'+(x0-2)+'" y1="0" x2="'+(x0-2)+'" y2="'+CH+'" stroke="rgba(0,0,0,0.15)" stroke-width="1" stroke-dasharray="3,3"/>';
+    cfBarsSVG += '<text x="'+(x0+BW)+'" y="'+(CH+12)+'" text-anchor="middle" font-size="'+(isNow?8:7)+'" fill="'+(isNow?'#1d4ed8':'#999')+'" font-weight="'+(isNow?700:400)+'">'+fmtP(d.p)+'</text>';
   });
   const cfSVG = '<svg width="'+svgW+'" height="'+(CH+18)+'" style="width:100%;overflow:visible" viewBox="0 0 '+svgW+' '+(CH+18)+'">'+cfBarsSVG+'</svg>';
 
