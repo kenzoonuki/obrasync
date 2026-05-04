@@ -6538,12 +6538,28 @@ function generateAnalyticsPDF() {
     const w = Math.min(Math.max(p||0,0),100).toFixed(1);
     return '<td style="padding:4px 6px"><div style="display:flex;align-items:center;gap:5px"><div style="flex:1;height:5px;background:#e5e7eb;border-radius:3px;min-width:50px"><div style="height:100%;width:'+w+'%;background:#1d4ed8;border-radius:3px"></div></div><span style="font-size:8px;font-weight:700;color:#1d4ed8;min-width:30px;text-align:right">'+w+'%</span></div></td>';
   };
+  const _pdTd = 'style="padding:5px 8px;font-size:11px;border-bottom:1px solid #e5e7eb"';
+  const _pdTdr = 'style="padding:5px 8px;font-size:11px;border-bottom:1px solid #e5e7eb;text-align:right"';
   let discRowsPDF = discsP.map(d => {
-    const lbl = labels[d] ? d+' — '+labels[d] : d;
+    const code = d;
+    const desc = labels[d] || '';
     const c = dMap[d].c, tc = dMap[d].tc, pd = pByD[d]||0, tp = Math.max(0,c-pd);
-    return '<tr><td>'+lbl+'</td><td style="text-align:right">'+R(c)+'</td><td style="text-align:right">'+(pd>0?R(pd):'—')+'</td><td style="text-align:right">'+(tp>0?R(tp):'—')+'</td><td style="text-align:right">'+(tc>0?R(tc):'—')+'</td>'+pdfBar(phyPctPDF[d]||0)+'</tr>';
+    return '<tr>'+
+      '<td '+_pdTd+' style="padding:5px 4px 5px 8px;font-size:11px;border-bottom:1px solid #e5e7eb;font-weight:700;white-space:nowrap">'+code+'</td>'+
+      '<td '+_pdTd+' style="padding:5px 8px 5px 4px;font-size:11px;border-bottom:1px solid #e5e7eb;color:#555;white-space:nowrap">'+desc+'</td>'+
+      '<td '+_pdTdr+'>'+R(c)+'</td>'+
+      '<td '+_pdTdr+'>'+(pd>0?R(pd):'—')+'</td>'+
+      '<td '+_pdTdr+'>'+(tp>0?R(tp):'—')+'</td>'+
+      '<td '+_pdTdr+'>'+(tc>0?R(tc):'—')+'</td>'+
+      pdfBar(phyPctPDF[d]||0)+'</tr>';
   }).join('');
-  discRowsPDF += '<tr style="font-weight:700;border-top:2px solid #000;background:#f9fafb"><td>Totais</td><td style="text-align:right">'+R(totDC)+'</td><td style="text-align:right">'+R(totDP)+'</td><td style="text-align:right">'+R(totDTP)+'</td><td style="text-align:right">'+R(totDTC)+'</td>'+pdfBar(totPhyPctPDF)+'</tr>';
+  discRowsPDF += '<tr style="font-weight:700;border-top:2px solid #000;background:#f9fafb">'+
+    '<td colspan="2" style="padding:6px 8px;font-size:11px">Totais</td>'+
+    '<td style="text-align:right;padding:6px 8px;font-size:11px">'+R(totDC)+'</td>'+
+    '<td style="text-align:right;padding:6px 8px;font-size:11px">'+R(totDP)+'</td>'+
+    '<td style="text-align:right;padding:6px 8px;font-size:11px">'+R(totDTP)+'</td>'+
+    '<td style="text-align:right;padding:6px 8px;font-size:11px">'+R(totDTC)+'</td>'+
+    pdfBar(totPhyPctPDF)+'</tr>';
   // Build orçado x realizado por categoria
   const cats = ['mat','mo','eq'];
   const catLabels = {mat:'Material',mo:'M\u00e3o de Obra',eq:'Equipamento'};
@@ -6589,15 +6605,19 @@ function generateAnalyticsPDF() {
   piePaths += '<circle cx="80" cy="80" r="34" fill="white"/>';
   const pieSVG = '<svg width="160" height="160" viewBox="0 0 160 160">'+piePaths+'</svg>';
 
-  // Pie legend table rows
-  const pieLegRows = pieDataPDF.map(x =>
-    '<tr>'+
-    '<td style="padding:3px 5px 3px 0"><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:'+x.c+'"></span></td>'+
-    '<td style="font-size:9px;padding:3px 12px 3px 2px;color:#444;white-space:nowrap">'+x.l+'</td>'+
-    '<td style="font-size:9px;text-align:right;padding:3px 8px 3px 0;font-weight:600;white-space:nowrap">'+R(x.v)+'</td>'+
-    '<td style="font-size:9px;text-align:right;color:#888;white-space:nowrap">'+pct(x.v/Math.max(totPiePDF,1)*100)+'</td>'+
-    '</tr>'
-  ).join('');
+  // Pie legend table rows — SVG rect garante impressão da cor
+  const pieLegRows = pieDataPDF.map(x => {
+    const _parts = x.l.split(' \u2014 ');
+    const _code = _parts[0];
+    const _desc = _parts.slice(1).join(' \u2014 ');
+    return '<tr>'+
+      '<td style="padding:3px 5px 3px 0;vertical-align:middle"><svg width="10" height="10"><rect width="10" height="10" rx="2" fill="'+x.c+'"/></svg></td>'+
+      '<td style="font-size:9px;padding:3px 6px 3px 0;font-weight:700;color:#222;white-space:nowrap;vertical-align:middle">'+_code+'</td>'+
+      '<td style="font-size:9px;padding:3px 12px 3px 0;color:#555;white-space:nowrap;vertical-align:middle">'+_desc+'</td>'+
+      '<td style="font-size:9px;text-align:right;padding:3px 8px 3px 0;font-weight:600;white-space:nowrap;vertical-align:middle">'+R(x.v)+'</td>'+
+      '<td style="font-size:9px;text-align:right;color:#888;white-space:nowrap;vertical-align:middle">'+pct(x.v/Math.max(totPiePDF,1)*100)+'</td>'+
+      '</tr>';
+  }).join('');
 
   // ── Cash flow bar chart SVG ──
   const cfMax = Math.max(...data.map(d => Math.max(d.proj, d.real, d.forecast)), 1);
@@ -6692,7 +6712,7 @@ function generateAnalyticsPDF() {
 <div class="prog-row"><div class="prog-lbl">Financeiro (pagamentos)</div><div class="prog-track"><div class="prog-fill" style="background:#93c5fd;width:${Math.min(s.pctFin,100)}%"></div></div><div class="prog-pct">${pct(s.pctFin)}</div></div>
 <div class="prog-row"><div class="prog-lbl">Honor\u00e1rios pagos</div><div class="prog-track"><div class="prog-fill" style="background:#4f46e5;width:${Math.min(s.feeTotal>0?s.feePaid/s.feeTotal*100:0,100)}%"></div></div><div class="prog-pct">${pct(s.feeTotal>0?s.feePaid/s.feeTotal*100:0)}</div></div>
 <h2>Distribui\u00e7\u00e3o por Disciplina</h2>
-<table><thead><tr><th>Disciplina</th><th style="text-align:right">Contratado</th><th style="text-align:right">Pago</th><th style="text-align:right">\u00c0 Pagar</th><th style="text-align:right">\u00c0 Contratar (Est.)</th><th>% F\u00edsico</th></tr></thead>
+<table><thead><tr><th colspan="2">Disciplina</th><th style="text-align:right">Contratado</th><th style="text-align:right">Pago</th><th style="text-align:right">\u00c0 Pagar</th><th style="text-align:right">\u00c0 Contratar (Est.)</th><th>% F\u00edsico</th></tr></thead>
 <tbody>${discRowsPDF}</tbody></table>
 <div class="dist-block">
   <div class="pie-wrap">${pieSVG}</div>
