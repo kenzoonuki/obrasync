@@ -2960,7 +2960,7 @@ function summary() {
   // Fee contracted (open invoices)
   const feeContracted = entries.filter(e => e.isFee).reduce((s,e) => s + e.tot, 0);
   const feeTotal = total * fr;
-  const feeToPay = Math.max(0, feeMeasured - feePaid);
+  const feeToPay = Math.max(0, feeTotal - feePaid);
   return { paid, toPay, ovd, contracted, toContract, extras, total, pctPhy, pctFin,
     feeBase, feeMeasured, feePaid, feeContracted, feeTotal, feeToPay };
 }
@@ -3178,11 +3178,12 @@ function renderDashboard() {
     }
   });
   const _cs = summary();
+  const _aPagar = Math.max(0, _cs.contracted * (1 + FR() / 100) - _cs.paid);
   document.getElementById('cf-cards').innerHTML =
     '<div class="card"><div class="clbl">Total Orçado</div><div class="cval">'+R(_cs.total)+'</div></div>' +
     '<div class="card"><div class="clbl">Contratado</div><div class="cval">'+R(_cs.contracted)+'</div></div>' +
     '<div class="card" style="background:#1d4ed8;border-color:#1d4ed8;color:#fff"><div class="clbl" style="color:rgba(255,255,255,.75)">Realizado</div><div class="cval">'+R(_cs.paid)+'</div></div>' +
-    '<div class="card"><div class="clbl">À Pagar</div><div class="cval">'+R(_cs.toPay)+'</div></div>' +
+    '<div class="card"><div class="clbl">À Pagar</div><div class="cval">'+R(_aPagar)+'</div></div>' +
     '<div class="card" style="border-left:3px solid #93c5fd"><div class="clbl" style="color:#1d4ed8">À Contratar (Prev.)</div><div class="cval" style="color:#1d4ed8">'+R(_cs.toContract)+'</div></div>';
   // Table — always use full date range (all entries + planned dates)
   const _allInsts = (DB.get('entries')||[]).flatMap(e=>e.insts);
@@ -3528,7 +3529,7 @@ function buildDistTable() {
     .filter(p => p.status === 'paid').reduce((a, p) => a + p.paidAmt, 0);
   const feeC  = totC  * fr;
   const feeTC = totTC * fr;
-  const feeTP = Math.max(0, s.feeMeasured - feePaid);
+  const feeTP = Math.max(0, feeC - feePaid);
 
   const tgC  = totC  + feeC;
   const tgP  = totP  + feePaid;
