@@ -2760,16 +2760,18 @@ function sanitizeEntries() {
   let fixed = 0;
   entries.forEach(e => {
     (e.insts || []).forEach(p => {
-      if (p.paidAt && p.status !== 'paid') {
+      const hasPaid = p.paidAt || (p.paidAmt > 0);
+      if (hasPaid && p.status !== 'paid') {
         p.status = 'paid';
         if (!p.paidAmt) p.paidAmt = p.val;
+        if (!p.paidAt) p.paidAt = e.insts.find(x => x.paidAt)?.paidAt || new Date().toISOString().slice(0, 10);
         fixed++;
       }
     });
   });
   if (fixed > 0) {
     DB.set('entries', entries);
-    console.info('[sanitizeEntries] corrigidas ' + fixed + ' parcela(s) com paidAt mas sem status=paid');
+    console.info('[sanitizeEntries] corrigidas ' + fixed + ' parcela(s)');
   }
 }
 
