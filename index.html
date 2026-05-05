@@ -2469,6 +2469,7 @@ async function selectProject(id) {
   await DB.loadAll();
   initData();
   migrateBudget();
+  sanitizeEntries();
   document.getElementById('loading-overlay').style.display = 'none';
   document.getElementById('layout').style.display = '';
   document.getElementById('topbar').style.display = '';
@@ -2728,6 +2729,7 @@ async function startApp() {
   await DB.loadAll();
   initData();
   migrateBudget();
+  sanitizeEntries();
   document.getElementById('layout').style.display = '';
   document.getElementById('topbar').style.display = '';
   const p = getProjects().find(x => x.id === autoProj);
@@ -2752,6 +2754,25 @@ async function startApp() {
 // =====================================================================
 // SEED DATA
 // =====================================================================
+function sanitizeEntries() {
+  const entries = DB.get('entries');
+  if (!entries) return;
+  let fixed = 0;
+  entries.forEach(e => {
+    (e.insts || []).forEach(p => {
+      if (p.paidAt && p.status !== 'paid') {
+        p.status = 'paid';
+        if (!p.paidAmt) p.paidAmt = p.val;
+        fixed++;
+      }
+    });
+  });
+  if (fixed > 0) {
+    DB.set('entries', entries);
+    console.info('[sanitizeEntries] corrigidas ' + fixed + ' parcela(s) com paidAt mas sem status=paid');
+  }
+}
+
 function migrateBudget() {
   // Migrate old budget items (price only) to new pmo/pmat/pacab structure
   const bud = DB.get('budget');
