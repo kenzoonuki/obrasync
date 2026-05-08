@@ -260,6 +260,10 @@ tfoot td{padding:10px 0;border-top:2px solid var(--black);font-weight:800;font-s
 .mcard-item:last-child{border-bottom:none}
 .mcard-item-hdr{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--g400);padding-bottom:4px;border-bottom:2px solid var(--g200)}
 .mcard-tot{display:flex;justify-content:flex-end;gap:16px;margin-top:10px;padding-top:10px;border-top:2px solid var(--black)}
+.mcard-disc-hdr{display:flex;align-items:center;justify-content:space-between;padding:5px 10px;background:var(--g50);border-radius:3px;margin:6px 0 0;cursor:pointer;font-size:11px;font-weight:700;user-select:none;border:1px solid var(--g200)}
+.mcard-disc-hdr:hover{background:var(--g100)}
+.mcard-disc-body{border:1px solid var(--g200);border-top:none;border-radius:0 0 3px 3px;padding:0 4px}
+.mcard-disc-body .mcard-item:last-child{border-bottom:none}
 /* measurement tabs */
 .meas-tab{background:transparent;border:none;border-bottom:3px solid transparent;padding:10px 18px;font-size:13px;font-weight:700;cursor:pointer;color:var(--g500);border-radius:0;margin-bottom:-2px}
 .meas-tab.active{color:var(--black);border-bottom-color:var(--black)}
@@ -4622,6 +4626,11 @@ function setMF(val) {
   measFilter = val;
   renderMeas();
 }
+function toggleMeasDisc(key) {
+  if (!window._measDiscCollapsed) window._measDiscCollapsed = {};
+  window._measDiscCollapsed[key] = !window._measDiscCollapsed[key];
+  renderMeas();
+}
 function setMS(val) {
   measStatusFilter = val;
   renderMeas();
@@ -4734,16 +4743,43 @@ function renderMeas() {
     const _st     = m.status || 'approved';
     const stLabel = {draft:'Rascunho',approved:'Aprovada',paid:'Paga'}[_st] || _st;
     const stCls   = {draft:'b-draft',approved:'b-approved',paid:'badge-ok'}[_st] || 'b-approved';
-    const itemsHtml = (m.items || []).map(it => {
+    // Group items by discipline
+    if (!window._measDiscCollapsed) window._measDiscCollapsed = {};
+    const _discGroups = {};
+    (m.items || []).forEach(it => {
       const bi = bud.find(b => b.id === it.biId);
-      return '<div class="mcard-item">' +
-        '<span>'+(bi?bi.desc:it.biId)+'<br><span style="font-size:10px;color:var(--g500)">'+(bi?bi.disc+' \u00b7 '+bi.phase:'')+'</span></span>' +
-        '<span style="text-align:center;color:var(--g500)">'+it.pctPrev+'%</span>' +
-        '<span style="text-align:center;font-weight:700">'+it.pctPer+'%</span>' +
-        '<span style="text-align:center;color:var(--ok);font-weight:700">'+it.pctAcum+'%</span>' +
-        '<span style="text-align:right;font-weight:700">'+R(it.val)+'</span>' +
+      const disc = (bi && bi.disc) ? bi.disc : 'Outros';
+      if (!_discGroups[disc]) _discGroups[disc] = [];
+      _discGroups[disc].push({it, bi});
+    });
+    let itemsHtml = '';
+    Object.entries(_discGroups).forEach(([disc, items]) => {
+      const subtotal = items.reduce((s, x) => s + (x.it.val || 0), 0);
+      const key = m.id + '_' + disc;
+      const collapsed = !!window._measDiscCollapsed[key];
+      itemsHtml +=
+        '<div class="mcard-disc-hdr" onclick="toggleMeasDisc(\'' + key + '\')">' +
+          '<span style="display:flex;align-items:center;gap:8px">' +
+            '<span style="font-size:9px;color:var(--g500);width:8px">' + (collapsed ? '\u25b6' : '\u25bc') + '</span>' +
+            '<span>' + disc + '</span>' +
+            '<span style="font-size:10px;font-weight:400;color:var(--g500)">' + items.length + ' item' + (items.length !== 1 ? 's' : '') + '</span>' +
+          '</span>' +
+          '<span style="color:var(--g700);font-size:12px">' + R(subtotal) + '</span>' +
         '</div>';
-    }).join('');
+      if (!collapsed) {
+        itemsHtml += '<div class="mcard-disc-body">';
+        items.forEach(({it, bi}) => {
+          itemsHtml += '<div class="mcard-item">' +
+            '<span style="font-size:12px">' + esc(bi ? bi.desc : it.biId) + '</span>' +
+            '<span style="text-align:center;color:var(--g500)">' + it.pctPrev + '%</span>' +
+            '<span style="text-align:center;font-weight:700">' + it.pctPer + '%</span>' +
+            '<span style="text-align:center;color:var(--ok);font-weight:700">' + it.pctAcum + '%</span>' +
+            '<span style="text-align:right;font-weight:700">' + R(it.val) + '</span>' +
+            '</div>';
+        });
+        itemsHtml += '</div>';
+      }
+    });
     html += '<div class="mcard">' +
       '<div class="mcard-hdr">' +
       '<div><div style="display:flex;align-items:center;gap:8px">' +
