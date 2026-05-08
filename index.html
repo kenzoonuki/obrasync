@@ -4631,6 +4631,15 @@ function toggleMeasDisc(key) {
   window._measDiscCollapsed[key] = !window._measDiscCollapsed[key];
   renderMeas();
 }
+function toggleMWDisc(key) {
+  if (!window._mwDiscCollapsed) window._mwDiscCollapsed = {};
+  window._mwDiscCollapsed[key] = !window._mwDiscCollapsed[key];
+  const current = [];
+  document.querySelectorAll('.mw-pct-inp').forEach(inp => {
+    current.push({ biId: inp.dataset.biid, pctPer: parseFloat(inp.value) || 0 });
+  });
+  loadMeasItems(current.length ? current : null);
+}
 function setMS(val) {
   measStatusFilter = val;
   renderMeas();
@@ -5132,42 +5141,75 @@ function loadMeasItems(existingItems) {
   document.getElementById('mw-prev-info').innerHTML = prevMeas
     ? '&#9432; Continuando da <strong>Med. '+String(prevMeas.seqNum).padStart(3,'0')+'</strong> ('+fmtD(prevMeas.date)+'). Preencha apenas o % executado <em>neste per\u00edodo</em>.'
     : '&#9432; Primeira medi\u00e7\u00e3o para este fornecedor. Preencha o % executado neste per\u00edodo.';
-  let rows = '';
+  // Group budget items by discipline
+  if (!window._mwDiscCollapsed) window._mwDiscCollapsed = {};
+  const _mwGroups = {};
   bud.forEach(bi => {
-    const pctPrev = getAccum(bi.id);
-    const remaining = Math.max(0, 100 - pctPrev);
-    const exItem = existingItems ? existingItems.find(it => it.biId === bi.id) : null;
-    const initVal = exItem ? exItem.pctPer : 0;
-    const isFull = remaining === 0;
-    rows += '<div class="mcard-item" style="align-items:start;padding:8px 0;'+(isFull?'opacity:.5':'')+'">' +
-      '<span style="padding-top:6px">'+bi.desc+'<br><span style="font-size:10px;color:var(--g500)">'+bi.disc+' · '+bi.phase+' · '+R(bi.tot)+'</span></span>' +
-      '<span style="text-align:center;padding-top:6px;color:var(--g500)">'+pctPrev+'%</span>' +
-      (isFull
-        ? '<span style="text-align:center;padding-top:6px"><span style="font-size:11px;font-weight:700;color:var(--ok)">100% ✓</span>' +
-          '<input type="hidden" class="mw-pct-inp" data-biid="'+bi.id+'" data-prev="'+pctPrev+'" data-tot="'+bi.tot+'" value="0"/>' +
-          '<span style="font-size:9px;color:var(--ok);display:block">Concluído</span></span>'
-        : '<span><input type="number" class="pfi mw-pct-inp" data-biid="'+bi.id+'" data-prev="'+pctPrev+'" data-tot="'+bi.tot+'" min="0" max="'+remaining+'" step="0.5" value="'+initVal+'" style="width:56px" oninput="calcMeasTotal()"/>' +
-          '<span style="font-size:9px;color:var(--g500);display:block">máx: '+remaining+'%</span></span>') +
-      '<span style="text-align:center;padding-top:6px" id="mw-acum-'+bi.id+'">'+(isFull?'100':pctPrev+initVal)+'%</span>' +
-      '<span style="text-align:right;padding-top:6px;font-weight:700" id="mw-val-'+bi.id+'">'+R(isFull?0:bi.tot*initVal/100)+'</span>' +
+    const d = bi.disc || 'Outros';
+    if (!_mwGroups[d]) _mwGroups[d] = [];
+    _mwGroups[d].push(bi);
+  });
+  const _mwDiscKeys = Object.keys(_mwGroups);
+  let rows = '';
+  _mwDiscKeys.forEach((disc, dIdx) => {
+    const key = 'mw_' + disc;
+    const collapsed = !!window._mwDiscCollapsed[key];
+    rows +=
+      '<div class="mcard-disc-hdr" onclick="toggleMWDisc(\'' + key + '\')">' +
+        '<span style="display:flex;align-items:center;gap:8px">' +
+          '<span style="font-size:9px;color:var(--g500);width:8px">' + (collapsed ? '▶' : '▼') + '</span>' +
+          '<span>' + disc + '</span>' +
+          '<span style="font-size:10px;font-weight:400;color:var(--g500)">' + _mwGroups[disc].length + ' item' + (_mwGroups[disc].length !== 1 ? 's' : '') + '</span>' +
+        '</span>' +
+        '<span id="mw-dsub-' + dIdx + '" style="font-size:12px;color:var(--g600);font-weight:700"></span>' +
       '</div>';
+    if (!collapsed) {
+      rows += '<div class="mcard-disc-body">';
+      _mwGroups[disc].forEach(bi => {
+        const pctPrev = getAccum(bi.id);
+        const remaining = Math.max(0, 100 - pctPrev);
+        const exItem = existingItems ? existingItems.find(it => it.biId === bi.id) : null;
+        const initVal = exItem ? exItem.pctPer : 0;
+        const isFull = remaining === 0;
+        rows += '<div class="mcard-item" style="align-items:start;padding:8px 0;' + (isFull ? 'opacity:.5' : '') + '">' +
+          '<span style="padding-top:6px">' + esc(bi.desc) + '<br><span style="font-size:10px;color:var(--g500)">' + bi.phase + ' · ' + R(bi.tot) + '</span></span>' +
+          '<span style="text-align:center;padding-top:6px;color:var(--g500)">' + pctPrev + '%</span>' +
+          (isFull
+            ? '<span style="text-align:center;padding-top:6px"><span style="font-size:11px;font-weight:700;color:var(--ok)">100% ✓</span>' +
+              '<input type="hidden" class="mw-pct-inp" data-biid="' + bi.id + '" data-prev="' + pctPrev + '" data-tot="' + bi.tot + '" data-disc="' + dIdx + '" value="0"/>' +
+              '<span style="font-size:9px;color:var(--ok);display:block">Concluído</span></span>'
+            : '<span><input type="number" class="pfi mw-pct-inp" data-biid="' + bi.id + '" data-prev="' + pctPrev + '" data-tot="' + bi.tot + '" data-disc="' + dIdx + '" min="0" max="' + remaining + '" step="0.5" value="' + initVal + '" style="width:56px" oninput="calcMeasTotal()"/>' +
+              '<span style="font-size:9px;color:var(--g500);display:block">máx: ' + remaining + '%</span></span>') +
+          '<span style="text-align:center;padding-top:6px" id="mw-acum-' + bi.id + '">' + (isFull ? '100' : pctPrev + initVal) + '%</span>' +
+          '<span style="text-align:right;padding-top:6px;font-weight:700" id="mw-val-' + bi.id + '">' + R(isFull ? 0 : bi.tot * initVal / 100) + '</span>' +
+          '</div>';
+      });
+      rows += '</div>';
+    }
   });
   document.getElementById('mw-items-rows').innerHTML = rows;
   calcMeasTotal();
 }
 function calcMeasTotal() {
   let total = 0;
+  const discSubs = {};
   document.querySelectorAll('.mw-pct-inp').forEach(inp => {
     const pctPer  = Math.min(parseFloat(inp.value)||0, parseFloat(inp.max)||100);
-    inp.value = pctPer; // enforce cap
+    inp.value = pctPer;
     const pctPrev = parseFloat(inp.dataset.prev) || 0;
     const tot     = parseFloat(inp.dataset.tot) || 0;
     const val     = tot * pctPer / 100;
     total += val;
+    const dIdx = inp.dataset.disc;
+    if (dIdx !== undefined) discSubs[dIdx] = (discSubs[dIdx] || 0) + val;
     const acumEl = document.getElementById('mw-acum-'+inp.dataset.biid);
     const valEl  = document.getElementById('mw-val-'+inp.dataset.biid);
     if (acumEl) acumEl.textContent = (pctPrev + pctPer).toFixed(1) + '%';
     if (valEl)  valEl.textContent  = R(val);
+  });
+  Object.entries(discSubs).forEach(([dIdx, val]) => {
+    const el = document.getElementById('mw-dsub-' + dIdx);
+    if (el) el.textContent = val > 0 ? R(val) : '';
   });
   document.getElementById('mw-total').textContent = R(total);
 }
