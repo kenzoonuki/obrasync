@@ -2990,7 +2990,7 @@ function summary() {
   // Fee contracted (open invoices)
   const feeContracted = entries.filter(e => e.isFee).reduce((s,e) => s + e.tot, 0);
   const feeTotal = total * fr;
-  const feeToPay = Math.max(0, feeTotal - feePaid);
+  const feeToPay = Math.max(0, feeMeasured - feePaid);
   return { paid, toPay, ovd, contracted, toContract, extras, total, pctPhy, pctFin,
     feeBase, feeMeasured, feePaid, feeContracted, feeTotal, feeToPay };
 }
@@ -5522,7 +5522,7 @@ function markGerencPaid(id) {
   document.getElementById('fe-comp').value = g.per;
   document.getElementById('fe-date').value = todayStr();
   document.getElementById('fe-desc').value = 'Honor\u00e1rios — Ger. '+String(g.seqNum).padStart(3,'0')+' — '+fmtP(g.per);
-  document.getElementById('fe-tot').value = g.feeAmt.toFixed(2);
+  setBRLInput('fe-tot', g.feeAmt);
   document.getElementById('fe-np').value = 1;
   document.getElementById('fe-fd').value = todayStr();
   document.getElementById('fee-entry-info').innerHTML =
@@ -7834,7 +7834,7 @@ function openFeeEntryModal() {
   document.getElementById('fe-comp').value = iso.slice(0,7);
   document.getElementById('fe-date').value = iso;
   document.getElementById('fe-desc').value = 'Honorários de Gerenciamento';
-  document.getElementById('fe-tot').value = s.feeToPay > 0 ? s.feeToPay.toFixed(2) : '';
+  setBRLInput('fe-tot', s.feeToPay > 0 ? s.feeToPay : 0);
   document.getElementById('fe-np').value = 1;
   document.getElementById('fe-fd').value = iso;
   document.getElementById('fee-entry-info').innerHTML =
