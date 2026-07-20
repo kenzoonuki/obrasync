@@ -1786,17 +1786,20 @@ const DB = {
     return (this._c[k] !== undefined) ? this._c[k] : null;
   },
 
+  _writeQueue: {},
+
   set(k, v) {
     this._c[k] = v;
     if (window._sbUrl) {
       const key = _GLOBAL_KEYS.has(k) ? k : _pk(k);
-      (async () => {
-        try {
-          await _sbFetch('POST', 'kv_store', { key, value: v });
-        } catch(e) {
-          console.error('DB.set error', k, e.message);
-        }
-      })();
+      // Serialize writes per key: two DB.set() calls for the same key can fire
+      // near-simultaneous POSTs whose network responses arrive out of order.
+      // Without this queue, an older snapshot landing last would silently
+      // overwrite a newer one in Supabase (silent data loss).
+      const prev = this._writeQueue[k] || Promise.resolve();
+      this._writeQueue[k] = prev.then(() =>
+        _sbFetch('POST', 'kv_store', { key, value: v }).catch(e => console.error('DB.set error', k, e.message))
+      );
     }
   },
 
@@ -7865,12 +7868,17 @@ function saveFeeEntry() {
   const tot = parseBRLInput('fe-tot');
   if (!desc || !tot) { alert('Preencha descrição e valor.'); return; }
   const n = Math.max(1, parseInt(document.getElementById('fe-np').value)||1);
+  const isGerencReceipt = !!window._pendingGerencPaidId;
+  const paidDate = document.getElementById('fe-date').value || todayStr();
   const insts = [];
   for (let i = 1; i <= n; i++) {
     const fv = document.getElementById('fe-val-'+i);
-    insts.push({id:uid(), n:i, due:document.getElementById('fe-due-'+i)?.value||'',
-      val: fv ? parseFloat(fv.value.replace(/\./g,'').replace(',','.')) || 0 : 0,
-      status:'open', paidAt:null, paidAmt:0, proof:''});
+    const val = fv ? parseFloat(fv.value.replace(/\./g,'').replace(',','.')) || 0 : 0;
+    insts.push(isGerencReceipt
+      ? {id:uid(), n:i, due:document.getElementById('fe-due-'+i)?.value||'',
+         val, status:'paid', paidAt:paidDate, paidAmt:val, proof:''}
+      : {id:uid(), n:i, due:document.getElementById('fe-due-'+i)?.value||'',
+         val, status:'open', paidAt:null, paidAmt:0, proof:''});
   }
   const entry = {id:uid(),
     comp:document.getElementById('fe-comp').value,
