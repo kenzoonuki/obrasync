@@ -2775,6 +2775,12 @@ function sanitizeEntries() {
         fixed++;
       }
     });
+    // Rename legacy 'Gerenciamento' label to 'ADM' on honorários entries
+    if (e.isFee) {
+      ['sup','disc','cc'].forEach(f => {
+        if (e[f] === 'Gerenciamento') { e[f] = 'ADM'; fixed++; }
+      });
+    }
   });
   if (fixed > 0) {
     DB.set('entries', entries);
@@ -7924,8 +7930,8 @@ function saveFeeEntry() {
   const entry = {id:uid(),
     comp:document.getElementById('fe-comp').value,
     date:document.getElementById('fe-date').value,
-    sup:'Gerenciamento',
-    desc, disc:'Gerenciamento', phase:'Outros', cc:'Gerenciamento',
+    sup:'ADM',
+    desc, disc:'ADM', phase:'Outros', cc:'ADM',
     st:'Mão de Obra', dt:'NF', pm:document.getElementById('fe-pm').value,
     tot, insts, notes:'Honorários de gerenciamento', base:false, budId:null, isFee:true};
   const entries = DB.get('entries') || [];
