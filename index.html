@@ -5378,7 +5378,7 @@ function openGerencWizard(editId, forceEdit) {
         '<td style="text-align:center;padding:6px 8px"><span style="font-size:9px;background:var(--g100);color:var(--g500);border:1px solid var(--g200);padding:1px 5px;border-radius:2px;font-weight:700">MANUAL</span></td>' +
         '<td style="text-align:right;padding:6px 8px;font-size:11px">'+R(bi.tot)+'</td>' +
         '<td style="text-align:center;padding:6px 4px">' +
-          '<input type="number" class="pfi gw-pct-inp" data-biid="'+bi.id+'" data-tot="'+bi.tot+'" data-supid="'+bi.supplierId+'" data-suptype="direct" data-disc="'+dIdx+'" data-pctprev="'+pctPrev+'" data-pctacum="" min="0" max="'+maxPct+'" step="1" value="'+pct+'" style="width:56px" oninput="enforceGerencMax(this)" />' +
+          '<input type="number" class="pfi gw-pct-inp" data-biid="'+bi.id+'" data-tot="'+bi.tot+'" data-supid="'+bi.supplierId+'" data-suptype="direct" data-disc="'+dIdx+'" data-pctprev="'+pctPrev+'" data-pctacum="" min="0" max="'+maxPct+'" step="1" value="'+pct+'" style="width:56px'+(maxPct<=0?';background:var(--g100);color:var(--g500)':'')+'"'+(maxPct<=0?' disabled title="Item já 100% medido — nada mais a medir"':'')+' oninput="enforceGerencMax(this)" />' +
           infoHtml +
         '</td>' +
         '<td style="text-align:right;padding:6px 0 6px 8px;font-size:11px;font-weight:700" id="gw-base-'+bi.id+'">'+R(base)+'</td>' +
