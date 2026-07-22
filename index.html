@@ -1804,33 +1804,40 @@ const DB = {
   },
 
   async loadAll() {
-    this._c = {}; // limpa cache ao trocar projeto
+    // Monta o cache novo à parte — só substitui o cache atual (this._c) depois
+    // que os dados novos chegarem com sucesso. Isso evita uma janela onde
+    // DB.get() (ex: getProjects() ao navegar de volta pra Home) vê um cache
+    // vazio enquanto o fetch ainda está em voo, o que fazia a tela mostrar
+    // "nenhum projeto criado" mesmo com os dados intactos no banco.
     this._loaded = false;
     if (!window._sbUrl) {
       const keys = ['cats','suppliers','budget','entries','meas','meas2','photos',
         'gerenc','feeRate','lastEntry','lastBudget','entryCollapsed',
         'budgetScenarios','budgetExecOrigin','reembolsos','reembolsosRelatorios','init7'];
+      const newC = {};
       keys.forEach(k => {
-        try { this._c[k] = JSON.parse(localStorage.getItem('os3_' + k) || 'null'); } catch(e) {}
+        try { newC[k] = JSON.parse(localStorage.getItem('os3_' + k) || 'null'); } catch(e) {}
       });
+      this._c = newC;
       this._loaded = true;
       console.warn('Supabase não configurado — usando localStorage');
       return;
     }
     try {
       const pid = window._currentProjectId;
-      const prefix = _GLOBAL_KEYS.size > 0 ? '' : pid + ':';
+      const newC = {};
       // Load project-scoped keys
       const enc = encodeURIComponent(pid + ':');
       const data = await _sbFetch('GET', 'kv_store?select=key,value&key=like.' + enc + '*');
       (data || []).forEach(row => {
         // Strip project prefix from key
         const k = row.key.startsWith(pid + ':') ? row.key.slice(pid.length + 1) : row.key;
-        this._c[k] = row.value;
+        newC[k] = row.value;
       });
       // Load global keys
       const gdata = await _sbFetch('GET', 'kv_store?select=key,value&key=in.(clients,projects,cats,suppliers,secPasswordHash,appConfig)');
-      (gdata || []).forEach(row => { this._c[row.key] = row.value; });
+      (gdata || []).forEach(row => { newC[row.key] = row.value; });
+      this._c = newC;
       this._loaded = true;
       console.log('✓ Projeto carregado:', pid, '—', (data||[]).length, 'chaves');
     } catch(e) {
@@ -2474,6 +2481,14 @@ async function selectProject(id) {
   document.getElementById('project-selector').style.display = 'none';
   document.getElementById('loading-overlay').style.display = 'flex';
   await DB.loadAll();
+  if (!DB._loaded) {
+    // Falha ao carregar — não abrir o projeto com uma tela vazia (poderia
+    // parecer que os dados sumiram). Volta pro seletor e avisa.
+    document.getElementById('loading-overlay').style.display = 'none';
+    alert('Não foi possível carregar os dados deste projeto. Verifique sua conexão e tente novamente.');
+    showProjectSelector();
+    return;
+  }
   initData();
   migrateBudget();
   sanitizeEntries();
@@ -2706,12 +2721,22 @@ async function startApp() {
   document.getElementById('topbar').style.display = 'none';
 
   // Load global data
+  let globalLoadFailed = false;
   try {
     if (window._sbUrl) {
       const gdata = await _sbFetch('GET', 'kv_store?select=key,value&key=in.(clients,projects,cats,suppliers,secPasswordHash)');
       (gdata || []).forEach(row => { DB._c[row.key] = row.value; });
     }
-  } catch(e) { console.error('Global load error:', e.message); }
+  } catch(e) { console.error('Global load error:', e.message); globalLoadFailed = true; }
+
+  // Se a busca falhou (rede, Supabase fora do ar, etc.), NÃO tratar como
+  // "conta nova sem projetos" — isso acionaria a criação de um projeto
+  // padrão e sobrescreveria a lista real de projetos ao salvar.
+  if (globalLoadFailed) {
+    document.getElementById('loading-overlay').style.display = 'none';
+    alert('Não foi possível carregar seus dados. Verifique sua conexão e recarregue a página.');
+    return;
+  }
 
   const projects = getProjects();
   const lastProjId = localStorage.getItem('os3_lastProject');
@@ -2734,6 +2759,13 @@ async function startApp() {
 
   window._currentProjectId = autoProj;
   await DB.loadAll();
+  if (!DB._loaded) {
+    // Falha ao carregar o projeto — não seguir com uma tela vazia. Manda
+    // pro seletor de projetos em vez de abrir o dashboard sem dados.
+    alert('Não foi possível carregar os dados deste projeto. Verifique sua conexão e tente novamente.');
+    showProjectSelector();
+    return;
+  }
   initData();
   migrateBudget();
   sanitizeEntries();
@@ -2807,6 +2839,14 @@ function migrateBudget() {
 }
 
 function initData() {
+  // Sem um carregamento bem-sucedido (DB._loaded), não há como saber se este
+  // projeto está genuinamente vazio ou se o fetch falhou e o cache simplesmente
+  // não tem os dados ainda. Presumir "vazio" nesse caso apagaria projetos reais
+  // (budget/entries/etc) sempre que o Supabase falhar por um instante.
+  if (!DB._loaded) {
+    console.error('[initData] abortado — carregamento não concluído (DB._loaded=false)');
+    return;
+  }
   // ── Seed global data (cats + suppliers) — shared across all projects ──
   if (!DB.get('cats')) {
     DB.set('cats', {
@@ -3916,13 +3956,13 @@ function renderFinancial() {
   let hasEntries = false;
 
   const sorted = [...entries].sort((a, b) => {
-    if (finSort === 'date')   return (a.date||'').localeCompare(b.date||'');
+    if (finSort === 'date')   return (b.date||'').localeCompare(a.date||''); // mais recente primeiro
     if (finSort === 'paidAt') {
       const pa = [...(a.insts||[])].filter(p=>p.paidAt).map(p=>p.paidAt).sort().pop() || '';
       const pb = [...(b.insts||[])].filter(p=>p.paidAt).map(p=>p.paidAt).sort().pop() || '';
       return pb.localeCompare(pa); // mais recente primeiro
     }
-    return (a.comp||'').localeCompare(b.comp||''); // default: competência
+    return (b.comp||'').localeCompare(a.comp||''); // default: competência, mais recente primeiro
   });
 
   sorted.forEach(e => {
@@ -4021,7 +4061,9 @@ function renderFinancial() {
         html += '<span class="muted sm">'+fmtD(p.due)+(p.paidAt?' · pago '+fmtD(p.paidAt):'')+'</span>';
         html += '<span style="text-align:right">'+R(p.val)+'</span>';
         html += '<span style="text-align:center">'+(p.status==='paid'?'<span class="badge b-paid">Pago</span>':ovd?'<span class="badge b-overdue">Vencida</span>':'<span class="badge b-open">Em aberto</span>')+'</span>';
-        html += (p.status!=='paid' && !isC ? '<button class="btn-bx" onclick="openPayModal(\''+e.id+'\',\''+p.id+'\')" style="font-size:11px">Baixar</button>' : '<span></span>');
+        html += (isC ? '<span></span>'
+          : p.status!=='paid' ? '<button class="btn-bx" onclick="openPayModal(\''+e.id+'\',\''+p.id+'\')" style="font-size:11px">Baixar</button>'
+          : '<button class="btn-bx" onclick="estornarPagamento(\''+e.id+'\',\''+p.id+'\')" style="font-size:11px" title="Reverter baixa">Estornar</button>');
         html += '</div>';
       });
     }
@@ -4067,7 +4109,9 @@ function renderInstallments() {
       '<td class="fw7">'+R(p.val)+'</td>' +
       '<td>'+(p.status==='paid'?'<span class="badge b-paid">Pago</span>':ovd?'<span class="badge b-overdue">Vencida</span>':'<span class="badge b-open">Em aberto</span>')+'</td>' +
       '<td>'+(isFee?'<span class="badge b-fee">Honorários</span>':nb?'<span class="badge b-nobase">Fora</span>':'<span class="badge b-approved">Compõe</span>')+'</td>' +
-      '<td>'+(p.status!=='paid'?'<button class="btn-bx btn-sm" onclick="openPayModal(\''+p.e.id+'\',\''+p.id+'\')">Baixar</button>':'')+'</td></tr>';
+      '<td>'+(p.status!=='paid'
+        ?'<button class="btn-bx btn-sm" onclick="openPayModal(\''+p.e.id+'\',\''+p.id+'\')">Baixar</button>'
+        :'<button class="btn-bx btn-sm" onclick="estornarPagamento(\''+p.e.id+'\',\''+p.id+'\')" title="Reverter baixa">Estornar</button>')+'</td></tr>';
   });
   document.getElementById('inst-tbody').innerHTML = rows || '<tr><td colspan="8" style="text-align:center;padding:28px;color:var(--g400)">Nenhuma parcela encontrada</td></tr>';
   const bar = document.getElementById('pag-bar');
@@ -7997,6 +8041,33 @@ function confirmPay() {
   renderFinancial(); renderInstallments(); renderDash();
   renderMeas();
   toast('Pagamento registrado');
+}
+function estornarPagamento(eid, iid) {
+  const entries = DB.get('entries') || [];
+  const e = entries.find(x=>x.id===eid);
+  const p = e?.insts.find(x=>x.id===iid);
+  if (!e || !p || p.status !== 'paid') return;
+  if (!confirm('Reverter a baixa desta parcela? Ela volta para "Em aberto"/"Vencida" e deixa de contar como paga.')) return;
+  p.status = 'open'; p.paidAt = null; p.paidAmt = 0; p.proof = '';
+  DB.set('entries', entries);
+  // Sincronizar status de medições: se a medição estava marcada como paga mas
+  // nem todos os lançamentos vinculados estão mais 100% pagos, volta pra "Aprovada"
+  const ms = DB.get('meas2') || [];
+  let measChanged = false;
+  ms.forEach(m => {
+    if (m.status !== 'paid') return;
+    const biIds = new Set((m.items||[]).map(it=>it.biId).filter(Boolean));
+    if (!biIds.size) return;
+    const relEntries = entries.filter(en => en.budId && biIds.has(en.budId));
+    if (!relEntries.length) return;
+    if (!relEntries.every(en => (en.insts||[]).length > 0 && (en.insts||[]).every(pp => pp.status === 'paid'))) {
+      m.status = 'approved'; measChanged = true;
+    }
+  });
+  if (measChanged) DB.set('meas2', ms);
+  renderFinancial(); renderInstallments(); renderDash();
+  renderMeas();
+  toast('Baixa revertida');
 }
 
 // =====================================================================
