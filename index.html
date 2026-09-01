@@ -1625,16 +1625,16 @@ tfoot td{padding:10px 0;border-top:2px solid var(--black);font-weight:800;font-s
     <div class="fgrid">
       <div class="ff"><label>Fase</label><select id="bulk-phase"><option value="">— não alterar —</option></select></div>
       <div class="ff"><label>Disciplina</label><select id="bulk-disc"><option value="">— não alterar —</option></select></div>
+      <div class="ff"><label>Tipo</label>
+        <select id="bulk-type">
+          <option value="">— não alterar —</option>
+          <option value="contracted">Contratado</option>
+          <option value="to_contract">A Contratar</option>
+          <option value="extra">Extra</option>
+        </select></div>
+      <div class="ff"><label>Fornecedor</label><select id="bulk-sup"><option value="">— não alterar —</option></select></div>
+      <div class="ff"><label>Tipo de Serviço / Insumo</label><select id="bulk-st"><option value="">— não alterar —</option></select></div>
       <div id="bulk-exec-fields" style="display:contents">
-        <div class="ff"><label>Tipo</label>
-          <select id="bulk-type">
-            <option value="">— não alterar —</option>
-            <option value="contracted">Contratado</option>
-            <option value="to_contract">A Contratar</option>
-            <option value="extra">Extra</option>
-          </select></div>
-        <div class="ff"><label>Fornecedor</label><select id="bulk-sup"><option value="">— não alterar —</option></select></div>
-        <div class="ff"><label>Tipo de Serviço / Insumo</label><select id="bulk-st"><option value="">— não alterar —</option></select></div>
         <div class="ff"><label>% Físico</label><input type="number" id="bulk-pct" min="0" max="100" step="1" placeholder="— não alterar —"/></div>
       </div>
       <div id="bulk-est-fields" style="display:none">
@@ -6272,6 +6272,9 @@ function openScenarioBulkEdit(scId) {
   // Prefill with common values
   const sameDisc  = selItems.every(i => i.disc  === selItems[0].disc)  ? selItems[0].disc  : '';
   const samePhase = selItems.every(i => i.phase === selItems[0].phase) ? selItems[0].phase : '';
+  const sameType  = selItems.every(i => (i.type||'to_contract') === (selItems[0].type||'to_contract')) ? (selItems[0].type||'to_contract') : '';
+  const sameSup   = selItems.every(i => (i.supplierId||'') === (selItems[0].supplierId||'')) ? (selItems[0].supplierId||'') : '';
+  const sameSt    = selItems.every(i => (i.st||'') === (selItems[0].st||'')) ? (selItems[0].st||'') : '';
   // Show/hide context fields
   document.getElementById('bulk-exec-fields').style.display = 'none';
   document.getElementById('bulk-est-fields').style.display  = 'contents';
@@ -6284,6 +6287,16 @@ function openScenarioBulkEdit(scId) {
   discSel.innerHTML = '<option value="">— não alterar —</option>' +
     (c.disciplines||[]).map(d => '<option value="'+d+'">'+d+'</option>').join('');
   discSel.value = sameDisc;
+  document.getElementById('bulk-type').value = sameType;
+  const sups = DB.get('suppliers') || [];
+  const supSel = document.getElementById('bulk-sup');
+  supSel.innerHTML = '<option value="">— não alterar —</option>' +
+    sups.map(s => '<option value="'+s.id+'">'+s.name+'</option>').join('');
+  supSel.value = sameSup;
+  const stSel = document.getElementById('bulk-st');
+  stSel.innerHTML = '<option value="">— não alterar —</option>' +
+    (c.servicetypes||[]).map(s => '<option value="'+s+'">'+s+'</option>').join('');
+  stSel.value = sameSt;
   document.getElementById('bulk-pmo').value   = '';
   document.getElementById('bulk-pmat').value  = '';
   document.getElementById('bulk-pacab').value = '';
@@ -6300,10 +6313,13 @@ function applyScenarioBulkEdit() {
   if (!sc) return;
   const disc  = document.getElementById('bulk-disc').value;
   const phase = document.getElementById('bulk-phase').value;
+  const type  = document.getElementById('bulk-type').value;
+  const supId = document.getElementById('bulk-sup').value;
+  const st    = document.getElementById('bulk-st').value;
   const pmo   = document.getElementById('bulk-pmo').value;
   const pmat  = document.getElementById('bulk-pmat').value;
   const pacab = document.getElementById('bulk-pacab').value;
-  if (!disc && !phase && pmo === '' && pmat === '' && pacab === '') {
+  if (!disc && !phase && !type && !supId && !st && pmo === '' && pmat === '' && pacab === '') {
     alert('Preencha ao menos um campo para aplicar.'); return;
   }
   let changed = 0;
@@ -6312,10 +6328,13 @@ function applyScenarioBulkEdit() {
     const ni = {...i};
     if (phase) ni.phase = phase;
     if (disc)  ni.disc  = disc;
+    if (type)  ni.type  = type;
+    if (supId) ni.supplierId = supId;
+    if (st)    ni.st    = st;
     if (pmo   !== '') ni.pmo   = parseBRLInput('bulk-pmo');
     if (pmat  !== '') ni.pmat  = parseBRLInput('bulk-pmat');
     if (pacab !== '') ni.pacab = parseBRLInput('bulk-pacab');
-    ni.price = ni.pmo + ni.pmat + ni.pacab;
+    ni.price = ni.pmo + ni.pmat + ni.pacab + (ni.psrv||0);
     ni.tot   = +(ni.qty * ni.price).toFixed(2);
     changed++;
     return ni;
