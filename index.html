@@ -2495,6 +2495,7 @@ async function selectProject(id) {
   initData();
   migrateBudget();
   sanitizeEntries();
+  migrateReembRelatorios();
   document.getElementById('loading-overlay').style.display = 'none';
   document.getElementById('layout').style.display = '';
   document.getElementById('topbar').style.display = '';
@@ -2772,6 +2773,7 @@ async function startApp() {
   initData();
   migrateBudget();
   sanitizeEntries();
+  migrateReembRelatorios();
   document.getElementById('layout').style.display = '';
   document.getElementById('topbar').style.display = '';
   const p = getProjects().find(x => x.id === autoProj);
@@ -2839,6 +2841,27 @@ function migrateBudget() {
     }
   });
   if (changed) DB.set('budget', bud);
+}
+
+function migrateReembRelatorios() {
+  // Renumera relatórios de reembolso para uma contagem por fornecedor
+  // (em vez de uma sequência global compartilhada entre todos).
+  const rels = DB.get('reembolsosRelatorios');
+  if (!rels || !rels.length) return;
+  const bySup = {};
+  rels.forEach(r => {
+    const supId = (r.items && r.items[0] && r.items[0].supId) || '_gerenc';
+    (bySup[supId] = bySup[supId] || []).push(r);
+  });
+  let changed = false;
+  Object.values(bySup).forEach(group => {
+    group.sort((a,b) => (a.seqNum||0) - (b.seqNum||0));
+    group.forEach((r, i) => {
+      const n = i + 1;
+      if (r.seqNum !== n) { r.seqNum = n; changed = true; }
+    });
+  });
+  if (changed) DB.set('reembolsosRelatorios', rels);
 }
 
 function initData() {
@@ -4292,45 +4315,77 @@ function renderReembolsos() {
   listEl.innerHTML = html;
 }
 
+if (!window._reembSupOpen) window._reembSupOpen = {};
+function toggleReembSupGroup(supId) {
+  window._reembSupOpen[supId] = !window._reembSupOpen[supId];
+  renderRelatoriosReembolso();
+}
 function renderRelatoriosReembolso() {
-  const relatorios = (DB.get('reembolsosRelatorios')||[]).sort((a,b)=>(b.seqNum||0)-(a.seqNum||0));
+  const relatorios = DB.get('reembolsosRelatorios')||[];
   const sups = DB.get('suppliers') || [];
   const el = document.getElementById('rb-relatorios-list');
   if (!el) return;
   if (!relatorios.length) { el.innerHTML = '<div class="inote">Nenhum relatório fechado ainda.</div>'; return; }
 
-  let html = '';
+  // Agrupa por fornecedor — cada relatório já pertence a um único fornecedor
+  const bySup = {};
   relatorios.forEach(rel => {
-    const stLabel = {draft:'Rascunho', emitted:'Emitido', paid:'Pago'}[rel.status]||rel.status;
-    const stCls   = {draft:'b-draft', emitted:'b-approved', paid:'badge-ok'}[rel.status]||'b-draft';
-    const total = (rel.items||[]).reduce((s,r)=>s+r.val,0);
-    html += '<div class="mcard" style="margin-bottom:16px">';
-    html += '<div class="mcard-hdr">';
-    html += '<div><div style="display:flex;align-items:center;gap:8px">';
-    html += '<span class="mcard-sup">Reimb. '+String(rel.seqNum).padStart(3,'0')+'</span>';
-    html += '<span class="badge '+stCls+'">'+stLabel+'</span>';
-    html += '</div><div class="mcard-meta">'+fmtD(rel.date)+' · Período: '+fmtP(rel.per)+(rel.notes?' · '+esc(rel.notes):'')+'</div></div>';
-    html += '<div style="display:flex;gap:6px">';
-    html += '<button class="btn btn-g btn-sm" onclick="imprimirRelatorioReembolso(\'' + rel.id + '\')">&#128196; PDF</button>';
-    if (rel.status==='emitted') html += '<button class="btn btn-p btn-sm" onclick="marcarRelPago(\'' + rel.id + '\')">&#10003; Marcar Pago</button>';
-    html += '<button class="btn btn-d btn-sm" onclick="delRelatorioReembolso(\'' + rel.id + '\')">&#10005;</button>';
-    html += '</div></div>';
+    const supId = (rel.items && rel.items[0] && rel.items[0].supId) || '_gerenc';
+    (bySup[supId] = bySup[supId] || []).push(rel);
+  });
+  // Ordena grupos pelo relatório mais recente de cada fornecedor
+  const supIds = Object.keys(bySup).sort((a,b) => {
+    const lastA = bySup[a].reduce((m,r)=>r.date>m?r.date:m,'');
+    const lastB = bySup[b].reduce((m,r)=>r.date>m?r.date:m,'');
+    return lastB.localeCompare(lastA);
+  });
 
-    // Group by supplier
-    const grouped = {};
-    (rel.items||[]).forEach(r => { (grouped[r.supId]=grouped[r.supId]||[]).push(r); });
-    Object.entries(grouped).forEach(([supId, items]) => {
-      const sup = supId==='_gerenc' ? {name:'Gerenciador de Obra'} : sups.find(s=>s.id===supId);
-      const supTot = items.reduce((s,r)=>s+r.val,0);
-      html += '<div style="margin:8px 0 4px;font-size:10px;font-weight:800;color:var(--g500);text-transform:uppercase">'+esc(sup?sup.name:'?')+' — '+R(supTot)+'</div>';
-      html += '<table style="width:100%;border-collapse:collapse;font-size:11px;margin-bottom:8px">';
-      html += '<tbody>';
-      items.forEach(r => {
-        html += '<tr style="border-bottom:1px solid var(--g100)"><td style="padding:4px 0">'+fmtD(r.date)+'</td><td style="padding:4px 8px">'+esc(r.desc)+'</td><td style="padding:4px 8px;color:var(--g500)">'+esc(r.nf||'')+'</td><td style="padding:4px 8px;text-align:right;font-weight:700">'+R(r.val)+'</td></tr>';
+  let html = '';
+  supIds.forEach(supId => {
+    const sup = supId==='_gerenc' ? {name:'Gerenciador de Obra'} : sups.find(s=>s.id===supId);
+    const group = [...bySup[supId]].sort((a,b)=>(b.seqNum||0)-(a.seqNum||0));
+    const groupTotal = group.reduce((s,rel)=>s+(rel.items||[]).reduce((s2,r)=>s2+r.val,0),0);
+    const openCount = group.filter(r=>r.status==='emitted').length;
+    const isOpen = !!window._reembSupOpen[supId];
+
+    html += '<div class="mcard" style="margin-bottom:12px;padding:0;overflow:hidden">';
+    html += '<div onclick="toggleReembSupGroup(\''+supId+'\')" style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;cursor:pointer;background:var(--g50)">';
+    html += '<div style="display:flex;align-items:center;gap:10px">';
+    html += '<button class="btn btn-g btn-sm" style="width:22px;height:22px;padding:0;font-weight:800;line-height:1" onclick="event.stopPropagation();toggleReembSupGroup(\''+supId+'\')">'+(isOpen?'−':'+')+'</button>';
+    html += '<strong style="font-size:13px">'+esc(sup?sup.name:'?')+'</strong>';
+    html += '<span class="muted sm">'+group.length+' relatório'+(group.length>1?'s':'')+(openCount?' · '+openCount+' em aberto':'')+'</span>';
+    html += '</div>';
+    html += '<strong style="font-size:13px">'+R(groupTotal)+'</strong>';
+    html += '</div>';
+
+    if (isOpen) {
+      html += '<div style="padding:12px 16px">';
+      group.forEach(rel => {
+        const stLabel = {draft:'Rascunho', emitted:'Emitido', paid:'Pago'}[rel.status]||rel.status;
+        const stCls   = {draft:'b-draft', emitted:'b-approved', paid:'badge-ok'}[rel.status]||'b-draft';
+        const total = (rel.items||[]).reduce((s,r)=>s+r.val,0);
+        html += '<div style="border:1px solid var(--g200);border-radius:6px;padding:12px;margin-bottom:10px">';
+        html += '<div class="mcard-hdr">';
+        html += '<div><div style="display:flex;align-items:center;gap:8px">';
+        html += '<span class="mcard-sup">Reimb. '+String(rel.seqNum).padStart(3,'0')+'</span>';
+        html += '<span class="badge '+stCls+'">'+stLabel+'</span>';
+        html += '</div><div class="mcard-meta">'+fmtD(rel.date)+' · Período: '+fmtP(rel.per)+(rel.notes?' · '+esc(rel.notes):'')+'</div></div>';
+        html += '<div style="display:flex;gap:6px">';
+        html += '<button class="btn btn-g btn-sm" onclick="imprimirRelatorioReembolso(\'' + rel.id + '\')">&#128196; PDF</button>';
+        if (rel.status==='emitted') html += '<button class="btn btn-p btn-sm" onclick="marcarRelPago(\'' + rel.id + '\')">&#10003; Marcar Pago</button>';
+        html += '<button class="btn btn-d btn-sm" onclick="delRelatorioReembolso(\'' + rel.id + '\')">&#10005;</button>';
+        html += '</div></div>';
+        html += '<table style="width:100%;border-collapse:collapse;font-size:11px;margin:8px 0">';
+        html += '<tbody>';
+        (rel.items||[]).forEach(r => {
+          html += '<tr style="border-bottom:1px solid var(--g100)"><td style="padding:4px 0">'+fmtD(r.date)+'</td><td style="padding:4px 8px">'+esc(r.desc)+'</td><td style="padding:4px 8px;color:var(--g500)">'+esc(r.nf||'')+'</td><td style="padding:4px 8px;text-align:right;font-weight:700">'+R(r.val)+'</td></tr>';
+        });
+        html += '</tbody></table>';
+        html += '<div style="text-align:right;font-size:13px;font-weight:800;padding-top:6px;border-top:1px solid var(--g200)">Total: '+R(total)+'</div>';
+        html += '</div>';
       });
-      html += '</tbody></table>';
-    });
-    html += '<div style="text-align:right;font-size:14px;font-weight:800;padding:8px 0;border-top:2px solid var(--black)">Total: '+R(total)+'</div>';
+      html += '</div>';
+    }
     html += '</div>';
   });
   el.innerHTML = html;
@@ -4387,9 +4442,8 @@ function fecharRelatorioReembolso() {
   items.forEach(r => { (grouped[r.supId]=grouped[r.supId]||[]).push(r); });
 
   const relatorios = DB.get('reembolsosRelatorios') || [];
-  let seqNum = relatorios.length;
-  const newRels = Object.values(grouped).map(supItems => {
-    seqNum++;
+  const newRels = Object.entries(grouped).map(([supId, supItems]) => {
+    const seqNum = relatorios.filter(r => ((r.items&&r.items[0]&&r.items[0].supId)||'_gerenc') === supId).length + 1;
     return { id:uid(), seqNum, per, date, notes, status:'emitted', items:supItems, total:supItems.reduce((s,r)=>s+r.val,0) };
   });
   relatorios.push(...newRels);
@@ -4445,6 +4499,8 @@ function imprimirRelatorioReembolso(id) {
   const rel = (DB.get('reembolsosRelatorios')||[]).find(r=>r.id===id);
   if (!rel) return;
   const sups = DB.get('suppliers') || [];
+  const mainSupId = (rel.items && rel.items[0] && rel.items[0].supId) || '_gerenc';
+  const mainSupName = mainSupId==='_gerenc' ? 'Gerenciador de Obra' : (sups.find(s=>s.id===mainSupId)||{name:'?'}).name;
   const w = window.open('', '_blank');
   const grouped = {};
   (rel.items||[]).forEach(r => { (grouped[r.supId]=grouped[r.supId]||[]).push(r); });
@@ -4466,9 +4522,9 @@ function imprimirRelatorioReembolso(id) {
     });
     body += '</tbody><tfoot><tr><td colspan="3" style="padding:6px 0;font-weight:700;border-top:1px solid #000">Subtotal '+sup.name+'</td><td style="padding:6px 0;text-align:right;font-weight:800;border-top:1px solid #000">'+R(tot)+'</td></tr></tfoot></table></div>';
   });
-  w.document.write('<html><head><title>Relatório de Reembolsos — Reimb.'+String(rel.seqNum).padStart(3,'0')+'</title><style>body{font-family:Arial,sans-serif;padding:32px;font-size:13px;max-width:800px;margin:0 auto}.total{font-size:18px;font-weight:800;text-align:right;padding:12px 0;border-top:3px solid #000;margin-top:8px}@media print{button{display:none}}</style></head><body>');
+  w.document.write('<html><head><title>Relatório de Reembolsos — '+esc(mainSupName)+' — Reimb.'+String(rel.seqNum).padStart(3,'0')+'</title><style>body{font-family:Arial,sans-serif;padding:32px;font-size:13px;max-width:800px;margin:0 auto}.total{font-size:18px;font-weight:800;text-align:right;padding:12px 0;border-top:3px solid #000;margin-top:8px}@media print{button{display:none}}</style></head><body>');
   w.document.write('<button onclick="window.print()" style="margin-bottom:20px;padding:8px 20px;cursor:pointer;font-size:13px">&#128196; Imprimir / Salvar PDF</button>');
-  w.document.write('<h1 style="font-size:22px;margin-bottom:4px">Relatório de Reembolsos</h1>');
+  w.document.write('<h1 style="font-size:22px;margin-bottom:4px">Relatório de Reembolsos — '+esc(mainSupName)+'</h1>');
   w.document.write('<p style="color:#666;margin-bottom:24px">Reimb. '+String(rel.seqNum).padStart(3,'0')+' · Período: '+fmtP(rel.per)+' · Emitido em '+fmtD(rel.date)+(rel.notes?' · '+esc(rel.notes):'')+'</p>');
   w.document.write(body);
   w.document.write('<div class="total">Total Geral: '+R(rel.total)+'</div>');
