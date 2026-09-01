@@ -6409,7 +6409,7 @@ function promoteScenario(id) {
 
   const exec = items.map(i => ({
     ...JSON.parse(JSON.stringify(i)),
-    id: uid(), supplierId: '', supCols: null, type: 'to_contract', pctFis: 0
+    id: uid(), type: 'to_contract', pctFis: 0
   }));
 
   console.log('Salvando', exec.length, 'itens no executivo...');
@@ -6434,6 +6434,10 @@ function openScenarioItemModal(scId, itemId) {
   pop('bi-disc', c.disciplines||[]);
   pop('bi-phase', c.phases||[]);
   pop('bi-unit', c.units||['vb','m²','m','un','gl','kg','hrs']);
+  const sups = DB.get('suppliers') || [];
+  const supSel = document.getElementById('bi-sup');
+  supSel.innerHTML = '<option value="">— Nenhum (item direto)</option>' +
+    sups.map(s => '<option value="'+s.id+'">'+s.name+'</option>').join('');
   document.getElementById('bi-id').value = itemId || '';
   document.getElementById('bi-id').dataset.bmode = 'scenario';
   document.getElementById('mod-bud-title').textContent = itemId ? 'Editar Item — ' + sc.name : 'Novo Item — ' + sc.name;
@@ -6451,6 +6455,12 @@ function openScenarioItemModal(scId, itemId) {
       setBRLInput('bi-psrv',  item.psrv||0);
       document.getElementById('bi-type').value  = item.type  || 'to_contract';
       document.getElementById('bi-compoe-base').checked = item.compoeBase !== false;
+      supSel.value = item.supplierId || '';
+      document.getElementById('bi-sup-remun').value  = item.supRemun || 'meas';
+      document.getElementById('bi-sup-mo').checked   = item.supCols?.mo   !== false;
+      document.getElementById('bi-sup-mat').checked  = item.supCols?.mat  === true;
+      document.getElementById('bi-sup-acab').checked = item.supCols?.acab === true;
+      document.getElementById('bi-sup-srv').checked  = item.supCols?.srv  === true;
     }
   } else {
     document.getElementById('bi-id').value      = '';
@@ -6462,13 +6472,18 @@ function openScenarioItemModal(scId, itemId) {
     setBRLInput('bi-psrv',  0);
     document.getElementById('bi-type').value    = 'to_contract';
     document.getElementById('bi-compoe-base').checked = true;
+    supSel.value = '';
+    document.getElementById('bi-sup-remun').value  = 'meas';
+    document.getElementById('bi-sup-mo').checked   = true;
+    document.getElementById('bi-sup-mat').checked  = false;
+    document.getElementById('bi-sup-acab').checked = false;
+    document.getElementById('bi-sup-srv').checked  = false;
     const lastB = DB.get('lastBudget') || {};
     if (lastB.phase) document.getElementById('bi-phase').value = lastB.phase;
     if (lastB.disc)  document.getElementById('bi-disc').value  = lastB.disc;
     if (lastB.unit)  document.getElementById('bi-unit').value  = lastB.unit;
   }
-  const supSec = document.getElementById('bi-sup-section');
-  if (supSec) supSec.style.display = 'none';
+  updateBISupCols();
   calcBI();
   openModal('mod-bud');
 }
@@ -6484,12 +6499,22 @@ function saveScenarioItem() {
   const psrv  = parseBRLInput('bi-psrv');
   const price = pmo + pmat + pacab + psrv;
   const tot   = +(qty * price).toFixed(2);
+  const supId = document.getElementById('bi-sup').value || '';
+  const supCols = supId ? {
+    mo:   document.getElementById('bi-sup-mo').checked,
+    mat:  document.getElementById('bi-sup-mat').checked,
+    acab: document.getElementById('bi-sup-acab').checked,
+    srv:  document.getElementById('bi-sup-srv').checked
+  } : null;
   const item  = {
     id: _scItemId || uid(),
     phase, disc: document.getElementById('bi-disc').value,
     desc, unit: document.getElementById('bi-unit').value,
     qty, pmo, pmat, pacab, psrv, price, tot,
     type: document.getElementById('bi-type').value || 'to_contract',
+    supplierId: supId,
+    supCols,
+    supRemun: supId ? (document.getElementById('bi-sup-remun').value || 'meas') : null,
     compoeBase: document.getElementById('bi-compoe-base').checked
   };
   const scenarios = getScenarios();
