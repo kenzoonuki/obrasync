@@ -1236,7 +1236,7 @@ tfoot td{padding:10px 0;border-top:2px solid var(--black);font-weight:800;font-s
     <!-- PORTAL CLIENTE -->
     <div class="view" id="view-client">
       <div style="max-width:820px;margin:0 auto">
-        <div class="client-hdr"><h1>Reforma Higienópolis</h1><p>Rua Pará, 148 · Higienópolis, SP · <span id="cli-upd"></span></p></div>
+        <div class="client-hdr"><h1 id="cli-proj-name">Projeto</h1><p><span id="cli-proj-addr"></span> · <span id="cli-upd"></span></p></div>
         <div class="cards" id="cli-cards"></div>
         <div class="sec-hd mt24"><h2>Evolução da Obra</h2></div>
         <div id="cli-prog"></div>
@@ -2024,6 +2024,7 @@ function onDiscDragEnd(e) {
 
 function getProjects()  { return DB.get('projects')  || []; }
 function getClients()   { return DB.get('clients')   || []; }
+function curProjName()  { const p = getProjects().find(x => x.id === window._currentProjectId); return p ? p.name : ''; }
 
 function psBtnNew() {
   const active = document.getElementById('ps-tab-proj').style.borderBottomColor === 'rgb(0, 0, 0)' ? 'projetos'
@@ -5709,7 +5710,7 @@ function openBoletim(measId) {
   document.getElementById('boletim-content').innerHTML =
     '<div class="bol-hdr">' +
     '<div><div class="bol-logo">ObraSync</div><div class="bol-title">Boletim de Medi\u00e7\u00e3o</div></div>' +
-    '<div class="bol-info">Reforma Higien\u00f3polis<br><span class="bol-obra">'+(sup?sup.name:'')+'</span><br>Med. '+String(m.seqNum).padStart(3,'0')+' \u00b7 '+stLabel+'</div>' +
+    '<div class="bol-info">'+esc(curProjName())+'<br><span class="bol-obra">'+(sup?sup.name:'')+'</span><br>Med. '+String(m.seqNum).padStart(3,'0')+' \u00b7 '+stLabel+'</div>' +
     '</div>' +
     '<div class="bol-cards">' +
     '<div class="bol-card"><div class="bol-clbl">Per\u00edodo</div><div class="bol-cval">'+fmtP(m.per)+'</div></div>' +
@@ -5820,7 +5821,7 @@ function openGerencBoletim(gId) {
   document.getElementById('boletim-content').innerHTML =
     '<div class="bol-hdr">' +
       '<div><div class="bol-logo">ObraSync</div><div class="bol-title">Boletim de Medi\u00e7\u00e3o de Gerenciamento</div></div>' +
-      '<div class="bol-info">Reforma Higien\u00f3polis<br>' +
+      '<div class="bol-info">'+esc(curProjName())+'<br>' +
         '<span class="bol-obra">Ger. '+String(g.seqNum||'?').padStart(3,'0')+'</span><br>'+stLabel+
       '</div>' +
     '</div>' +
@@ -7519,7 +7520,7 @@ function exportBudgetPDF() {
   if (budTab !== 'all') setBudTab('all', null);
   const bud = DB.get('budget') || [];
   const s = summary();
-  document.getElementById('pdf-sub-txt').textContent = 'Reforma Higienópolis · Orçamento · emitido em ' + new Date().toLocaleDateString('pt-BR');
+  document.getElementById('pdf-sub-txt').textContent = curProjName() + ' · Orçamento · emitido em ' + new Date().toLocaleDateString('pt-BR');
   document.getElementById('pdf-cards-el').innerHTML =
     '<div class="pdf-card"><div class="pdf-clbl">Contratado</div><div class="pdf-cval">'+R(s.contracted)+'</div></div>' +
     '<div class="pdf-card"><div class="pdf-clbl">A Contratar</div><div class="pdf-cval">'+R(s.toContract)+'</div></div>' +
@@ -7527,7 +7528,7 @@ function exportBudgetPDF() {
     '<div class="pdf-card dk"><div class="pdf-clbl">Total Orçado</div><div class="pdf-cval">'+R(s.total)+'</div></div>' +
     '<div class="pdf-card"><div class="pdf-clbl">Honorários Est. ('+FR().toFixed(1)+'%)</div><div class="pdf-cval">'+R(s.feeTotal)+'</div></div>';
   document.getElementById('pdf-ftr-txt').innerHTML =
-    'ObraSync · Reforma Higienópolis · Total: <strong>'+R(s.total)+'</strong> · Honorários estimados: <strong>'+R(s.feeTotal)+'</strong> · '+new Date().toLocaleDateString('pt-BR');
+    'ObraSync · '+esc(curProjName())+' · Total: <strong>'+R(s.total)+'</strong> · Honorários estimados: <strong>'+R(s.feeTotal)+'</strong> · '+new Date().toLocaleDateString('pt-BR');
   setTimeout(() => window.print(), 300);
 }
 
@@ -7605,6 +7606,9 @@ function saveEditCat() {
 function renderClient() {
   const s = summary();
   const photos = (DB.get('photos')||[]).filter(p=>p.vis).slice(0,4);
+  const proj = getProjects().find(p => p.id === window._currentProjectId);
+  document.getElementById('cli-proj-name').textContent = proj ? proj.name : '';
+  document.getElementById('cli-proj-addr').textContent = proj ? (proj.addr||'') : '';
   document.getElementById('cli-upd').textContent = 'atualizado ' + new Date().toLocaleDateString('pt-BR');
   document.getElementById('cli-cards').innerHTML =
     '<div class="card dk"><div class="clbl">Contratado</div><div class="cval">'+R(s.contracted)+'</div></div>' +
