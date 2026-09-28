@@ -5096,15 +5096,20 @@ function renderMeas() {
   const feeMeasured = feeBase * fr;
   const entries = DB.get('entries') || [];
   const feePaid = entries.filter(e=>e.isFee).flatMap(e=>e.insts).filter(p=>p.status==='paid').reduce((s,p)=>s+p.paidAmt,0);
-  const feeContracted = entries.filter(e=>e.isFee).reduce((s,e)=>s+e.tot,0);
-  const feeOpen = Math.max(0, feeMeasured - feeContracted);
   const feeToPay = Math.max(0, feeMeasured - feePaid);
+  // Base contratada/a contratar vêm do status dos itens no Orçamento Executivo —
+  // conforme um item muda de "A Contratar" para "Contratado", esses totais migram.
+  const baseContratada = bud.filter(i => i.type === 'contracted').reduce((s,i) => s + (i.tot||0), 0);
+  const baseAContratar = bud.filter(i => i.type === 'to_contract').reduce((s,i) => s + (i.tot||0), 0);
+  const feeAContratar  = baseAContratar * fr;
   document.getElementById('fee-grid').innerHTML =
-    '<div class="feecell"><div class="fclbl">Base F\u00edsica Executada</div><div class="fcval">'+R(feeBase)+'</div></div>' +
     '<div class="feecell"><div class="fclbl">Alíquota</div><div class="fcval">'+FR().toFixed(1)+'%</div></div>' +
-    '<div class="feecell dk"><div class="fclbl">Honor\u00e1rios Medidos</div><div class="fcval">'+R(feeMeasured)+'</div></div>' +
+    '<div class="feecell"><div class="fclbl">Base Total Contratada</div><div class="fcval">'+R(baseContratada)+'</div></div>' +
+    '<div class="feecell"><div class="fclbl">Base Total Medida</div><div class="fcval">'+R(feeBase)+'</div></div>' +
+    '<div class="feecell dk"><div class="fclbl">Honor\u00e1rios Totais Medidos</div><div class="fcval">'+R(feeMeasured)+'</div></div>' +
     '<div class="feecell ok"><div class="fclbl">Pagos</div><div class="fcval">'+R(feePaid)+'</div></div>' +
-    '<div class="feecell wn"><div class="fclbl">A Contratar</div><div class="fcval">'+R(feeOpen)+'</div></div>' +
+    '<div class="feecell wn"><div class="fclbl">Base Total a Contratar</div><div class="fcval">'+R(baseAContratar)+'</div></div>' +
+    '<div class="feecell wn"><div class="fclbl">Honorários Totais a Contratar</div><div class="fcval">'+R(feeAContratar)+'</div></div>' +
     '<div class="feecell wn"><div class="fclbl">A Receber</div><div class="fcval">'+R(feeToPay)+'</div></div>';
   const _gerencAll = DB.get('gerenc')||[];
   document.getElementById('fee-detail-note').innerHTML =
@@ -5742,6 +5747,7 @@ function openGerencBoletim(gId) {
   if (!g) return;
   const bud  = DB.get('budget') || [];
   const sups = DB.get('suppliers') || [];
+  const fr   = FR() / 100;
   const stLabel = {draft:'Rascunho',approved:'Aprovada',paid:'Paga'}[g.status] || g.status;
   // Get collapse state for this card (same as what user sees on screen)
   const collapsed = (window._gcardCollapsed && window._gcardCollapsed[gId]) || {};
@@ -5770,6 +5776,11 @@ function openGerencBoletim(gId) {
   const _pdfAcumAtual = _pdfAcumAnt + (g.feeBase||0);
   const _totalOrcPdf = bud.filter(i=>i.compoeBase!==false).reduce((s,i)=>s+(i.tot||0),0);
   const _pdfSaldoGlobal = Math.max(0, _totalOrcPdf - _pdfAcumAtual);
+  // Resumo geral de honorários — mesma lógica da aba Medições
+  const _pdfBaseContratada = bud.filter(i => i.type === 'contracted').reduce((s,i) => s + (i.tot||0), 0);
+  const _pdfBaseAContratar = bud.filter(i => i.type === 'to_contract').reduce((s,i) => s + (i.tot||0), 0);
+  const _pdfFeeAContratar  = _pdfBaseAContratar * fr;
+  const _pdfFeeMedidoTotal = _pdfAcumAtual * fr;
 
   let tableRows = '';
   discs.forEach((disc, dIdx) => {
@@ -5833,6 +5844,16 @@ function openGerencBoletim(gId) {
       '<div class="bol-card"><div class="bol-clbl">Acum. Atual</div><div class="bol-cval">'+R(_pdfAcumAtual)+'</div></div>' +
       '<div class="bol-card"><div class="bol-clbl">Saldo a Medir</div><div class="bol-cval" style="color:#d97706">'+R(_pdfSaldoGlobal)+'</div></div>' +
       '<div class="bol-card dk"><div class="bol-clbl">Honor\u00e1rios ('+FR().toFixed(1)+'%)</div><div class="bol-cval">'+R(g.feeAmt)+'</div></div>' +
+    '</div>' +
+    '<div class="bol-section"><h4>Resumo Geral de Honor\u00e1rios</h4>' +
+      '<div class="bol-cards">' +
+        '<div class="bol-card"><div class="bol-clbl">Al\u00edquota</div><div class="bol-cval">'+FR().toFixed(1)+'%</div></div>' +
+        '<div class="bol-card"><div class="bol-clbl">Base Total Contratada</div><div class="bol-cval">'+R(_pdfBaseContratada)+'</div></div>' +
+        '<div class="bol-card"><div class="bol-clbl">Base Total Medida</div><div class="bol-cval">'+R(_pdfAcumAtual)+'</div></div>' +
+        '<div class="bol-card dk"><div class="bol-clbl">Honor\u00e1rios Totais Medidos</div><div class="bol-cval">'+R(_pdfFeeMedidoTotal)+'</div></div>' +
+        '<div class="bol-card"><div class="bol-clbl">Base Total a Contratar</div><div class="bol-cval">'+R(_pdfBaseAContratar)+'</div></div>' +
+        '<div class="bol-card"><div class="bol-clbl">Honor\u00e1rios Totais a Contratar</div><div class="bol-cval">'+R(_pdfFeeAContratar)+'</div></div>' +
+      '</div>' +
     '</div>' +
     '<div class="bol-section"><h4>Detalhamento por Disciplina</h4>' +
       '<table class="bol-table" style="font-size:10px"><thead><tr>' +
