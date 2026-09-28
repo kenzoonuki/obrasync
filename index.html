@@ -165,16 +165,22 @@ tfoot td{padding:10px 0;border-top:2px solid var(--black);font-weight:800;font-s
 .legi{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--g600)}
 .legbox{width:10px;height:10px}
 .feebox{border:1px solid var(--fee);padding:20px;margin-top:20px;background:#fdf4ff}
-.feebox h3{font-size:10px;text-transform:uppercase;letter-spacing:.12em;font-weight:800;margin-bottom:16px;color:var(--fee)}
+.feebox h3{font-size:10px;text-transform:uppercase;letter-spacing:.12em;font-weight:800;margin-bottom:0;color:var(--fee)}
+.feebox-hdr{display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap}
+.fee-aliq-badge{display:inline-flex;align-items:center;gap:4px;padding:3px 11px;border-radius:20px;background:var(--g700);color:#fff;font-size:11px;font-weight:800;letter-spacing:.02em}
+.fee-aliq-badge b{font-size:12px}
 .feegrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
 .feecell{padding:12px;border:1px solid var(--g200);background:var(--white)}
+.feecell.bs{background:var(--g50)}
 .feecell.dk{background:var(--fee);color:var(--white);border-color:var(--fee)}
 .feecell.ok{background:#f0fdf4;border-color:#bbf7d0}
 .feecell.wn{background:#fffbeb;border-color:#fde68a}
+.feecell.ar{background:#eef2ff;border-color:#c7d2fe}
 .fclbl{font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--g400);margin-bottom:6px}
 .feecell.dk .fclbl{color:#ddd6fe}
 .fcval{font-size:17px;font-weight:800}
-.feecell.ok .fcval{color:var(--ok)}.feecell.wn .fcval{color:var(--warn)}
+.feecell.ok .fcval{color:var(--ok)}.feecell.wn .fcval{color:var(--warn)}.feecell.ar .fcval{color:var(--info)}
+.fee-ar-note{font-size:9px;color:var(--g500);margin-top:4px;font-weight:600}
 .fee-rate-row{display:flex;align-items:center;gap:12px;padding:14px;border:1px solid var(--g200);background:var(--g50);margin-bottom:16px;flex-wrap:wrap}
 .fee-rate-row label{font-size:11px;font-weight:700;color:var(--g700);white-space:nowrap}
 .fee-rate-row input{width:90px;padding:7px 10px;border:1px solid var(--g300);font-size:14px;font-weight:800;text-align:center;outline:none}
@@ -1016,7 +1022,7 @@ tfoot td{padding:10px 0;border-top:2px solid var(--black);font-weight:800;font-s
         </div>
         <div id="gerenc-list"></div>
         <div class="feebox mt16">
-          <h3>Resumo Honorários</h3>
+          <div class="feebox-hdr"><h3>Resumo Honorários</h3><span class="fee-aliq-badge" id="fee-aliq-badge"></span></div>
           <div class="feegrid" id="fee-grid"></div>
           <div class="inote fe mt16" id="fee-detail-note"></div>
         </div>
@@ -5102,15 +5108,22 @@ function renderMeas() {
   const baseContratada = bud.filter(i => i.type === 'contracted').reduce((s,i) => s + (i.tot||0), 0);
   const baseAContratar = bud.filter(i => i.type === 'to_contract').reduce((s,i) => s + (i.tot||0), 0);
   const feeAContratar  = baseAContratar * fr;
+  // A Receber = honorários já medidos e não pagos + honorários que ainda vão
+  // surgir do que falta medir dentro do já contratado + do que nem foi
+  // contratado ainda (projeção completa do que falta entrar).
+  const baseAMedir  = Math.max(0, baseContratada - feeBase);
+  const feeAMedir   = baseAMedir * fr;
+  const feeAReceber = feeToPay + feeAMedir + feeAContratar;
+  document.getElementById('fee-aliq-badge').innerHTML = 'Alíquota <b>'+FR().toFixed(1)+'%</b>';
   document.getElementById('fee-grid').innerHTML =
-    '<div class="feecell"><div class="fclbl">Alíquota</div><div class="fcval">'+FR().toFixed(1)+'%</div></div>' +
-    '<div class="feecell"><div class="fclbl">Base Total Contratada</div><div class="fcval">'+R(baseContratada)+'</div></div>' +
-    '<div class="feecell"><div class="fclbl">Base Total Medida</div><div class="fcval">'+R(feeBase)+'</div></div>' +
+    '<div class="feecell bs"><div class="fclbl">Base Total Contratada</div><div class="fcval">'+R(baseContratada)+'</div></div>' +
+    '<div class="feecell bs"><div class="fclbl">Base Total Medida</div><div class="fcval">'+R(feeBase)+'</div></div>' +
     '<div class="feecell dk"><div class="fclbl">Honor\u00e1rios Totais Medidos</div><div class="fcval">'+R(feeMeasured)+'</div></div>' +
     '<div class="feecell ok"><div class="fclbl">Pagos</div><div class="fcval">'+R(feePaid)+'</div></div>' +
     '<div class="feecell wn"><div class="fclbl">Base Total a Contratar</div><div class="fcval">'+R(baseAContratar)+'</div></div>' +
     '<div class="feecell wn"><div class="fclbl">Honorários Totais a Contratar</div><div class="fcval">'+R(feeAContratar)+'</div></div>' +
-    '<div class="feecell wn"><div class="fclbl">A Receber</div><div class="fcval">'+R(feeToPay)+'</div></div>';
+    '<div class="feecell ar"><div class="fclbl">A Receber</div><div class="fcval">'+R(feeAReceber)+'</div>'+
+      '<div class="fee-ar-note">(medido não pago + à medir + à contratar)</div></div>';
   const _gerencAll = DB.get('gerenc')||[];
   document.getElementById('fee-detail-note').innerHTML =
     (_gerencAll.length > 0
