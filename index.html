@@ -1107,6 +1107,7 @@ tfoot td{padding:10px 0;border-top:2px solid var(--black);font-weight:800;font-s
           <div class="acts">
             <button class="btn btn-p" onclick="openBudgetModal()">+ Novo Item</button>
             <button class="btn btn-g" onclick="setBudMode('executive');openXlsImport()">&#128196; Importar Excel</button>
+            <button class="btn btn-g" onclick="exportBudgetExcel()">&#128202; Exportar Excel</button>
             <button class="btn btn-g" onclick="exportBudgetPDF()">&#128196; PDF A4</button>
           </div>
         </div>
@@ -6781,6 +6782,7 @@ function renderBudget() {
       return kwds.some(k => stLow.includes(k));
     });
   }
+  window._lastBudFil = fil; // usado por exportBudgetExcel() — sempre reflete o que está na tela
 
   let totOrc = 0, rows = '';
 
@@ -7577,6 +7579,34 @@ function exportBudgetPDF() {
   document.getElementById('pdf-ftr-txt').innerHTML =
     'ObraSync · '+esc(curProjName())+' · Total: <strong>'+R(s.total)+'</strong> · Honorários estimados: <strong>'+R(s.feeTotal)+'</strong> · '+new Date().toLocaleDateString('pt-BR');
   setTimeout(() => window.print(), 300);
+}
+function exportBudgetExcel() {
+  // Exporta exatamente o que está filtrado na tela — window._lastBudFil é
+  // preenchido por renderBudget() após aplicar todos os filtros ativos.
+  const fil = window._lastBudFil || [];
+  if (!fil.length) { toast('Nenhum item para exportar com os filtros atuais.'); return; }
+  if (typeof XLSX === 'undefined') { alert('Biblioteca XLSX não carregada. Verifique a conexão.'); return; }
+  const sups = DB.get('suppliers') || [];
+  const rows = [
+    ['Fase','Disciplina','Descrição','Fornecedor','Unidade','Quantidade',
+     'Mão de Obra (un)','Material (un)','Acabamento (un)','Serviço (un)','Total','% Físico','Tipo']
+  ];
+  fil.forEach(i => {
+    const sup = i.supplierId ? sups.find(s=>s.id===i.supplierId) : null;
+    rows.push([
+      i.phase||'', i.disc||'', i.desc||'', sup ? sup.name : 'Sem Fornecedor',
+      i.unit||'', i.qty||0,
+      i.pmo||0, i.pmat||0, i.pacab||0, i.psrv||0,
+      i.tot||0, i.pctFis||0, biItemType(i).label
+    ]);
+  });
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  ws['!cols'] = [{wch:14},{wch:10},{wch:42},{wch:24},{wch:8},{wch:10},
+    {wch:15},{wch:13},{wch:14},{wch:12},{wch:14},{wch:9},{wch:13}];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Orçamento');
+  const fname = 'Orcamento_' + (curProjName()||'Projeto').replace(/[^a-zA-Z0-9]+/g,'_') + '_' + todayStr() + '.xlsx';
+  XLSX.writeFile(wb, fname);
 }
 
 // =====================================================================
