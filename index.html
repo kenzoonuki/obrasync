@@ -111,6 +111,7 @@ tfoot td{padding:10px 0;border-top:2px solid var(--black);font-weight:800;font-s
 .isec{background:var(--g50);border:1px solid var(--g200);padding:14px;margin-top:10px}
 .isec h4{font-size:10px;text-transform:uppercase;letter-spacing:.1em;font-weight:800;color:var(--g500);margin-bottom:10px}
 .irow{display:grid;grid-template-columns:40px 1fr 1fr;gap:10px;align-items:end;margin-bottom:8px}
+.irow.has-paid{grid-template-columns:40px 1fr 1fr 50px}
 .irow label{font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:var(--g500);font-weight:700;display:block;margin-bottom:3px}
 .irow input{width:100%;padding:6px 9px;border:1px solid var(--g200);font-size:12px}
 .eblock{border:1px solid var(--g200);border-radius:6px;margin-bottom:8px;overflow:hidden}
@@ -7870,15 +7871,21 @@ function genInst() {
   document.getElementById('e-tot-preview').textContent = 'Total: ' + R(tot);
   const base = Math.floor((tot/n)*100)/100;
   const last = Math.round((tot-base*(n-1))*100)/100;
+  const todayIso = todayStr();
+  const isMeasLaunch = !!window._pendingMeasPaidId;
   let html = '';
   for (let i = 1; i <= n; i++) {
     const d = new Date(fd+'T12:00:00'); d.setMonth(d.getMonth()+(i-1));
     const due = d.toISOString().slice(0,10);
     const val = i===n ? last : base;
     const fmtVal = val.toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
-    html += '<div class="irow"><div><label>Nº</label><input type="text" value="'+i+'/'+n+'" readonly style="background:var(--g50);text-align:center"/></div>' +
+    // Ao "Marcar Paga" numa medição, sugere já paga qualquer parcela vencida
+    // até hoje; num lançamento comum, começa tudo em aberto por padrão.
+    const checked = (isMeasLaunch && due <= todayIso) ? ' checked' : '';
+    html += '<div class="irow has-paid"><div><label>Nº</label><input type="text" value="'+i+'/'+n+'" readonly style="background:var(--g50);text-align:center"/></div>' +
       '<div><label>Vencimento</label><input type="date" id="id-due-'+i+'" value="'+due+'"'+(i===1?' oninput="syncFirstDue()"':'')+'/></div>' +
-      '<div><label>Valor (R$)</label><input type="text" id="id-val-'+i+'" value="'+fmtVal+'" placeholder="0,00" oninput="formatBRLInput(this);redistInst('+i+','+n+')"/></div></div>';
+      '<div><label>Valor (R$)</label><input type="text" id="id-val-'+i+'" value="'+fmtVal+'" placeholder="0,00" oninput="formatBRLInput(this);redistInst('+i+','+n+')"/></div>' +
+      '<div style="text-align:center"><label>Paga</label><input type="checkbox" id="id-paid-'+i+'"'+checked+' style="width:18px;height:18px"/></div></div>';
   }
   document.getElementById('inst-rows').innerHTML = html;
 }
@@ -7923,16 +7930,16 @@ function saveEntry() {
   const nf = document.getElementById('e-nf').value.trim();
   const n = Math.max(1, parseInt(document.getElementById('e-np').value)||1);
   const insts = [];
-  const _isMeasLaunch = !!window._pendingMeasPaidId;
   const _payDate = document.getElementById('e-date').value;
   for (let i = 1; i <= n; i++) {
     const valEl = document.getElementById('id-val-'+i);
     const val = valEl ? parseFloat(valEl.value.replace(/\./g,'').replace(',','.')) || 0 : 0;
+    const isPaid = !!document.getElementById('id-paid-'+i)?.checked;
     insts.push({id:uid(), n:i, due:document.getElementById('id-due-'+i)?.value||'',
       val,
-      status: _isMeasLaunch ? 'paid' : 'open',
-      paidAt: _isMeasLaunch ? _payDate : null,
-      paidAmt: _isMeasLaunch ? val : 0,
+      status: isPaid ? 'paid' : 'open',
+      paidAt: isPaid ? _payDate : null,
+      paidAmt: isPaid ? val : 0,
       proof:''});
   }
   const entries = DB.get('entries') || [];
@@ -8067,15 +8074,21 @@ function genFeeInst() {
   document.getElementById('fe-tot-preview').textContent = 'Total: ' + R(tot);
   const base = Math.floor((tot/n)*100)/100;
   const last = Math.round((tot-base*(n-1))*100)/100;
+  const todayIso = todayStr();
+  const isGerencReceipt = !!window._pendingGerencPaidId;
   let html = '';
   for (let i = 1; i <= n; i++) {
     const d = new Date(fd+'T12:00:00'); d.setMonth(d.getMonth()+(i-1));
     const due = d.toISOString().slice(0,10);
     const val = i===n ? last : base;
     const fmtFeeVal = val.toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
-    html += '<div class="irow"><div><label>Nº</label><input type="text" value="'+i+'/'+n+'" readonly style="background:var(--g50);text-align:center"/></div>' +
+    // Ao "Receber Honorários", sugere já paga qualquer parcela vencida até hoje;
+    // no lançamento genérico de honorários, começa tudo em aberto por padrão.
+    const checked = (isGerencReceipt && due <= todayIso) ? ' checked' : '';
+    html += '<div class="irow has-paid"><div><label>Nº</label><input type="text" value="'+i+'/'+n+'" readonly style="background:var(--g50);text-align:center"/></div>' +
       '<div><label>Vencimento</label><input type="date" id="fe-due-'+i+'" value="'+due+'"'+(i===1?' oninput="syncFirstFeeDue()"':'')+'/></div>' +
-      '<div><label>Valor (R$)</label><input type="text" id="fe-val-'+i+'" value="'+fmtFeeVal+'" placeholder="0,00" oninput="formatBRLInput(this);redistFeeInst('+i+','+n+')"/></div></div>';
+      '<div><label>Valor (R$)</label><input type="text" id="fe-val-'+i+'" value="'+fmtFeeVal+'" placeholder="0,00" oninput="formatBRLInput(this);redistFeeInst('+i+','+n+')"/></div>' +
+      '<div style="text-align:center"><label>Paga</label><input type="checkbox" id="fe-paid-'+i+'"'+checked+' style="width:18px;height:18px"/></div></div>';
   }
   document.getElementById('fee-inst-rows').innerHTML = html;
 }
@@ -8114,13 +8127,13 @@ function saveFeeEntry() {
   const tot = parseBRLInput('fe-tot');
   if (!desc || !tot) { alert('Preencha descrição e valor.'); return; }
   const n = Math.max(1, parseInt(document.getElementById('fe-np').value)||1);
-  const isGerencReceipt = !!window._pendingGerencPaidId;
   const paidDate = document.getElementById('fe-date').value || todayStr();
   const insts = [];
   for (let i = 1; i <= n; i++) {
     const fv = document.getElementById('fe-val-'+i);
     const val = fv ? parseFloat(fv.value.replace(/\./g,'').replace(',','.')) || 0 : 0;
-    insts.push(isGerencReceipt
+    const isPaid = !!document.getElementById('fe-paid-'+i)?.checked;
+    insts.push(isPaid
       ? {id:uid(), n:i, due:document.getElementById('fe-due-'+i)?.value||'',
          val, status:'paid', paidAt:paidDate, paidAmt:val, proof:''}
       : {id:uid(), n:i, due:document.getElementById('fe-due-'+i)?.value||'',
