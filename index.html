@@ -1807,9 +1807,10 @@ const DB = {
       // Without this queue, an older snapshot landing last would silently
       // overwrite a newer one in Supabase (silent data loss).
       const prev = this._writeQueue[k] || Promise.resolve();
+      window._pendingWrites = (window._pendingWrites || 0) + 1;
       this._writeQueue[k] = prev.then(() =>
         _sbFetch('POST', 'kv_store', { key, value: v }).catch(e => console.error('DB.set error', k, e.message))
-      );
+      ).finally(() => { window._pendingWrites--; });
     }
   },
 
@@ -1855,6 +1856,17 @@ const DB = {
     }
   }
 };
+
+// Avisa antes de sair/recarregar a página enquanto houver gravações ainda
+// não confirmadas no Supabase — sem isso, fechar/atualizar a aba durante
+// uma sequência rápida de salvamentos descarta silenciosamente o que
+// ainda estava na fila (nunca chegou a ser enviado ao banco).
+window.addEventListener('beforeunload', function(e) {
+  if (window._pendingWrites > 0) {
+    e.preventDefault();
+    e.returnValue = '';
+  }
+});
 
 
 
