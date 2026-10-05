@@ -7018,13 +7018,25 @@ function generateAnalyticsPDF() {
     if (item.type === 'contracted') dMap[d].c += item.tot || 0;
     else if (item.type === 'to_contract') dMap[d].tc += item.tot || 0;
   });
+  // Mesma lógica de buildDistTable() — o código anterior usava e.splitItems,
+  // um campo que nunca existe (o campo real é e.splits), então lançamentos
+  // de rateio nunca entravam no cálculo por disciplina corretamente e caíam
+  // todos sem disciplina, subestimando o total pago no PDF.
   const pByD = {};
-  entries.forEach(e => {
+  entries.filter(e => !e.isFee).forEach(e => {
     const pd = e.insts.filter(p => p.status === 'paid').reduce((s, p) => s + (p.paidAmt||0), 0);
-    if ((e.splitItems||[]).length > 1) {
-      const st = e.splitItems.reduce((s,si) => s + (si.val||0), 0);
-      e.splitItems.forEach(si => { const d = si.disc||'OUT'; pByD[d] = (pByD[d]||0) + pd*(si.val/st); });
-    } else { const d = e.disc||'OUT'; pByD[d] = (pByD[d]||0) + pd; }
+    if (!pd) return;
+    if (e.isSplit && (e.splits||[]).length) {
+      const st = e.splits.reduce((s, sp) => s + (sp.val||0), 0);
+      if (!st) { pByD[e.disc||'OUT'] = (pByD[e.disc||'OUT']||0) + pd; return; }
+      e.splits.forEach(sp => {
+        const d = sp.disc || 'OUT';
+        pByD[d] = (pByD[d]||0) + pd * (sp.val / st);
+      });
+    } else {
+      const d = e.disc || 'OUT';
+      pByD[d] = (pByD[d]||0) + pd;
+    }
   });
   const discsP = Object.keys(dMap).sort((a,b) => (dMap[b].c+dMap[b].tc)-(dMap[a].c+dMap[a].tc));
   const totDC = discsP.reduce((s,d)=>s+dMap[d].c,0);
