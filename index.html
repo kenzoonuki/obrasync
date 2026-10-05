@@ -3674,18 +3674,25 @@ function buildDistTable() {
   const totPhyBase = discs.reduce((s, d) => s + discMap[d].contracted * (phyPct[d] || 0) / 100, 0);
   const totPhyPct  = totC > 0 ? totPhyBase / totC * 100 : 0;
 
+  // % pago (desembolso do cliente) per discipline — valores já pagos nos lançamentos
+  const payPct = {};
+  discs.forEach(d => { payPct[d] = discMap[d].contracted > 0 ? (paidByDisc[d]||0) / discMap[d].contracted * 100 : 0; });
+  const totPayPct = totC > 0 ? totP / totC * 100 : 0;
+
   const thS = 'padding:8px 10px;font-size:11px;font-weight:600;border-bottom:1px solid var(--g300);line-height:1.35';
-  const phyBar = (p) => {
+  const mkBar = (color) => (p) => {
     const w = Math.min(Math.max(p, 0), 100);
     return '<td style="padding:6px 10px;min-width:130px">' +
       '<div style="display:flex;align-items:center;gap:6px">' +
         '<div style="flex:1;height:6px;background:var(--g100);border-radius:3px;overflow:hidden">' +
-          '<div style="height:100%;width:' + w.toFixed(1) + '%;background:#1d4ed8;border-radius:3px"></div>' +
+          '<div style="height:100%;width:' + w.toFixed(1) + '%;background:' + color + ';border-radius:3px"></div>' +
         '</div>' +
         '<span style="font-size:11px;color:var(--g600);min-width:36px;text-align:right">' + w.toFixed(1) + '%</span>' +
       '</div>' +
     '</td>';
   };
+  const phyBar = mkBar('#1d4ed8');
+  const payBar = mkBar('#16a34a');
   const header = '<tr>' +
     '<th style="' + thS + ';text-align:left;width:24%">Disciplina</th>' +
     '<th style="' + thS + ';text-align:right;width:14%">Contra-<br>tado</th>' +
@@ -3729,6 +3736,32 @@ function buildDistTable() {
 
   const foot =
     '<tr style="border-top:2px solid var(--g300)">' + ftdl('Totais') + ftdr(totC) + ftdr(totP) + ftdr(totTP) + ftdr(totTC) + phyFootCell + '</tr>' +
+    '<tr style="border-top:1px solid var(--g200)">' + ftdl('Taxa de Administração (' + FR().toFixed(1) + '%)', 'font-weight:400') + ftdr(feeC,false) + ftdr(feePaid,false) + ftdr(feeTP,false) + ftdr(feeTC,false) + '<td></td></tr>' +
+    '<tr style="border-top:2px solid var(--g300);background:var(--g100)">' + ftdl('Total Geral') + ftdr(tgC) + ftdr(tgP) + ftdr(tgTP) + ftdr(tgTC) + '<td></td></tr>';
+
+  // ── Tabela 2: Desembolso do Cliente (% pago, não % físico executado) ──
+  const header2 = header.replace('% Físico', '% Pago');
+  const rows2 = discs.map(d => {
+    const c = discMap[d].contracted, tc = discMap[d].toContract;
+    const pd = paidByDisc[d]||0, tp = Math.max(0, c - pd);
+    const lbl = labels[d] || '';
+    const discCell = '<td style="padding:6px 10px;font-size:12px">' +
+      '<div style="display:flex;align-items:center;gap:6px">' +
+      '<span style="font-weight:600;min-width:36px;flex-shrink:0">' + d + '</span>' +
+      '<span style="font-size:11px;color:var(--g500)">' + esc(lbl) + '</span>' +
+      '</div></td>';
+    return '<tr style="border-bottom:1px solid var(--g100)">' + discCell + tdr(c) + tdrPago(pd, d) + tdrAPagar(tp, d) + tdr(tc) + payBar(payPct[d] || 0) + '</tr>';
+  }).join('');
+  const payFootCell = '<td style="padding:8px 10px;min-width:130px">' +
+    '<div style="display:flex;align-items:center;gap:6px">' +
+      '<div style="flex:1;height:6px;background:var(--g200);border-radius:3px;overflow:hidden">' +
+        '<div style="height:100%;width:' + Math.min(totPayPct,100).toFixed(1) + '%;background:#15803d;border-radius:3px"></div>' +
+      '</div>' +
+      '<span style="font-size:12px;font-weight:600;color:var(--g700);min-width:36px;text-align:right">' + totPayPct.toFixed(1) + '%</span>' +
+    '</div>' +
+  '</td>';
+  const foot2 =
+    '<tr style="border-top:2px solid var(--g300)">' + ftdl('Totais') + ftdr(totC) + ftdr(totP) + ftdr(totTP) + ftdr(totTC) + payFootCell + '</tr>' +
     '<tr style="border-top:1px solid var(--g200)">' + ftdl('Taxa de Administração (' + FR().toFixed(1) + '%)', 'font-weight:400') + ftdr(feeC,false) + ftdr(feePaid,false) + ftdr(feeTP,false) + ftdr(feeTC,false) + '<td></td></tr>' +
     '<tr style="border-top:2px solid var(--g300);background:var(--g100)">' + ftdl('Total Geral') + ftdr(tgC) + ftdr(tgP) + ftdr(tgTP) + ftdr(tgTC) + '<td></td></tr>';
 
@@ -3783,6 +3816,9 @@ function buildDistTable() {
   if (!el) return;
   el.innerHTML =
     '<table style="width:100%;border-collapse:collapse;table-layout:fixed"><thead>' + header + '</thead><tbody>' + rows + '</tbody><tfoot>' + foot + '</tfoot></table>' +
+    '<div style="margin-top:28px;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--g200)"><h2 style="font-size:15px;margin:0">Desembolso do Cliente</h2>' +
+      '<p class="muted sm" style="margin:4px 0 0">Valores já pagos nos lançamentos financeiros, por disciplina.</p></div>' +
+    '<table style="width:100%;border-collapse:collapse;table-layout:fixed"><thead>' + header2 + '</thead><tbody>' + rows2 + '</tbody><tfoot>' + foot2 + '</tfoot></table>' +
     '<div style="display:flex;align-items:stretch;margin-top:28px;border:1px solid var(--g200);border-radius:10px;overflow:hidden;flex-wrap:wrap">' +
       // Zone 1: Pie
       '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px 28px;background:var(--g50,#f9fafb);border-right:1px solid var(--g200);flex-shrink:0">' +
@@ -6997,10 +7033,16 @@ function generateAnalyticsPDF() {
   const totDTC = discsP.reduce((s,d)=>s+dMap[d].tc,0);
   const totPhyBasePDF = discsP.reduce((s,d) => s + dMap[d].c * (phyPctPDF[d]||0)/100, 0);
   const totPhyPctPDF  = totDC > 0 ? totPhyBasePDF/totDC*100 : 0;
-  const pdfBar = (p) => {
+  // % pago (desembolso do cliente) por disciplina — valores já pagos nos lançamentos
+  const payPctPDF = {};
+  discsP.forEach(d => { payPctPDF[d] = dMap[d].c > 0 ? (pByD[d]||0) / dMap[d].c * 100 : 0; });
+  const totPayPctPDF = totDC > 0 ? totDP/totDC*100 : 0;
+  const mkPdfBar = (color) => (p) => {
     const w = Math.min(Math.max(p||0,0),100).toFixed(1);
-    return '<td style="padding:4px 6px"><div style="display:flex;align-items:center;gap:5px"><div style="flex:1;height:5px;background:#e5e7eb;border-radius:3px;min-width:50px"><div style="height:100%;width:'+w+'%;background:#1d4ed8;border-radius:3px"></div></div><span style="font-size:8px;font-weight:700;color:#1d4ed8;min-width:30px;text-align:right">'+w+'%</span></div></td>';
+    return '<td style="padding:4px 6px"><div style="display:flex;align-items:center;gap:5px"><div style="flex:1;height:5px;background:#e5e7eb;border-radius:3px;min-width:50px"><div style="height:100%;width:'+w+'%;background:'+color+';border-radius:3px"></div></div><span style="font-size:8px;font-weight:700;color:'+color+';min-width:30px;text-align:right">'+w+'%</span></div></td>';
   };
+  const pdfBar = mkPdfBar('#1d4ed8');
+  const pdfPayBar = mkPdfBar('#16a34a');
   const _pdTd = 'style="padding:5px 8px;font-size:11px;border-bottom:1px solid #e5e7eb"';
   const _pdTdr = 'style="padding:5px 8px;font-size:11px;border-bottom:1px solid #e5e7eb;text-align:right"';
   let discRowsPDF = discsP.map(d => {
@@ -7023,6 +7065,26 @@ function generateAnalyticsPDF() {
     '<td style="text-align:right;padding:6px 8px;font-size:11px">'+R(totDTP)+'</td>'+
     '<td style="text-align:right;padding:6px 8px;font-size:11px">'+R(totDTC)+'</td>'+
     pdfBar(totPhyPctPDF)+'</tr>';
+  let discRowsPayPDF = discsP.map(d => {
+    const code = d;
+    const desc = labels[d] || '';
+    const c = dMap[d].c, tc = dMap[d].tc, pd = pByD[d]||0, tp = Math.max(0,c-pd);
+    return '<tr>'+
+      '<td '+_pdTd+' style="padding:5px 4px 5px 8px;font-size:11px;border-bottom:1px solid #e5e7eb;font-weight:700;white-space:nowrap">'+code+'</td>'+
+      '<td '+_pdTd+' style="padding:5px 8px 5px 4px;font-size:11px;border-bottom:1px solid #e5e7eb;color:#555;white-space:nowrap">'+desc+'</td>'+
+      '<td '+_pdTdr+'>'+R(c)+'</td>'+
+      '<td '+_pdTdr+'>'+(pd>0?R(pd):'—')+'</td>'+
+      '<td '+_pdTdr+'>'+(tp>0?R(tp):'—')+'</td>'+
+      '<td '+_pdTdr+'>'+(tc>0?R(tc):'—')+'</td>'+
+      pdfPayBar(payPctPDF[d]||0)+'</tr>';
+  }).join('');
+  discRowsPayPDF += '<tr style="font-weight:700;border-top:2px solid #000;background:#f9fafb">'+
+    '<td colspan="2" style="padding:6px 8px;font-size:11px">Totais</td>'+
+    '<td style="text-align:right;padding:6px 8px;font-size:11px">'+R(totDC)+'</td>'+
+    '<td style="text-align:right;padding:6px 8px;font-size:11px">'+R(totDP)+'</td>'+
+    '<td style="text-align:right;padding:6px 8px;font-size:11px">'+R(totDTP)+'</td>'+
+    '<td style="text-align:right;padding:6px 8px;font-size:11px">'+R(totDTC)+'</td>'+
+    pdfPayBar(totPayPctPDF)+'</tr>';
   // Build orçado x realizado por categoria
   const cats = ['mat','mo','eq'];
   const catLabels = {mat:'Material',mo:'M\u00e3o de Obra',eq:'Equipamento'};
@@ -7182,6 +7244,10 @@ function generateAnalyticsPDF() {
 <h2>Distribui\u00e7\u00e3o por Disciplina</h2>
 <table><thead><tr><th colspan="2">Disciplina</th><th style="text-align:right">Contratado</th><th style="text-align:right">Pago</th><th style="text-align:right">\u00c0 Pagar</th><th style="text-align:right">\u00c0 Contratar (Est.)</th><th>% F\u00edsico</th></tr></thead>
 <tbody>${discRowsPDF}</tbody></table>
+<h2>Desembolso do Cliente</h2>
+<p style="font-size:9px;color:#777;margin:-4px 0 6px">Valores j\u00e1 pagos nos lan\u00e7amentos financeiros, por disciplina.</p>
+<table><thead><tr><th colspan="2">Disciplina</th><th style="text-align:right">Contratado</th><th style="text-align:right">Pago</th><th style="text-align:right">\u00c0 Pagar</th><th style="text-align:right">\u00c0 Contratar (Est.)</th><th>% Pago</th></tr></thead>
+<tbody>${discRowsPayPDF}</tbody></table>
 <div class="dist-block">
   <div class="pie-wrap">${pieSVG}</div>
   <div class="legend-wrap"><table style="margin:0"><tbody>${pieLegRows}</tbody></table></div>
