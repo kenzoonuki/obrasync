@@ -8691,9 +8691,10 @@ function exportFinancialPDF() {
     body += '<table style="width:100%;border-collapse:collapse;font-size:10px"><tbody>';
     fi.forEach(p => {
       const isPaid = p.status === 'paid';
-      // Valor pago pode diferir do previsto (dado na baixa) — mostra e soma
-      // sempre o mesmo número, senão a linha não bate com o total.
-      const rowVal = isPaid ? (p.paidAmt || 0) : (p.val || 0);
+      // Usa p.val (valor da parcela) para bater com o que a tela de
+      // Lançamentos sempre mostrou — p.paidAmt é o valor histórico da baixa
+      // e pode ficar desatualizado se a parcela for editada depois de paga.
+      const rowVal = p.val || 0;
       if (isPaid) totPago += rowVal; else totAPagar += rowVal;
       body += '<tr><td style="padding:2px 6px;color:#666">'+p.n+'/'+e.insts.length+'</td>' +
         '<td style="padding:2px 6px;color:#666">Venc. '+fmtD(p.due)+(p.paidAt?' · pago '+fmtD(p.paidAt):'')+'</td>' +
