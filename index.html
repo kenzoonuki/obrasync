@@ -8701,9 +8701,14 @@ function exportFinancialPDF() {
   });
 
   const proj = curProjName();
+  const _cfg = DB.get('appConfig') || {};
+  const _logoHTML = _cfg.logo
+    ? '<img src="'+_cfg.logo+'" style="height:44px;max-width:200px;object-fit:contain;object-position:left center;display:block;margin-bottom:10px"/>'
+    : '<div style="font-size:16px;font-weight:800;margin-bottom:10px">'+esc(_cfg.name||'ObraSync')+'</div>';
   const w = window.open('', '_blank');
   w.document.write('<html><head><title>Lançamentos Financeiros — '+esc(proj)+'</title><style>body{font-family:Arial,sans-serif;padding:32px;font-size:13px;max-width:800px;margin:0 auto}.total{font-size:14px;font-weight:800;text-align:right;padding:6px 0;border-top:2px solid #000;margin-top:4px}@media print{button{display:none}}</style></head><body>');
   w.document.write('<button onclick="window.print()" style="margin-bottom:20px;padding:8px 20px;cursor:pointer;font-size:13px">&#128196; Imprimir / Salvar PDF</button>');
+  w.document.write(_logoHTML);
   w.document.write('<h1 style="font-size:20px;margin-bottom:4px">Lançamentos Financeiros</h1>');
   w.document.write('<p style="color:#666;margin-bottom:20px">'+esc(proj)+' · '+list.length+' lançamento'+(list.length!==1?'s':'')+' · Emitido em '+todayStr().split('-').reverse().join('/')+'</p>');
   w.document.write(body);
