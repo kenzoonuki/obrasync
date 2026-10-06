@@ -8691,10 +8691,13 @@ function exportFinancialPDF() {
     body += '<table style="width:100%;border-collapse:collapse;font-size:10px"><tbody>';
     fi.forEach(p => {
       const isPaid = p.status === 'paid';
-      if (isPaid) totPago += p.paidAmt || 0; else totAPagar += p.val || 0;
+      // Valor pago pode diferir do previsto (dado na baixa) — mostra e soma
+      // sempre o mesmo número, senão a linha não bate com o total.
+      const rowVal = isPaid ? (p.paidAmt || 0) : (p.val || 0);
+      if (isPaid) totPago += rowVal; else totAPagar += rowVal;
       body += '<tr><td style="padding:2px 6px;color:#666">'+p.n+'/'+e.insts.length+'</td>' +
         '<td style="padding:2px 6px;color:#666">Venc. '+fmtD(p.due)+(p.paidAt?' · pago '+fmtD(p.paidAt):'')+'</td>' +
-        '<td style="padding:2px 6px;text-align:right;font-weight:700">'+R(p.val)+'</td>' +
+        '<td style="padding:2px 6px;text-align:right;font-weight:700">'+R(rowVal)+'</td>' +
         '<td style="padding:2px 0 2px 8px;width:60px"><span style="font-size:8px;font-weight:700;padding:1px 6px;border-radius:3px;background:'+(isPaid?'#dcfce7;color:#15803d':'#fef3c7;color:#b45309')+'">'+(isPaid?'PAGO':'ABERTO')+'</span></td></tr>';
     });
     body += '</tbody></table></div>';
