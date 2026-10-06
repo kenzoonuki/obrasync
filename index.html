@@ -803,6 +803,7 @@ tfoot td{padding:10px 0;border-top:2px solid var(--black);font-weight:800;font-s
           <button class="btn btn-p" onclick="openEntryModal()">+ Novo Lançamento</button>
           <button class="btn btn-fee" onclick="openFeeEntryModal()">&#36; Lançar Honorários</button>
           <button class="btn btn-g" onclick="exportCSV()">Exportar CSV</button>
+          <button class="btn btn-g" onclick="exportFinancialPDF()">&#128196; Gerar PDF</button>
         </div>
       </div>
       <div class="cards" id="fin-cards"></div>
@@ -4037,6 +4038,7 @@ function renderFinancial() {
   const _ec = DB.get('entryCollapsed') || {};
   let html = '';
   let hasEntries = false;
+  window._lastFinEntries = []; // usado por exportFinancialPDF() — sempre reflete o que está na tela
 
   const sorted = [...entries].sort((a, b) => {
     if (finSort === 'date')   return (b.date||'').localeCompare(a.date||''); // mais recente primeiro
@@ -4077,6 +4079,7 @@ function renderFinancial() {
       finFilter==='paid' ? ins.filter(p=>p.status==='paid') : ins.filter(p=>p.status!=='paid');
     if (!fi.length) return;
     hasEntries = true;
+    window._lastFinEntries.push({e, fi});
 
     const isSplit = !!e.isSplit;
     const blockCls = isFee ? 'eblock fee-entry' : nb ? 'eblock nb' : isSplit ? 'eblock split-entry' : 'eblock';
@@ -8664,6 +8667,53 @@ function exportCSV() {
   const blob = new Blob(['﻿'+csv], {type:'text/csv;charset=utf-8'});
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
   a.download = 'obrasync.csv'; a.click(); toast('CSV exportado');
+}
+function exportFinancialPDF() {
+  // Exporta exatamente os lançamentos filtrados/ordenados na tela —
+  // window._lastFinEntries é preenchido por renderFinancial() após
+  // aplicar todos os filtros e a ordenação ativos.
+  const list = window._lastFinEntries || [];
+  if (!list.length) { toast('Nenhum lançamento para exportar com os filtros atuais.'); return; }
+
+  let totContratado = 0, totPago = 0, totAPagar = 0;
+  let body = '';
+  list.forEach(({e, fi}) => {
+    const paidCount = fi.filter(p=>p.status==='paid').length;
+    const openCount = fi.length - paidCount;
+    totContratado += e.tot || 0;
+    body += '<div style="margin-bottom:14px;page-break-inside:avoid">';
+    body += '<div style="display:flex;justify-content:space-between;align-items:baseline;border-bottom:1px solid #ccc;padding-bottom:4px;margin-bottom:4px">';
+    body += '<div><strong style="font-size:12px">'+esc(e.sup||'')+'</strong> <span style="font-size:11px;color:#666">— '+esc(e.desc||'')+'</span>' +
+      '<div style="font-size:9px;color:#888">'+fmtP(e.comp)+(e.disc?' · '+esc(e.disc):'')+(e.phase?' · '+esc(e.phase):'')+(e.isFee?' · Honorários':'')+'</div></div>';
+    body += '<div style="text-align:right"><strong style="font-size:12px">'+R(e.tot)+'</strong>' +
+      '<div style="font-size:9px;color:#888">'+paidCount+' paga'+(paidCount!==1?'s':'')+(openCount?' · '+openCount+' aberta'+(openCount!==1?'s':''):'')+'</div></div>';
+    body += '</div>';
+    body += '<table style="width:100%;border-collapse:collapse;font-size:10px"><tbody>';
+    fi.forEach(p => {
+      const isPaid = p.status === 'paid';
+      if (isPaid) totPago += p.paidAmt || 0; else totAPagar += p.val || 0;
+      body += '<tr><td style="padding:2px 6px;color:#666">'+p.n+'/'+e.insts.length+'</td>' +
+        '<td style="padding:2px 6px;color:#666">Venc. '+fmtD(p.due)+(p.paidAt?' · pago '+fmtD(p.paidAt):'')+'</td>' +
+        '<td style="padding:2px 6px;text-align:right;font-weight:700">'+R(p.val)+'</td>' +
+        '<td style="padding:2px 0 2px 8px;width:60px"><span style="font-size:8px;font-weight:700;padding:1px 6px;border-radius:3px;background:'+(isPaid?'#dcfce7;color:#15803d':'#fef3c7;color:#b45309')+'">'+(isPaid?'PAGO':'ABERTO')+'</span></td></tr>';
+    });
+    body += '</tbody></table></div>';
+  });
+
+  const proj = curProjName();
+  const w = window.open('', '_blank');
+  w.document.write('<html><head><title>Lançamentos Financeiros — '+esc(proj)+'</title><style>body{font-family:Arial,sans-serif;padding:32px;font-size:13px;max-width:800px;margin:0 auto}.total{font-size:14px;font-weight:800;text-align:right;padding:6px 0;border-top:2px solid #000;margin-top:4px}@media print{button{display:none}}</style></head><body>');
+  w.document.write('<button onclick="window.print()" style="margin-bottom:20px;padding:8px 20px;cursor:pointer;font-size:13px">&#128196; Imprimir / Salvar PDF</button>');
+  w.document.write('<h1 style="font-size:20px;margin-bottom:4px">Lançamentos Financeiros</h1>');
+  w.document.write('<p style="color:#666;margin-bottom:20px">'+esc(proj)+' · '+list.length+' lançamento'+(list.length!==1?'s':'')+' · Emitido em '+todayStr().split('-').reverse().join('/')+'</p>');
+  w.document.write(body);
+  w.document.write(
+    '<div class="total">Total Contratado: '+R(totContratado)+'</div>' +
+    '<div class="total" style="color:#15803d">Total Pago: '+R(totPago)+'</div>' +
+    '<div class="total" style="color:#b45309">Total A Pagar: '+R(totAPagar)+'</div>'
+  );
+  w.document.write('</body></html>');
+  w.document.close();
 }
 
 // =====================================================================
